@@ -1,9 +1,21 @@
-# app-nome-do-app
+# Crono Máquina
 
-Web app simples criado para testes com usuários.
+Cronômetro web para controle de tempo por máquina.
 
-## Objetivo
-Descrever em 1 frase o que o app faz.
+## Estrutura
+
+```
+├── index.html
+├── styles.css
+├── app.js
+├── .gitignore
+└── assets/
+```
+
+## Como usar
+
+Abra `index.html` diretamente no browser ou sirva via GitHub Pages.
 
 ## Status
-✅ Em teste
+
+🚧 Em desenvolvimento
