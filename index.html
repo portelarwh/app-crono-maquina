@@ -7,7 +7,31 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="app"></div>
+  <main id="app" class="app" aria-live="polite">
+    <section class="card" aria-label="Cronômetro da máquina atual">
+      <h1>Crono Máquina</h1>
+      <p class="subtitle">Controle de tempo para uma máquina por vez</p>
+
+      <label for="machineName">Máquina / contexto</label>
+      <input
+        id="machineName"
+        type="text"
+        maxlength="80"
+        placeholder="Ex.: Torno CNC 01"
+        autocomplete="off"
+      >
+
+      <div class="timer" id="timerDisplay">00:00:00</div>
+      <div class="status" id="statusDisplay">Parado</div>
+
+      <div class="actions">
+        <button id="startBtn" type="button">Iniciar</button>
+        <button id="pauseBtn" type="button">Pausar</button>
+        <button id="resetBtn" type="button" class="danger">Zerar</button>
+      </div>
+    </section>
+  </main>
+
   <script src="app.js"></script>
 </body>
 </html>
