@@ -1,690 +1,308 @@
-    <style>
-        /* =========================================================
-           SISTEMA DE TEMA — variáveis únicas, sem !important
-           ========================================================= */
-        :root {
-            /* Tipografia */
-            --font-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-            /* Tema dark (padrão) */
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --input-bg: #2a2a2a;
-            --surface: #1a1a1a;
-            --text-main: #ffffff;
-            --text-muted: #a0a0a0;
-            --text-on-accent: #ffffff;
-            --border: #333333;
-            --accent-line: #ffffff;
-
-            --green: #28a745;
-            --red: #dc3545;
-            --blue: #007bff;
-            --blue-hover: #0056b3;
-            --yellow: #ffc107;
-            --orange: #fd7e14;
-
-            --shadow-card: 0 4px 6px rgba(0,0,0,0.3);
-            --shadow-btn: 0 5px 0 var(--blue-hover);
-            --backdrop: rgba(0,0,0,0.8);
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cronoanálise Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+    (function(){
+        const STORAGE_KEY_THEME = 'operix_theme_v1';
+        function applyTheme(theme) {
+            if (theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
         }
-
-        html[data-theme="light"] {
-            --bg-color: #f0f3f9;
-            --card-bg: #ffffff;
-            --input-bg: #ffffff;
-            --surface: #f8f9fa;
-            --text-main: #1a1f2e;
-            --text-muted: #4a5568;
-            --text-on-accent: #ffffff;
-            --border: #c8d0e0;
-            --accent-line: #1a1f2e;
-
-            --green: #1f8e3d;
-            --red: #c82333;
-            --blue: #0061d6;
-            --blue-hover: #004ba0;
-            --yellow: #b38600;
-            --orange: #d46b10;
-
-            --shadow-card: 0 2px 8px rgba(0,0,0,0.08);
-            --shadow-btn: 0 3px 0 rgba(0,0,0,0.12);
-            --backdrop: rgba(20,25,40,0.55);
+        function renderToggleIcon() {
+            const btn = document.getElementById('op-theme-btn');
+            if (!btn) return;
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            btn.textContent = isLight ? '🌙' : '☀️';
+            btn.setAttribute('aria-label', isLight ? 'Ativar tema escuro' : 'Ativar tema claro');
         }
-
-        @media print {
-            .app-header { display: none !important; }
+        function detectInitialTheme() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY_THEME);
+                if (saved === 'light' || saved === 'dark') return saved;
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+            } catch (e) {}
+            return 'dark';
         }
-
-
-        * { box-sizing: border-box; }
-
-        body {
-            font-family: var(--font-base);
-            padding: 8px;
-            margin: 0;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            touch-action: manipulation;
-            user-select: none;
-            -webkit-user-select: none;
-            padding-bottom: 110px;
-            transition: background-color 0.2s ease, color 0.2s ease;
-        }
-
-        #print-wrapper { display: flex; flex-direction: column; gap: 0; width: 100%; }
-
-        .card {
-            background: var(--card-bg);
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            box-shadow: var(--shadow-card);
-            border: 1px solid transparent;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        html[data-theme="light"] .card { border-color: var(--border); }
-        
-        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .input-group { display: flex; flex-direction: column; }
-        .full-width { grid-column: span 2; }
-        
-        label { font-size: 0.75rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        
-        input, select {
-            width: 100%; box-sizing: border-box; font-size: 1rem; padding: 6px;
-            border: 1px solid var(--border); border-radius: 6px;
-            background: var(--input-bg);
-            color: var(--text-main);
-            text-align: center; font-weight: bold;
-            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-        }
-        input:focus, select:focus { outline: 2px solid var(--blue); }
-        input::placeholder { color: var(--text-muted); opacity: 0.8; }
-        input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        .live-timer {
-            font-size: 2.8rem; font-weight: bold; text-align: center;
-            font-variant-numeric: tabular-nums; margin: 5px 0 2px 0;
-            font-family: var(--font-mono); color: var(--text-main);
-        }
-        .total-timer-wrap { text-align: center; margin-bottom: 10px; }
-        .total-timer-label { font-size: 0.65rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
-        .total-timer { font-size: 1.1rem; font-weight: bold; font-family: var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
-        
-        .btn-row { display: flex; gap: 6px; margin-bottom: 10px;}
-        button { border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.1s;}
-        button:active:not(:disabled) { transform: scale(0.95); }
-        button:disabled { opacity: 0.4; pointer-events: none; }
-        
-        .btn-start { flex: 1; padding: 12px 2px; background-color: var(--green); font-size: 0.9rem;}
-        .btn-stop { flex: 1; padding: 12px 2px; background-color: var(--orange); font-size: 0.9rem;}
-        .btn-reset { flex: 1; padding: 12px 2px; background-color: var(--red); font-size: 0.9rem;}
-
-        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .result-box {
-            background: var(--surface);
-            padding: 10px 8px; border-radius: 8px; text-align: center;
-            border: 1px solid var(--border); position: relative;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        .result-title { font-size: 0.65rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase; margin-bottom: 2px; display: block;}
-        
-        .info-icon {
-            background: color-mix(in srgb, var(--text-muted) 20%, transparent);
-            color: var(--text-muted); border-radius: 50%;
-            width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
-            font-size: 0.7rem; cursor: pointer; position: absolute; top: 4px; right: 4px;
-            font-family: serif; font-style: italic; font-weight: bold;
-        }
-        
-        .result-value { display: block; font-size: 1.3rem; font-weight: bold; margin-top: 4px; }
-        
-        .text-green { color: var(--green) !important; }
-        .text-red { color: var(--red) !important; }
-        .text-yellow { color: var(--yellow) !important; }
-        .text-blue { color: #4dabf7 !important; }
-
-        /* Estilos de tela para o Histórico */
-        .history-container {
-            max-height: 150px; overflow-y: auto; margin-top: 10px;
-            border: 1px solid var(--border); border-radius: 8px;
-            background: var(--surface);
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        .history-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-main);}
-        .history-row:last-child { border-bottom: none; }
-        .history-id { width: 30px; font-weight: bold; color: var(--text-muted);}
-        .history-time { flex: 1; text-align: center; font-weight: bold; font-family: var(--font-mono); font-size: 1rem; color: var(--text-main);}
-        .btn-delete { background: transparent; color: var(--red); padding: 4px 12px; border: 1px solid var(--red); font-size: 0.75rem; border-radius: 6px; cursor: pointer;}
-        .history-qty-input {
-            width: 58px; padding: 3px 2px; font-size: 0.82rem; text-align: center;
-            background: var(--input-bg); color: var(--text-main);
-            border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-weight: bold;
-        }
-
-        .print-only-history { display: none; }
-
-        /* Gráficos */
-        .chart-title { font-size: 0.8rem; font-weight: bold; color: var(--text-muted); margin-top: 6px; margin-bottom: 5px; text-transform: uppercase; text-align: center;}
-
-/* Relatório (export-mode): levantar os títulos dos gráficos */
-body.export-mode .chart-title{
-  margin-top: 6px !important;   /* antes era 15px na regra global */
-  margin-bottom: 4px !important;
-}
-
-        
-        .chart-wrapper { height: 110px; display: flex; align-items: flex-end; gap: 4px; position: relative; border-bottom: 2px solid var(--border); border-left: 2px solid var(--border); margin-bottom: 15px;}
-        .chart-bar { flex: 1; background-color: var(--blue); border-top-left-radius: 3px; border-top-right-radius: 3px; min-width: 8px; transition: height 0.3s ease; position: relative;}
-        .chart-bar.over-takt { background-color: var(--red); }
-        .chart-bar.under-takt { background-color: var(--green); }
-
-        .takt-line { position: absolute; left: 0; right: 0; height: 2px; background-color: var(--yellow); z-index: 10;}
-        .takt-label { position: absolute; right: 0; color: var(--yellow); font-size: 0.65rem; font-weight: bold; transform: translateY(-110%);}
-
-        .avg-line { position: absolute; left: 0; right: 0; height: 1px; border-top: 2px dashed var(--accent-line); z-index: 9;}
-        .avg-label { position: absolute; left: 0; color: var(--accent-line); font-size: 0.65rem; font-weight: bold; transform: translateY(-120%);}
-
-        /* Histograma */
-        .histogram-wrapper { height: 110px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 2px solid var(--border); border-left: 2px solid var(--border); padding-top: 15px; margin-bottom: 25px;}
-        .hist-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative;}
-        .hist-bar { width: 90%; background-color: var(--blue); border-top-left-radius: 3px; border-top-right-radius: 3px; transition: height 0.3s ease;}
-        .hist-label { font-size: 0.65rem; color: var(--text-main); margin-bottom: 2px; font-weight: bold;}
-        .hist-x-label { font-size: 0.5rem; color: var(--text-muted); position: absolute; bottom: -18px; white-space: nowrap;}
-
-        .btn-export { width: 100%; padding: 10px; background-color: var(--text-muted); color: var(--bg-color); margin-top: 10px; font-size: 0.9rem;}
-        .btn-pdf { width: 100%; padding: 10px; background-color: var(--border); color: var(--text-main); margin-top: 10px; font-size: 0.9rem;}
-
-        /* Botões de ação (CSV / PNG / PDF / WhatsApp) */
-        .btn-action {
-            width: 100%;
-            padding: 10px 6px;
-            margin-top: 10px;
-            font-size: 0.8rem;
-            color: var(--text-on-accent);
-            border-radius: 6px;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            border: none;
-        }
-        .btn-action-csv { background-color: var(--text-muted); color: var(--bg-color); }
-        .btn-action-png { background-color: #17a2b8; }
-        .btn-action-pdf { background-color: var(--border); color: var(--text-main); }
-        .btn-action-wa  { background-color: #25D366; }
-        html[data-theme="light"] .btn-action-pdf { background-color: #e2e2e2; color: #121212; }
-
-        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, var(--bg-color) 30%); z-index: 50;}
-        .btn-lap { width: 100%; padding: 20px; font-size: 1.8rem; background-color: var(--blue); border-radius: 10px; box-shadow: var(--shadow-btn); color: var(--text-on-accent); }
-        .btn-lap:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
-        .lap-obs-input {
-            width: 100%; box-sizing: border-box; padding: 8px 10px;
-            border-radius: 6px; border: 1px solid var(--border);
-            background: var(--input-bg); color: var(--text-main);
-            font-size: 0.9rem; margin-bottom: 6px; display: none;
-        }
-        .lap-obs-input::placeholder { color: var(--text-muted); }
-
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
-        .modal-content { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-card);}
-        .modal-title { font-size: 1.2rem; font-weight: bold; color: var(--blue); margin-bottom: 10px;}
-        .modal-text { font-size: 0.95rem; color: var(--text-main); margin-bottom: 20px; line-height: 1.4; text-align: left;}
-        .btn-close-modal { background: var(--blue); color: var(--text-on-accent); padding: 12px 20px; font-size: 1rem; width: 100%; border-radius: 8px; border: none; font-weight: bold; text-transform: uppercase; cursor: pointer;}
-        .btn-close-modal:active { transform: scale(0.96); }
-
-        .modal-input {
-            width: 100%; box-sizing: border-box; font-size: 1.5rem; padding: 10px;
-            border: 2px solid var(--blue); border-radius: 8px;
-            background: var(--input-bg); color: var(--text-main);
-            text-align: center; font-weight: bold; margin-bottom: 16px;
-        }
-        .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
-        .btn-modal {
-            flex: 1; padding: 12px; color: var(--text-on-accent);
-            border: none; border-radius: 8px; font-weight: bold;
-            font-size: 1rem; cursor: pointer; text-transform: uppercase;
-            transition: transform 0.1s ease, opacity 0.15s ease;
-        }
-        .btn-modal:active { transform: scale(0.96); }
-        .btn-modal-primary { background: var(--blue); }
-        .btn-modal-danger { background: var(--red); }
-        .btn-modal-secondary {
-            background: var(--input-bg);
-            color: var(--text-main);
-            border: 1px solid var(--border);
-        }
-        .modal-title-danger { color: var(--red) !important; }
-
-        .branding { text-align: center; margin-top: 20px; margin-bottom: 30px; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px;}
-        .linkedin-link { color: #0a66c2; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; font-weight: bold;}
-        .linkedin-link:hover { text-decoration: underline; }
-        .linkedin-link svg { width: 14px; height: 14px; fill: currentColor; transform: translateY(-1px);}
-        html[data-theme="light"] .linkedin-link { color: #0a66c2; }
-        .whatsapp-footer-link {
-            color: #25D366; text-decoration: none; display: inline-flex;
-            align-items: center; gap: 4px; font-weight: bold; vertical-align: middle;
-        }
-        .whatsapp-footer-link:hover { text-decoration: underline; }
-        .whatsapp-footer-link svg { width: 14px; height: 14px; fill: currentColor; transform: translateY(-1px); }
-
-        
-
-    /* Branding do rodapé — footer */
-    .branding a { color: inherit; }
-/* ELEMENTOS EXCLUSIVOS DO EXPORT */
-        .print-header { display: none; }
-        .print-summary { display: none; }
-        .print-executive-summary { display: none; }
-
-        /* ======== CLASSE EXPORT-MODE (Substitui o @media print) ======== */
-        body.export-mode {
-            background: white !important;
-            color: #222 !important;
-            width: 794px !important; /* A4 Retrato a 96DPI */
-            padding: 0 !important;
-        }
-
-        .export-mode #exportContainer {
-            width: 794px !important;
-            min-height: 1123px !important;
-            padding: 24px 28px !important;
-            box-sizing: border-box !important;
-            background: white !important;
-        }
-
-        .export-mode .card {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin-bottom: 10px !important;
-        }
-
-        .export-mode #configForm, 
-        .export-mode .live-timer, 
-        .export-mode .btn-row, 
-        .export-mode .fixed-bottom, 
-        .export-mode .info-icon, 
-        .export-mode .btn-delete, 
-        .export-mode #actionButtons,
-        .export-mode #lapQtyModeGroup,
-        .export-mode .branding { 
-            display: none !important; 
-        }
-
-        .export-mode #print-wrapper {
-            display: flex !important; flex-direction: row !important;
-            gap: 16px !important; align-items: flex-start !important; width: 100% !important;
-        }
-        .export-mode .col-1 { width: 44% !important; flex-shrink: 0 !important; }
-        .export-mode .col-2 { flex: 1 !important; min-width: 0 !important; }
-
-        .export-mode .print-summary { display: grid !important; grid-template-columns: 1fr 1fr; gap: 3px 12px; margin-bottom: 8px; font-size: 8.5pt; background: #f8f9fa; padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; }
-        .export-mode .print-executive-summary { display: block !important; font-size: 7.5pt; font-style: italic; color: #444; margin-bottom: 8px; padding: 6px 9px; border-left: 3px solid var(--blue); background: #f4f4f4; line-height: 1.3; }
-
-        .export-mode .text-muted, .export-mode label { color: #555 !important; }
-        .export-mode .result-title { color: #444 !important; font-size: 6.5pt !important; }
-        .export-mode .result-box { background: #f8f9fa !important; border: 1px solid #ddd !important; padding: 5px 6px !important; }
-        .export-mode .result-value { font-size: 12pt !important; color: #000 !important; }
-        .export-mode .results-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 5px !important; }
-        .export-mode .full-width { grid-column: span 4 !important; }
-
-        .export-mode .text-green { color: #28a745 !important; }
-        .export-mode .text-red { color: #dc3545 !important; }
-        .export-mode .text-yellow { color: #d39e00 !important; }
-        .export-mode .text-blue { color: #007bff !important; }
-
-        .export-mode .chart-wrapper, .export-mode .histogram-wrapper { border-color: #333 !important; height: 130px !important; margin-bottom: 14px !important; background-color: #f4f4f4 !important; }
-        .export-mode .chart-bar, .export-mode .hist-bar { min-height: 2px !important; }
-        .export-mode .chart-bar.over-takt { border: 1px solid #000 !important; }
-        .export-mode .chart-bar.under-takt { border: 1px solid #666 !important; }
-        .export-mode .takt-line { background-color: #000 !important; height: 1px !important; }
-        .export-mode .takt-label { color: #000 !important; font-size: 7.5pt !important; }
-        .export-mode .avg-line { border-top: 1px dashed #333 !important; }
-        .export-mode .avg-label { color: #333 !important; font-size: 7.5pt !important; }
-        .export-mode .hist-label { color: #000 !important; font-size: 7pt !important; }
-        .export-mode .hist-x-label { color: #333 !important; font-size: 7pt !important; }
-
-        .export-mode .print-header { display: flex !important; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 7px; margin-bottom: 10px; width: 100%; }
-        .export-mode .print-header h1 { margin: 0; font-size: 13pt; color: #222; }
-        .export-mode .print-header p { margin: 0; font-size: 8pt; color: #555; line-height: 1.5; }
-
-        .export-mode #historyListScreen { display: none !important; }
-        .export-mode #historyCard { width: 100% !important; margin-top: 8px !important; border-top: 1px solid #ccc !important; padding-top: 10px !important; display: block !important; }
-
-        /* 7 colunas compactas — 20 amostras em 3 linhas, 30 amostras em 5 */
-        .export-mode .print-only-history {
-            display: grid !important;
-            grid-template-columns: repeat(7, 1fr) !important;
-            gap: 2px 6px !important;
-            background: white !important; border: none !important; width: 100% !important;
-        }
-        .export-mode .history-row {
-            border: none !important;
-            border-bottom: 1px solid #f0f0f0 !important;
-            padding: 2px 3px !important;
-            color: #000 !important;
-            font-size: 7.5pt !important;
-        }
-        .export-mode .history-id { font-size: 7pt !important; color: #888 !important; }
-        .export-mode .history-time { font-size: 8pt !important; font-weight: 700 !important; font-family: monospace !important; }
-    
-/* =========================================================
-   APP HEADER — Versão + Botão de Tema (canto superior direito)
-   ========================================================= */
-.app-header {
-    position: fixed;
-    top: 8px;
-    right: 10px;
-    z-index: 999;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    background: color-mix(in srgb, var(--card-bg) 85%, transparent);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    box-shadow: var(--shadow-card);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-.app-version {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    letter-spacing: 0.3px;
-    user-select: none;
-}
-.theme-toggle-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--input-bg);
-    color: var(--text-main);
-    border: 1px solid var(--border);
-    font-size: 15px;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-base);
-    line-height: 1;
-    transition: background-color 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
-}
-.theme-toggle-btn:hover { transform: scale(1.08); }
-.theme-toggle-btn:active { transform: scale(0.94); }
-body.export-mode .app-header { display: none !important; }
-
-.info-inline { position: static !important; top: auto !important; right: auto !important; margin-left: 6px; display: inline-flex; vertical-align: middle; transform: translateY(-1px); }
-.label-with-info { display: inline-flex; align-items: center; gap: 6px; }
-
-.sample-label { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 0.55rem; font-weight: bold; color: #fff; opacity: 0.9; display: none; pointer-events: none; }
-body.export-mode .sample-label { display: block; color: #000; font-size: 7pt; opacity: 0.95; }
-
-/* Indicadores do Histograma (Média e Takt) */
-.histogram-wrapper { position: relative; }
-.hist-vline { position: absolute; top: 10px; bottom: 18px; width: 0; pointer-events: none; z-index: 20; }
-.hist-vline.mean { border-left: 2px dashed var(--accent-line); }
-.hist-vline.takt { border-left: 1px solid var(--yellow); }
-.hist-vlabel { position: absolute; top: 0; font-size: 0.6rem; font-weight: bold; white-space: nowrap; pointer-events: none; z-index: 21; transform: translate(-50%, -110%); }
-.hist-vlabel.mean { color: var(--accent-line); }
-.hist-vlabel.takt { color: var(--yellow); }
-.hist-takt-summary { position: absolute; top: 2px; right: 4px; font-size: 0.65rem; font-weight: bold; color: var(--text-muted); background: color-mix(in srgb, var(--bg-color) 60%, transparent); padding: 2px 6px; border-radius: 6px; }
-body.export-mode .hist-takt-summary { color: #333; background: rgba(255,255,255,0.7); }
-body.export-mode .hist-vline.mean { border-left: 2px dashed #000 !important; }
-body.export-mode .hist-vlabel.mean { color: #000 !important; }
-body.export-mode .hist-vline.takt { border-left: 1px solid #000 !important; }
-body.export-mode .hist-vlabel.takt { color: #000 !important; }
-
-
-/* === PADRÃO ÚNICO PARA TODOS OS ÍCONES DE INFORMAÇÃO (bolinha + símbolo minúsculo itálico) === */
-:root{
-  --info-size: 18px;
-  --info-font: 0.72rem;
-}
-
-.info-icon{
-  width: var(--info-size) !important;
-  height: var(--info-size) !important;
-  min-width: var(--info-size) !important;
-  min-height: var(--info-size) !important;
-  border-radius: 50% !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-family: serif !important;
-  font-style: italic !important;
-  font-weight: 700 !important;
-  font-size: var(--info-font) !important;
-  line-height: 1 !important;
-  background: color-mix(in srgb, var(--text-muted) 18%, transparent) !important;
-  color: var(--text-muted) !important;
-  cursor: pointer;
-}
-
-.info-icon.info-inline{
-  position: static !important;
-  top: auto !important;
-  right: auto !important;
-  margin-left: 6px !important;
-  vertical-align: middle !important;
-  transform: translateY(-1px) !important;
-}
-
-.label-with-info{
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-}
-
-/* Ajuste de espaçamento no relatório: empurra o Histograma para baixo */
-.export-mode #chartContainer + .chart-title { margin-top: 60px !important; }
-
-
-/* ===== v1.94 — Ajuste solicitado: altura dos gráficos + respiro para títulos/labels ===== */
-/* App (tela): aumentar altura dos gráficos */
-.chart-wrapper{ height: 140px !important; }
-.histogram-wrapper{ height: 140px !important; }
-
-/* Evita sobreposição entre título do gráfico e textos (TAKT/MÉDIA) */
-.chart-title{ margin-bottom: 12px !important; }
-
-/* Histograma: cria área superior interna para as referências e reposiciona os textos */
-.histogram-wrapper{ padding-top: 34px !important; }
-.hist-vline{ top: 34px !important; }
-.hist-vlabel{ top: 8px !important; transform: translate(-50%, 0) !important; }
-
-
-/* ===== v1.95 — Ajuste solicitado: empilhar labels para evitar aglomeração (TAKT/MÉDIA) ===== */
-.hist-vlabel.mean{ top: 6px !important; }
-.hist-vlabel.takt{ top: 22px !important; }
-
-
-/* ===== v2.0 — Ajuste solicitado: número das barras do histograma na base ===== */
-.hist-label{ 
-  position: absolute !important;
-  bottom: 2px !important;
-  margin-bottom: 0 !important;
-  z-index: 5 !important;
-  pointer-events: none;
-}
-/* garante contraste no relatório */
-body.export-mode .hist-label{
-  position: absolute !important;
-  bottom: 2px !important;
-}
-
-/* =========================================================
-   LAYOUT RESPONSIVO — Tablet (≥ 720px)
-   ========================================================= */
-@media (min-width: 720px) {
-    body {
-        padding: 16px 24px;
-        padding-bottom: 120px;
-        max-width: 1180px;
-        margin: 0 auto;
-    }
-    .config-grid { grid-template-columns: repeat(4, 1fr); }
-    .full-width { grid-column: span 4; }
-    .input-group:not(.full-width) { grid-column: span 2; }
-    #unitsGroup, #defaultLapQtyGroup, #lapQtyModeGroup,
-    .config-grid > .input-group:not(.full-width) { grid-column: span 1; }
-
-    .results-grid { grid-template-columns: repeat(4, 1fr); }
-    .results-grid .full-width { grid-column: span 4; }
-
-    .live-timer { font-size: 3.4rem; }
-    .card { padding: 16px; }
-
-    #print-wrapper {
-        flex-direction: row;
-        gap: 16px;
-        align-items: flex-start;
-    }
-    .col-1 { flex: 0 0 44%; min-width: 0; }
-    .col-2 { flex: 1 1 auto; min-width: 0; position: sticky; top: 16px; }
-
-    .chart-wrapper, .histogram-wrapper { height: 180px !important; }
-
-    .history-container { max-height: 220px; }
-
-    .fixed-bottom {
-        left: 50%;
-        transform: translateX(-50%);
-        max-width: 1180px;
-        padding: 12px 24px;
-    }
-    .btn-lap { max-width: 420px; margin: 0 auto; display: block; }
-
-    .history-row { font-size: 0.92rem; }
-
-    .app-header { top: 12px; right: 16px; padding: 6px 12px; gap: 10px; }
-    .app-version { font-size: 0.8rem; }
-    .theme-toggle-btn { width: 32px; height: 32px; font-size: 17px; }
-}
-
-/* =========================================================
-   LAYOUT RESPONSIVO — Desktop (≥ 1024px)
-   ========================================================= */
-@media (min-width: 1024px) {
-    body { padding: 20px 32px; padding-bottom: 140px; }
-    .live-timer { font-size: 4rem; }
-    .chart-wrapper, .histogram-wrapper { height: 220px !important; }
-    .result-value { font-size: 1.5rem; }
-    .result-title { font-size: 0.7rem; }
-    .history-container { max-height: 280px; }
-    button { cursor: pointer; }
-    input:hover, select:hover { border-color: var(--blue); }
-
-    #exportContainer { width: 100%; max-width: 1180px; margin: 0 auto; }
-}
-
-/* =========================================================
-   LAYOUT RESPONSIVO — Desktop amplo (≥ 1440px)
-   ========================================================= */
-@media (min-width: 1440px) {
-    body { max-width: 1320px; }
-    .fixed-bottom { max-width: 1320px; }
-    #exportContainer { max-width: 1320px; }
-}
-
-/* =========================================================
-   ACESSIBILIDADE — reduce motion
-   ========================================================= */
-@media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* =========================================================
-   SPLASH SCREEN
-   ========================================================= */
-#splashScreen {
-    position: fixed; inset: 0; z-index: 99999;
-    background: radial-gradient(ellipse at 50% 40%, #131c2e 0%, #0b0f18 100%);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'IBM Plex Sans', var(--font-base);
-    transition: opacity 0.65s ease;
-}
-#splashScreen.sp-out { opacity: 0; pointer-events: none; }
-body.export-mode #splashScreen { display: none !important; }
-
-.splash-content {
-    display: flex; flex-direction: column;
-    align-items: center; gap: 0;
-    padding: 32px 24px;
-}
-
-/* Linha de marca OPERIX */
-.splash-brand-row {
-    display: flex; align-items: center; gap: 12px;
-    margin-bottom: 44px;
-    opacity: 0; animation: spFadeUp 0.55s 0.15s ease forwards;
-}
-.splash-operix-icon { width: 48px; height: 48px; flex-shrink: 0; }
-.splash-operix-text {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-weight: 700; font-size: 20px;
-    letter-spacing: 1px; color: #fff;
-    text-transform: uppercase;
-}
-
-/* Ícone do app */
-.splash-icon-wrap {
-    margin-bottom: 30px;
-    opacity: 0; animation: spFadeUp 0.55s 0.35s ease forwards;
-}
-.splash-app-icon {
-    width: 148px; height: 148px;
-    filter: drop-shadow(0 14px 36px rgba(220, 100, 20, 0.45));
-    animation: spIconFloat 3s 1s ease-in-out infinite;
-}
-
-/* Textos */
-.splash-title-block {
-    text-align: center;
-    opacity: 0; animation: spFadeUp 0.55s 0.55s ease forwards;
-}
-.splash-app-title {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-weight: 500; font-size: 26px;
-    letter-spacing: 1.5px; color: #fff;
-    margin: 0; text-transform: uppercase;
-}
-.splash-app-subtitle {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-weight: 300; font-size: 18px;
-    letter-spacing: 1px; color: rgba(255,255,255,.5);
-    margin: 6px 0 0; text-transform: uppercase;
-}
-
-/* Barra de progresso */
-.splash-progress {
-    margin-top: 48px; width: 72px; height: 2px;
-    background: rgba(255,255,255,.12); border-radius: 2px; overflow: hidden;
-    opacity: 0; animation: spFadeUp 0.55s 0.7s ease forwards;
-}
-.splash-progress-bar {
-    height: 100%; background: #007bff; border-radius: 2px;
-    width: 0%; animation: spProgress 2.2s 0.9s cubic-bezier(.4,0,.2,1) forwards;
-}
-
-@keyframes spFadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes spIconFloat {
-    0%, 100% { transform: translateY(0); }
-    50%       { transform: translateY(-6px); }
-}
-@keyframes spProgress {
-    0%   { width: 0%; }
-    70%  { width: 80%; }
-    100% { width: 100%; }
-}
+        window.__opToggleTheme = function() {
+            const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+            const next = current === 'light' ? 'dark' : 'light';
+            applyTheme(next);
+            try { localStorage.setItem(STORAGE_KEY_THEME, next); } catch (e) {}
+            renderToggleIcon();
+        };
+        try { applyTheme(detectInitialTheme()); } catch(e) {}
+        document.addEventListener('DOMContentLoaded', function() {
+            const btn = document.getElementById('op-theme-btn');
+            if (btn) btn.addEventListener('click', window.__opToggleTheme);
+            renderToggleIcon();
+        });
+    })();
+    </script>
+</head>
+<body>
+
+<!-- ============================================================
+     SPLASH SCREEN
+     ============================================================ -->
+<div id="splashScreen" role="status" aria-label="Carregando Cronoanálise Pro">
+  <div class="splash-content">
+
+    <!-- OPERIX brand -->
+    <div class="splash-brand-row">
+      <img class="splash-operix-icon" src="assets/Logo_Operix.svg" alt="OPERIX" onerror="this.style.display='none'">
+      <span class="splash-operix-text">OPERIX</span>
+    </div>
+
+    <!-- App icon -->
+    <div class="splash-icon-wrap">
+      <img class="splash-app-icon" src="assets/Crono-maquina.png" alt="Cronoanálise Máquina">
+    </div>
+
+    <!-- Nome do app -->
+    <div class="splash-title-block">
+      <p class="splash-app-title">CRONOANALISE</p>
+      <p class="splash-app-subtitle">MÁQUINA</p>
+    </div>
+
+    <!-- Barra de progresso -->
+    <div class="splash-progress">
+      <div class="splash-progress-bar"></div>
+    </div>
+  </div>
+</div>
+
+<div class="app-header" id="appHeader">
+    <span class="app-version" id="appVersion">v2.4.0</span>
+    <button class="theme-toggle-btn" id="op-theme-btn" type="button" aria-label="Alternar tema claro/escuro" title="Alternar tema">☀️</button>
+</div>
+
+<div id="exportContainer">
+
+    <div class="print-header">
+        <div>
+            <h1>Relatório de Cronoanálise de Processos</h1>
+            <p>Documento de controle de estabilidade e tempo padrão.</p>
+        </div>
+        <div style="text-align: right;">
+            <p><strong>Data:</strong> <span id="printDate">--/--/----</span></p>
+            <p><strong>Analista:</strong> <span id="printAnalyst">—</span></p>
+        </div>
+    </div>
+
+    <div id="print-wrapper">
+        <div class="col-1">
+            <div class="card" id="configForm">
+                <div class="config-grid">
+                    <div class="input-group full-width">
+                        <label>Equipamento / Operação</label>
+                        <input type="text" id="equipName" placeholder="Ex: Torno CNC, Montagem..." >
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Analista Responsável</label>
+                        <input type="text" id="analystName" placeholder="Nome de quem está medindo..." >
+                    </div>
+                    <div class="input-group full-width">
+                        <label class="label-with-info">Tipo de análise <span class="info-icon info-inline" onclick="showInfo('modo_analise')">!</span></label>
+                        <select id="analysisMode" onchange="changeAnalysisMode()">
+                            <option value="cycle">Tempo por ciclo</option>
+                            <option value="interval">Produção por intervalo</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="unitsGroup">
+                        <label class="label-with-info">Peças / Ciclo <span class="info-icon info-inline" onclick="showInfo('pecas_ciclo')">!</span></label>
+                        <input type="number" id="units" value="1" min="1" inputmode="numeric" oninput="syncTargets('units')">
+                    </div>
+                    <div class="input-group" id="defaultLapQtyGroup" style="display:none;">
+                        <label class="label-with-info">Qtd. padrão por lap <span class="info-icon info-inline" onclick="showInfo('qtd_lap')">!</span></label>
+                        <input type="number" id="defaultLapQty" placeholder="Opcional" min="1" inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>Medida de Capacidade</label>
+                        <select id="timeUnit" onchange="changeTimeUnit()">
+                            <option value="3600">Por Hora (un/h)</option>
+                            <option value="60">Por Minuto (un/min)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label class="label-with-info">Takt Time (s) <span class="info-icon info-inline" onclick="showInfo('takt')">!</span></label>
+                        <input type="number" id="takt" placeholder="Opcional" inputmode="numeric" oninput="syncTargets('takt')">
+                    </div>
+                    <div class="input-group">
+                        <label id="lblTarget" class="label-with-info"><span id="lblTargetText">Meta (un/h)</span> <span class="info-icon info-inline" onclick="showInfo('meta')">!</span></label>
+                        <input type="number" id="target" placeholder="Opcional" inputmode="numeric" oninput="syncTargets('target')">
+                    </div>
+                    <div class="input-group" id="lapQtyModeGroup" style="display:none;">
+                        <label>Qtd no lap</label>
+                        <select id="lapQtyMode">
+                            <option value="durante">Durante</option>
+                            <option value="depois">Depois</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="print-summary">
+                <div><strong>Equipamento/Operação:</strong> <span id="printEquipName">—</span></div>
+                <div><strong>Tipo de análise:</strong> <span id="printAnalysisMode">—</span></div>
+                <div><strong>Peças/Ciclo:</strong> <span id="printUnits">—</span></div>
+                <div><strong>Capacidade Medida:</strong> <span id="printTimeUnit">—</span></div>
+                <div><strong>Takt Time:</strong> <span id="printTakt">—</span></div>
+                <div><strong>Meta de Produção:</strong> <span id="printTarget">—</span></div>
+            </div>
+
+            <div class="print-executive-summary" id="printExecutiveSummary">—</div>
+
+            <div class="card">
+                <div class="btn-row">
+                    <button id="btnStart" class="btn-start" onclick="startTimer()">▶ Iniciar</button>
+                    <button id="btnStop" class="btn-stop" onclick="stopTimer()" disabled>⏸ Pausar</button>
+                    <button id="btnReset" class="btn-reset" onclick="resetTimer()">⏹ Zerar</button>
+                </div>
+
+                <div class="live-timer" id="liveTimer">00:00.00</div>
+
+                <div class="total-timer-wrap">
+                    <span class="total-timer-label">Tempo total de medição </span>
+                    <span class="total-timer" id="totalTimer">00:00</span>
+                </div>
+
+                <div class="results-grid">
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('amostras')">!</span>
+                        <div class="result-title">AMOSTRAS (n)</div>
+                        <span id="valSamples" class="result-value">0</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('capacidade')">!</span>
+                        <div class="result-title" id="lblCapTitle">CAPACIDADE (un/h)</div>
+                        <span id="valHourlyCap" class="result-value text-blue">0</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('ultimo')">!</span>
+                        <div class="result-title" id="lblLastCycleTitle">ÚLTIMO CICLO</div>
+                        <span id="valLastCycle" class="result-value">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('medio')">!</span>
+                        <div class="result-title" id="lblAvgCycleTitle">CICLO MÉDIO</div>
+                        <span id="valAvgCycle" class="result-value text-yellow">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('minimo')">!</span>
+                        <div class="result-title">MÍNIMO</div>
+                        <span id="valMinCycle" class="result-value text-green">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('maximo')">!</span>
+                        <div class="result-title">MÁXIMO</div>
+                        <span id="valMaxCycle" class="result-value text-red">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('desvio')">!</span>
+                        <div class="result-title">DESVIO PADRÃO</div>
+                        <span id="valStdDev" class="result-value">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="info-icon" onclick="showInfo('estabilidade')">!</span>
+                        <div class="result-title">ÍNDICE DE ESTABIL.</div>
+                        <span id="valEstabilidade" class="result-value">100.0%</span>
+                    </div>
+                    <div class="result-box full-width">
+                        <span class="info-icon" onclick="showInfo('eficiencia')">!</span>
+                        <div class="result-title">EFICIÊNCIA (%)</div>
+                        <span id="valEfficiency" class="result-value">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-2">
+            <div class="card">
+                <div class="chart-title">Curva de Controle de Ciclos <span class="info-icon info-inline" onclick="showInfo('curva_controle')">!</span></div>
+                <div class="chart-wrapper" id="chartContainer"></div>
+                
+                <div class="chart-title">Histograma (Distribuição) <span class="info-icon info-inline" onclick="showInfo('histograma')">!</span></div>
+                <div class="histogram-wrapper" id="histogramContainer"></div>
+            </div>
+        </div>
+    </div> 
+
+    <div class="card" id="historyCard">
+        <div class="history-container" id="historyListScreen"></div>
+        <div class="history-container print-only-history" id="historyListPrint"></div>
+
+        <div class="config-grid" id="actionButtons" style="margin-top: 6px; grid-template-columns: 1fr 1fr 1fr 1fr;">
+            <button id="btnExport" class="btn-action btn-action-csv" onclick="exportToExcel()" disabled>⬇ CSV</button>
+            <button id="btnPNG" class="btn-action btn-action-png" onclick="generatePNG()" disabled>📷 PNG</button>
+            <button id="btnPDF" class="btn-action btn-action-pdf" onclick="generateRealPDF()" disabled>📄 PDF</button>
+            <button id="btnWhatsApp" class="btn-action btn-action-wa" onclick="shareWhatsApp()" disabled>💬 WhatsApp</button>
+        </div>
+    </div>
+</div>
+
+<footer class="branding" role="contentinfo">
+    <span>
+        Desenvolvido por
+        <a href="https://www.linkedin.com/in/pedro-ag-portela" target="_blank" rel="noopener noreferrer" class="linkedin-link" aria-label="Perfil LinkedIn de Pedro Portela">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+            Pedro Portela
+        </a>
+        &nbsp;·&nbsp;
+        <a href="https://wa.me/5541991771410?text=Ol%C3%A1%20tudo%20bem%3F%20Vim%20pelo%20aplicativo%20-%20Cron%C3%B6an%C3%A1lise%20Pro." target="_blank" rel="noopener noreferrer" class="whatsapp-footer-link" aria-label="Contato via WhatsApp">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Fale comigo
+        </a>
+    </span>
+</footer>
+
+<div class="modal-overlay" id="qtyModal" style="z-index:1200;">
+    <div class="modal-content">
+        <div class="modal-title">Quantidade Produzida</div>
+        <div class="modal-text">Informe a quantidade produzida neste lap:</div>
+        <input type="number" id="qtyModalInput" class="modal-input" inputmode="numeric" min="0.01" step="any">
+        <div class="modal-actions">
+            <button class="btn-modal btn-modal-secondary" onclick="closeQtyModal(false)">Cancelar</button>
+            <button class="btn-modal btn-modal-primary" onclick="closeQtyModal(true)">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="confirmModal" style="z-index:1100;">
+    <div class="modal-content">
+        <div class="modal-title modal-title-danger" id="confirmModalTitle">Confirmar</div>
+        <div class="modal-text" id="confirmModalText">Deseja zerar todos os dados?</div>
+        <div class="modal-actions">
+            <button id="confirmModalCancel" class="btn-modal btn-modal-secondary" onclick="closeConfirmModal(false)">Cancelar</button>
+            <button id="confirmModalOk" class="btn-modal btn-modal-danger" onclick="closeConfirmModal(true)">Zerar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="infoModal" onclick="if(event.target===this)closeInfo()">
+    <div class="modal-content">
+        <div class="modal-title" id="modalTitle">Título</div>
+        <div class="modal-text" id="modalText">Texto de explicação.</div>
+        <button class="btn-close-modal" onclick="closeInfo()" style="background:var(--blue); width:100%; border:none; padding:12px; color:white; border-radius:8px; font-weight:bold; cursor:pointer;">Entendi</button>
+    </div>
+</div>
+
+<div class="fixed-bottom">
+    <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
+    <button id="btnLap" class="btn-lap" onclick="recordLap()" disabled>⏱ LAP</button>
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
