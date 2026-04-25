@@ -4,6 +4,7 @@ const STORAGE_KEY = 'crono_maquina_single_v1';
 
 const elements = {
   machineName: document.getElementById('machineName'),
+  feedback: document.getElementById('feedback'),
   timerDisplay: document.getElementById('timerDisplay'),
   statusDisplay: document.getElementById('statusDisplay'),
   startBtn: document.getElementById('startBtn'),
@@ -19,8 +20,13 @@ const state = {
   tickInterval: null
 };
 
+function sanitizeMachineName(value) {
+  return value.trim().slice(0, 80);
+}
+
 function formatTime(totalMs) {
-  const totalSeconds = Math.floor(totalMs / 1000);
+  const safeMs = Math.max(0, Math.floor(totalMs));
+  const totalSeconds = Math.floor(safeMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
@@ -30,12 +36,23 @@ function formatTime(totalMs) {
     .join(':');
 }
 
-function getDisplayElapsedMs() {
+function getDisplayElapsedMs(now = Date.now()) {
   if (!state.running || state.startedAt === null) {
     return state.elapsedMs;
   }
 
-  return state.elapsedMs + (Date.now() - state.startedAt);
+  return state.elapsedMs + (now - state.startedAt);
+}
+
+function setFeedback(message = '') {
+  elements.feedback.textContent = message;
+}
+
+function updateControls() {
+  const hasMachineName = state.machineName.length > 0;
+
+  elements.startBtn.disabled = state.running || !hasMachineName;
+  elements.pauseBtn.disabled = !state.running;
 }
 
 function render() {
@@ -43,8 +60,7 @@ function render() {
   elements.timerDisplay.textContent = formatTime(displayMs);
   elements.statusDisplay.textContent = state.running ? 'Rodando' : 'Parado';
 
-  elements.startBtn.disabled = state.running;
-  elements.pauseBtn.disabled = !state.running;
+  updateControls();
 }
 
 function persist() {
@@ -80,6 +96,13 @@ function startTimer() {
     return;
   }
 
+  if (!state.machineName) {
+    setFeedback('Informe a máquina/contexto antes de iniciar.');
+    updateControls();
+    return;
+  }
+
+  setFeedback('');
   state.running = true;
   state.startedAt = Date.now();
 
@@ -105,8 +128,21 @@ function pauseTimer() {
 function resetTimer() {
   state.elapsedMs = 0;
   state.startedAt = state.running ? Date.now() : null;
+
+  setFeedback('');
   render();
   persist();
+}
+
+function isValidSavedState(saved) {
+  if (!saved || typeof saved !== 'object') {
+    return false;
+  }
+
+  const elapsedIsValid = Number.isFinite(saved.elapsedMs) && saved.elapsedMs >= 0;
+  const startedAtIsValid = saved.startedAt === null || Number.isFinite(saved.startedAt);
+
+  return elapsedIsValid && startedAtIsValid;
 }
 
 function loadState() {
@@ -118,19 +154,37 @@ function loadState() {
 
   try {
     const saved = JSON.parse(raw);
-    state.machineName = typeof saved.machineName === 'string' ? saved.machineName : '';
-    state.elapsedMs = Number.isFinite(saved.elapsedMs) ? saved.elapsedMs : 0;
-    state.running = Boolean(saved.running);
-    state.startedAt = Number.isFinite(saved.startedAt) ? saved.startedAt : null;
+
+    if (!isValidSavedState(saved)) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
+    state.machineName = typeof saved.machineName === 'string'
+      ? sanitizeMachineName(saved.machineName)
+      : '';
+    state.elapsedMs = saved.elapsedMs;
+    state.running = Boolean(saved.running) && saved.startedAt !== null;
+    state.startedAt = state.running ? saved.startedAt : null;
 
     elements.machineName.value = state.machineName;
 
-    if (state.running && state.startedAt !== null) {
+    if (state.running) {
       startTicking();
     }
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
+}
+
+function saveRunningSnapshot() {
+  if (state.running && state.startedAt !== null) {
+    const now = Date.now();
+    state.elapsedMs += now - state.startedAt;
+    state.startedAt = now;
+  }
+
+  persist();
 }
 
 function bindEvents() {
@@ -139,18 +193,31 @@ function bindEvents() {
   elements.resetBtn.addEventListener('click', resetTimer);
 
   elements.machineName.addEventListener('input', (event) => {
-    state.machineName = event.target.value.trimStart();
-    persist();
-  });
+    state.machineName = sanitizeMachineName(event.target.value);
+    event.target.value = state.machineName;
 
-  window.addEventListener('beforeunload', () => {
-    if (state.running && state.startedAt !== null) {
-      state.elapsedMs += Date.now() - state.startedAt;
-      state.startedAt = Date.now();
+    if (state.machineName) {
+      setFeedback('');
     }
 
+    render();
     persist();
   });
+
+  elements.machineName.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      startTimer();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveRunningSnapshot();
+    }
+  });
+
+  window.addEventListener('beforeunload', saveRunningSnapshot);
 }
 
 loadState();

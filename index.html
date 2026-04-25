@@ -20,8 +20,9 @@
         placeholder="Ex.: Torno CNC 01"
         autocomplete="off"
       >
+      <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
 
-      <div class="timer" id="timerDisplay">00:00:00</div>
+      <output class="timer" id="timerDisplay" aria-label="Tempo acumulado">00:00:00</output>
       <div class="status" id="statusDisplay">Parado</div>
 
       <div class="actions">
