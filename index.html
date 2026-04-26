@@ -114,18 +114,18 @@
                         <input type="text" id="analystName" placeholder="Nome de quem está medindo..." >
                     </div>
                     <div class="input-group full-width">
-                        <label class="label-with-info">Tipo de análise <span class="info-icon info-inline" onclick="showInfo('modo_analise')">!</span></label>
+                        <label class="label-with-info">Tipo de análise <button type="button" class="info-icon info-inline" aria-label="Informações sobre tipo de análise" onclick="showInfo('modo_analise')">!</button></label>
                         <select id="analysisMode" onchange="changeAnalysisMode()">
                             <option value="cycle">Tempo por ciclo</option>
                             <option value="interval">Produção por intervalo</option>
                         </select>
                     </div>
                     <div class="input-group" id="unitsGroup">
-                        <label class="label-with-info">Peças / Ciclo <span class="info-icon info-inline" onclick="showInfo('pecas_ciclo')">!</span></label>
+                        <label class="label-with-info">Peças / Ciclo <button type="button" class="info-icon info-inline" aria-label="Informações sobre peças por ciclo" onclick="showInfo('pecas_ciclo')">!</button></label>
                         <input type="number" id="units" value="1" min="1" inputmode="numeric" oninput="syncTargets('units')">
                     </div>
                     <div class="input-group" id="defaultLapQtyGroup" style="display:none;">
-                        <label class="label-with-info">Qtd. padrão por lap <span class="info-icon info-inline" onclick="showInfo('qtd_lap')">!</span></label>
+                        <label class="label-with-info">Qtd. padrão por lap <button type="button" class="info-icon info-inline" aria-label="Informações sobre quantidade padrão por lap" onclick="showInfo('qtd_lap')">!</button></label>
                         <input type="number" id="defaultLapQty" placeholder="Opcional" min="1" inputmode="numeric">
                     </div>
                     <div class="input-group">
@@ -136,11 +136,11 @@
                         </select>
                     </div>
                     <div class="input-group">
-                        <label class="label-with-info">Takt Time (s) <span class="info-icon info-inline" onclick="showInfo('takt')">!</span></label>
+                        <label class="label-with-info">Takt Time (s) <button type="button" class="info-icon info-inline" aria-label="Informações sobre Takt Time" onclick="showInfo('takt')">!</button></label>
                         <input type="number" id="takt" placeholder="Opcional" inputmode="numeric" oninput="syncTargets('takt')">
                     </div>
                     <div class="input-group">
-                        <label id="lblTarget" class="label-with-info"><span id="lblTargetText">Meta (un/h)</span> <span class="info-icon info-inline" onclick="showInfo('meta')">!</span></label>
+                        <label id="lblTarget" class="label-with-info"><span id="lblTargetText">Meta (un/h)</span> <button type="button" class="info-icon info-inline" aria-label="Informações sobre meta de produção" onclick="showInfo('meta')">!</button></label>
                         <input type="number" id="target" placeholder="Opcional" inputmode="numeric" oninput="syncTargets('target')">
                     </div>
                     <div class="input-group" id="lapQtyModeGroup" style="display:none;">
@@ -171,56 +171,56 @@
                     <button id="btnReset" class="btn-reset" onclick="resetTimer()">⏹ Zerar</button>
                 </div>
 
-                <div class="live-timer" id="liveTimer">00:00.00</div>
+                <div class="live-timer" id="liveTimer" role="timer" aria-label="Tempo do ciclo atual">00:00.00</div>
 
                 <div class="total-timer-wrap">
                     <span class="total-timer-label">Tempo total de medição </span>
-                    <span class="total-timer" id="totalTimer">00:00</span>
+                    <span class="total-timer" id="totalTimer" role="timer" aria-label="Tempo total de medição">00:00</span>
                 </div>
 
                 <div class="results-grid">
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('amostras')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre amostras" onclick="showInfo('amostras')">!</button>
                         <div class="result-title">AMOSTRAS (n)</div>
                         <span id="valSamples" class="result-value">0</span>
                     </div>
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('capacidade')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre capacidade" onclick="showInfo('capacidade')">!</button>
                         <div class="result-title" id="lblCapTitle">CAPACIDADE (un/h)</div>
                         <span id="valHourlyCap" class="result-value text-blue">0</span>
                     </div>
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('ultimo')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre último ciclo" onclick="showInfo('ultimo')">!</button>
                         <div class="result-title" id="lblLastCycleTitle">ÚLTIMO CICLO</div>
                         <span id="valLastCycle" class="result-value">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('medio')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre ciclo médio" onclick="showInfo('medio')">!</button>
                         <div class="result-title" id="lblAvgCycleTitle">CICLO MÉDIO</div>
                         <span id="valAvgCycle" class="result-value text-yellow">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('minimo')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre valor mínimo" onclick="showInfo('minimo')">!</button>
                         <div class="result-title">MÍNIMO</div>
                         <span id="valMinCycle" class="result-value text-green">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('maximo')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre valor máximo" onclick="showInfo('maximo')">!</button>
                         <div class="result-title">MÁXIMO</div>
                         <span id="valMaxCycle" class="result-value text-red">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('desvio')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre desvio padrão" onclick="showInfo('desvio')">!</button>
                         <div class="result-title">DESVIO PADRÃO</div>
                         <span id="valStdDev" class="result-value">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <span class="info-icon" onclick="showInfo('estabilidade')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre índice de estabilidade" onclick="showInfo('estabilidade')">!</button>
                         <div class="result-title">ÍNDICE DE ESTABIL.</div>
                         <span id="valEstabilidade" class="result-value">100.0%</span>
                     </div>
                     <div class="result-box full-width">
-                        <span class="info-icon" onclick="showInfo('eficiencia')">!</span>
+                        <button type="button" class="info-icon" aria-label="Informações sobre eficiência" onclick="showInfo('eficiencia')">!</button>
                         <div class="result-title">EFICIÊNCIA (%)</div>
                         <span id="valEfficiency" class="result-value">--</span>
                     </div>
@@ -230,10 +230,10 @@
 
         <div class="col-2">
             <div class="card">
-                <div class="chart-title">Curva de Controle de Ciclos <span class="info-icon info-inline" onclick="showInfo('curva_controle')">!</span></div>
+                <div class="chart-title">Curva de Controle de Ciclos <button type="button" class="info-icon info-inline" aria-label="Informações sobre curva de controle" onclick="showInfo('curva_controle')">!</button></div>
                 <div class="chart-wrapper" id="chartContainer"></div>
                 
-                <div class="chart-title">Histograma (Distribuição) <span class="info-icon info-inline" onclick="showInfo('histograma')">!</span></div>
+                <div class="chart-title">Histograma (Distribuição) <button type="button" class="info-icon info-inline" aria-label="Informações sobre histograma" onclick="showInfo('histograma')">!</button></div>
                 <div class="histogram-wrapper" id="histogramContainer"></div>
             </div>
         </div>
@@ -267,9 +267,9 @@
     </span>
 </footer>
 
-<div class="modal-overlay" id="qtyModal" style="z-index:1200;">
+<div class="modal-overlay" id="qtyModal" role="dialog" aria-modal="true" aria-labelledby="qtyModalLabel" style="z-index:1200;">
     <div class="modal-content">
-        <div class="modal-title">Quantidade Produzida</div>
+        <div class="modal-title" id="qtyModalLabel">Quantidade Produzida</div>
         <div class="modal-text">Informe a quantidade produzida neste lap:</div>
         <input type="number" id="qtyModalInput" class="modal-input" inputmode="numeric" min="0.01" step="any">
         <div class="modal-actions">
@@ -279,7 +279,7 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="confirmModal" style="z-index:1100;">
+<div class="modal-overlay" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" style="z-index:1100;">
     <div class="modal-content">
         <div class="modal-title modal-title-danger" id="confirmModalTitle">Confirmar</div>
         <div class="modal-text" id="confirmModalText">Deseja zerar todos os dados?</div>
@@ -290,7 +290,7 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="infoModal" onclick="if(event.target===this)closeInfo()">
+<div class="modal-overlay" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="if(event.target===this)closeInfo()">
     <div class="modal-content">
         <div class="modal-title" id="modalTitle">Título</div>
         <div class="modal-text" id="modalText">Texto de explicação.</div>
