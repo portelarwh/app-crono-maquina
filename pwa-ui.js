@@ -8,7 +8,7 @@ function loadA4ExportEngine(){
   if(old) old.remove();
   const script=document.createElement('script');
   script.id='export-fixes-script';
-  script.src='export-fixes.js?v=249-a4-2';
+  script.src='export-fixes.js?v=249-a4-final-1';
   script.async=false;
   document.body.appendChild(script);
 }
