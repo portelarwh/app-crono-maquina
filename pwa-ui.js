@@ -3,6 +3,15 @@
 const CRONO_MAQUINA_VERSION = 'v2.4.9';
 const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_v249';
 
+function loadA4ExportEngine(){
+  if(document.getElementById('export-fixes-script')) return;
+  const script=document.createElement('script');
+  script.id='export-fixes-script';
+  script.src='export-fixes.js?v=249-a4-1';
+  script.async=false;
+  document.body.appendChild(script);
+}
+
 function injectSplashStyles(){
   if(document.getElementById('crono-splash-styles')) return;
   const style=document.createElement('style');
@@ -71,4 +80,7 @@ function setupSplash(){
   },2000);
 }
 
-document.addEventListener('DOMContentLoaded', setupSplash);
+document.addEventListener('DOMContentLoaded', function(){
+  setupSplash();
+  loadA4ExportEngine();
+});
