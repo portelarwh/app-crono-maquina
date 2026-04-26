@@ -4,10 +4,11 @@ const CRONO_MAQUINA_VERSION = 'v2.4.9';
 const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_v249';
 
 function loadA4ExportEngine(){
-  if(document.getElementById('export-fixes-script')) return;
+  const old=document.getElementById('export-fixes-script');
+  if(old) old.remove();
   const script=document.createElement('script');
   script.id='export-fixes-script';
-  script.src='export-fixes.js?v=249-a4-1';
+  script.src='export-fixes.js?v=249-a4-2';
   script.async=false;
   document.body.appendChild(script);
 }
