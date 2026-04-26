@@ -1,12 +1,17 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v2.4.1';
+const CACHE_NAME = 'crono-maquina-v2.4.9';
 const ASSETS = [
   '/',
   '/index.html',
+  '/app.js',
+  '/pwa-ui.js',
+  '/export-fixes.js',
+  '/styles.css',
   '/manifest.json',
-  '/assets/icon-192.png',
-  '/assets/icon-512.png'
+  '/assets/Crono-maquina.png',
+  '/assets/Icon-192.png',
+  '/assets/Icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

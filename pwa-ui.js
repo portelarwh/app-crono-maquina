@@ -112,8 +112,6 @@ function setupSplash(){
 function initPwaUi(){
   setupSplash();
   loadExportFixes();
-  window.setTimeout(loadExportFixes,700);
-  window.setTimeout(rebindExportButtons,1200);
 }
 
 document.addEventListener('DOMContentLoaded', initPwaUi);
