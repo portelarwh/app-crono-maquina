@@ -3,44 +3,6 @@
 const CRONO_MAQUINA_VERSION = 'v2.4.9';
 const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_v249';
 
-function rebindExportButtons(){
-  const map={
-    btnPNG:'generatePNG',
-    btnPDF:'generateRealPDF',
-    btnWhatsApp:'shareWhatsApp'
-  };
-
-  Object.entries(map).forEach(([buttonId,fnName])=>{
-    const btn=document.getElementById(buttonId);
-    if(btn && typeof window[fnName]==='function'){
-      btn.onclick=window[fnName];
-    }
-  });
-}
-
-function loadExportFixes(){
-  if(window.__EXPORT_FIXES_LOADED__){
-    rebindExportButtons();
-    return;
-  }
-
-  const old=document.getElementById('export-fixes-script');
-  if(old) old.remove();
-
-  const s=document.createElement('script');
-  s.src='export-fixes.js';
-  s.id='export-fixes-script';
-  s.async=false;
-  s.onload=function(){
-    window.__EXPORT_FIXES_LOADED__=true;
-    rebindExportButtons();
-  };
-  s.onerror=function(){
-    console.error('Falha ao carregar export-fixes.js');
-  };
-  document.body.appendChild(s);
-}
-
 function injectSplashStyles(){
   if(document.getElementById('crono-splash-styles')) return;
   const style=document.createElement('style');
@@ -109,9 +71,4 @@ function setupSplash(){
   },2000);
 }
 
-function initPwaUi(){
-  setupSplash();
-  loadExportFixes();
-}
-
-document.addEventListener('DOMContentLoaded', initPwaUi);
+document.addEventListener('DOMContentLoaded', setupSplash);
