@@ -3,12 +3,41 @@
 const CRONO_MAQUINA_VERSION = 'v2.4.9';
 const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_v249';
 
+function rebindExportButtons(){
+  const map={
+    btnPNG:'generatePNG',
+    btnPDF:'generateRealPDF',
+    btnWhatsApp:'shareWhatsApp'
+  };
+
+  Object.entries(map).forEach(([buttonId,fnName])=>{
+    const btn=document.getElementById(buttonId);
+    if(btn && typeof window[fnName]==='function'){
+      btn.onclick=window[fnName];
+    }
+  });
+}
+
 function loadExportFixes(){
-  if(document.getElementById('export-fixes-script')) return;
+  if(window.__EXPORT_FIXES_LOADED__){
+    rebindExportButtons();
+    return;
+  }
+
+  const old=document.getElementById('export-fixes-script');
+  if(old) old.remove();
+
   const s=document.createElement('script');
-  s.src='export-fixes.js';
+  s.src='export-fixes.js?v=2493';
   s.id='export-fixes-script';
-  s.defer=true;
+  s.async=false;
+  s.onload=function(){
+    window.__EXPORT_FIXES_LOADED__=true;
+    rebindExportButtons();
+  };
+  s.onerror=function(){
+    console.error('Falha ao carregar export-fixes.js');
+  };
   document.body.appendChild(s);
 }
 
@@ -29,63 +58,14 @@ function injectSplashStyles(){
       opacity:1!important;
       transition:opacity .25s ease!important;
     }
-    #splashScreen.crono-splash-hidden{
-      opacity:0!important;
-      pointer-events:none!important;
-    }
-    #splashScreen.crono-splash-none{
-      display:none!important;
-    }
-    .crono-splash-content{
-      width:min(86vw,360px);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      gap:14px;
-      padding:28px 20px;
-    }
-    .crono-splash-logo{
-      width:116px;
-      height:116px;
-      object-fit:contain;
-      border-radius:24px;
-      filter:drop-shadow(0 18px 38px rgba(0,0,0,.45));
-    }
-    .crono-splash-title{
-      margin-top:2px;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      font-size:1.85rem;
-      line-height:1.05;
-      font-weight:800;
-      letter-spacing:-.03em;
-    }
-    .crono-splash-version{
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      font-size:.86rem;
-      font-weight:700;
-      color:#8b98a8;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-    .crono-splash-loading{
-      width:170px;
-      height:5px;
-      overflow:hidden;
-      border-radius:999px;
-      background:rgba(255,255,255,.12);
-      margin-top:6px;
-    }
-    .crono-splash-loading span{
-      display:block;
-      width:100%;
-      height:100%;
-      border-radius:inherit;
-      background:linear-gradient(90deg,#2f81f7,#58a6ff);
-      transform-origin:left center;
-      animation:cronoSplashLoad 2s ease forwards;
-    }
+    #splashScreen.crono-splash-hidden{opacity:0!important;pointer-events:none!important;}
+    #splashScreen.crono-splash-none{display:none!important;}
+    .crono-splash-content{width:min(86vw,360px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:28px 20px;}
+    .crono-splash-logo{width:116px;height:116px;object-fit:contain;border-radius:24px;filter:drop-shadow(0 18px 38px rgba(0,0,0,.45));}
+    .crono-splash-title{margin-top:2px;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:1.85rem;line-height:1.05;font-weight:800;letter-spacing:-.03em;}
+    .crono-splash-version{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:.86rem;font-weight:700;color:#8b98a8;letter-spacing:.08em;text-transform:uppercase;}
+    .crono-splash-loading{width:170px;height:5px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.12);margin-top:6px;}
+    .crono-splash-loading span{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#2f81f7,#58a6ff);transform-origin:left center;animation:cronoSplashLoad 2s ease forwards;}
     @keyframes cronoSplashLoad{from{transform:scaleX(0)}to{transform:scaleX(1)}}
   `;
   document.head.appendChild(style);
@@ -132,6 +112,8 @@ function setupSplash(){
 function initPwaUi(){
   setupSplash();
   loadExportFixes();
+  window.setTimeout(loadExportFixes,700);
+  window.setTimeout(rebindExportButtons,1200);
 }
 
 document.addEventListener('DOMContentLoaded', initPwaUi);
