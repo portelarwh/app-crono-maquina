@@ -3,6 +3,23 @@
 (function () {
   function byId(id){return document.getElementById(id);}
 
+  function buildSummaryText(){
+    const s = typeof stats === 'function' ? stats() : null;
+    const equipName = (byId('equipName')?.value || '').trim() || '-';
+    const timeUnit = byId('timeUnit')?.value;
+    const unitLabel = timeUnit === '3600' ? 'un/h' : 'un/min';
+
+    let text = 'Resumo Executivo — Cronoanálise Máquina\n\n';
+    text += `Equipamento: ${equipName}\n`;
+    if(s && Number.isFinite(s.av)){
+      text += `Amostras: ${byId('valSamples')?.textContent || '-'}\n`;
+      text += `Ciclo médio: ${s.av.toFixed(2)}s\n`;
+      text += `Capacidade: ${s.cap.toFixed(1)} ${unitLabel}\n`;
+      text += `Estabilidade: ${s.stab.toFixed(1)}%`;
+    }
+    return text;
+  }
+
   async function generateImageBlob(){
     const source = byId('exportContainer');
     if(!source) throw new Error('Container não encontrado');
@@ -48,15 +65,26 @@
     URL.revokeObjectURL(url);
   }
 
+  function canShareFiles(file){
+    return !!(navigator.share && navigator.canShare && navigator.canShare({files: [file]}));
+  }
+
+  // PNG: usa Web Share API (salva na galeria no mobile) ou download no desktop
   window.generatePNG = async function(){
     try {
       const blob = await generateImageBlob();
-      download(blob, 'crono-maquina.png');
+      const file = new File([blob], 'crono-maquina.png', {type: 'image/png'});
+      if(canShareFiles(file)){
+        await navigator.share({files: [file], title: 'Crono Máquina'});
+      } else {
+        download(blob, 'crono-maquina.png');
+      }
     } catch(e) {
       if(e.name !== 'AbortError') console.error('Erro ao gerar PNG:', e);
     }
   };
 
+  // PDF: sempre salva no diretório via download direto
   window.generateRealPDF = async function(){
     try {
       const blob = await generatePDFBlob();
@@ -66,15 +94,19 @@
     }
   };
 
+  // WhatsApp: compartilha PNG + texto do relatório via Web Share API,
+  // ou baixa o PNG e abre WhatsApp com mensagem pré-preenchida no desktop
   window.shareWhatsApp = async function(){
     try {
       const blob = await generateImageBlob();
       const file = new File([blob], 'crono.png', {type: 'image/png'});
-      if(navigator.share && navigator.canShare && navigator.canShare({files: [file]})){
-        await navigator.share({files: [file], title: 'Crono Máquina'});
+      const text = buildSummaryText();
+
+      if(canShareFiles(file)){
+        await navigator.share({files: [file], title: 'Crono Máquina', text});
       } else {
         download(blob, 'crono-maquina.png');
-        window.open('https://wa.me', '_blank');
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
       }
     } catch(e) {
       if(e.name !== 'AbortError') console.error('Erro ao compartilhar:', e);

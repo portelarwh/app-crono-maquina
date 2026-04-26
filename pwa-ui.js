@@ -28,7 +28,7 @@ function loadExportFixes(){
   if(old) old.remove();
 
   const s=document.createElement('script');
-  s.src='export-fixes.js?v=2493';
+  s.src='export-fixes.js';
   s.id='export-fixes-script';
   s.async=false;
   s.onload=function(){
