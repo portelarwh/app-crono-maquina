@@ -1,17 +1,19 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v2.4.9';
+const CACHE_NAME = 'crono-maquina-v2.4.10';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/app.js',
-  '/pwa-ui.js',
-  '/export-fixes.js',
-  '/styles.css',
-  '/manifest.json',
-  '/assets/Crono-maquina.png',
-  '/assets/Icon-192.png',
-  '/assets/Icon-512.png'
+  './',
+  './index.html',
+  './app.js',
+  './theme-init.js',
+  './pwa-ui.js',
+  './export-fixes.js',
+  './report-enhancements.js',
+  './styles.css',
+  './manifest.json',
+  './assets/Crono-maquina.png',
+  './assets/Icon-192.png',
+  './assets/Icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -30,7 +32,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match('/index.html')));
+    event.respondWith(fetch(event.request).catch(() => caches.match('./index.html')));
     return;
   }
 
