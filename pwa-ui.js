@@ -1,7 +1,7 @@
 'use strict';
 
-const CRONO_MAQUINA_VERSION = 'v2.4.9';
-const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_v249';
+const CRONO_MAQUINA_VERSION = window.APP_VERSION || 'v2.4.11';
+const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_'+CRONO_MAQUINA_VERSION.replace(/[^0-9]/g,'');
 
 function loadA4ExportEngine(){
   const enhanced=document.createElement('script');

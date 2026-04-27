@@ -1,4 +1,6 @@
 'use strict';
+const APP_VERSION='v2.4.11';
+window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v240';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,currentLapStartMs:null,laps:[],tickId:null,pendingLap:null};
@@ -20,7 +22,7 @@ function stats(){const sec=state.laps.map(l=>l.durationMs/1000).filter(Number.is
 function getCronoMachineData(){
   const s=stats();
   return{
-    version:'v2.4.9',
+    version:APP_VERSION,
     running:state.running,
     totalElapsedMs:totalMs(),
     form:{
@@ -115,5 +117,5 @@ function bind(){
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});
   window.addEventListener('beforeunload',()=>{stopTick();persist()});
 }
-function init(){if(els.appVersion)els.appVersion.textContent='v2.4.9';setTimeout(()=>{if(els.splashScreen)els.splashScreen.style.display='none'},1800);load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render()}init();
+function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;setTimeout(()=>{if(els.splashScreen)els.splashScreen.style.display='none'},1800);load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render()}init();
 window.getCronoMachineData=getCronoMachineData;
