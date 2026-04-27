@@ -5,7 +5,7 @@ const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_'+CRONO_MAQUINA_VERSION.repl
 
 function loadA4ExportEngine(){
   const enhanced=document.createElement('script');
-  enhanced.src='report-enhancements.js?v=249-enhanced-2';
+  enhanced.src='report-enhancements.js?v=layout-executivo-1';
   enhanced.async=false;
   document.body.appendChild(enhanced);
 }
