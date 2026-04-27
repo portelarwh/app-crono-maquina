@@ -218,13 +218,22 @@ body.export-mode .chart-title{
         .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, var(--bg-color) 30%); z-index: 50;}
         .btn-lap { width: 100%; padding: 20px; font-size: 1.8rem; background-color: var(--blue); border-radius: 10px; box-shadow: var(--shadow-btn); color: var(--text-on-accent); }
         .btn-lap:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+        .lap-meta-row {
+            display: flex; gap: 6px; margin-bottom: 6px;
+        }
         .lap-obs-input {
-            width: 100%; box-sizing: border-box; padding: 8px 10px;
+            flex: 1; box-sizing: border-box; padding: 8px 10px;
             border-radius: 6px; border: 1px solid var(--border);
             background: var(--input-bg); color: var(--text-main);
-            font-size: 0.9rem; margin-bottom: 6px; display: none;
+            font-size: 0.9rem; display: none;
         }
         .lap-obs-input::placeholder { color: var(--text-muted); }
+        .lap-cause-select {
+            box-sizing: border-box; padding: 8px 6px;
+            border-radius: 6px; border: 1px solid var(--border);
+            background: var(--input-bg); color: var(--text-main);
+            font-size: 0.85rem; flex: 0 0 auto; min-width: 130px;
+        }
 
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
         .modal-content { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-card);}

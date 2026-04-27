@@ -8,6 +8,7 @@ const ASSETS = [
   './theme-init.js',
   './pwa-ui.js',
   './report-enhancements.js',
+  './general-improvements.js',
   './styles.css',
   './manifest.json',
   './assets/Crono-maquina.png',
