@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v2.4.11';
+const CACHE_NAME = 'crono-maquina-v2.4.12';
 const ASSETS = [
   './',
   './index.html',
@@ -11,7 +11,6 @@ const ASSETS = [
   './general-improvements.js',
   './styles.css',
   './manifest.json',
-  './assets/Crono-maquina.png',
   './assets/Icon-192.png',
   './assets/Icon-512.png'
 ];
