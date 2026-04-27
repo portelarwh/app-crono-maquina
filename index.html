@@ -10,46 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="stylesheet" href="styles.css">
-    <script>
-    (function(){
-        const STORAGE_KEY_THEME = 'operix_theme_v1';
-        function applyTheme(theme) {
-            if (theme === 'light') {
-                document.documentElement.setAttribute('data-theme', 'light');
-            } else {
-                document.documentElement.removeAttribute('data-theme');
-            }
-        }
-        function renderToggleIcon() {
-            const btn = document.getElementById('op-theme-btn');
-            if (!btn) return;
-            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-            btn.textContent = isLight ? '🌙' : '☀️';
-            btn.setAttribute('aria-label', isLight ? 'Ativar tema escuro' : 'Ativar tema claro');
-        }
-        function detectInitialTheme() {
-            try {
-                const saved = localStorage.getItem(STORAGE_KEY_THEME);
-                if (saved === 'light' || saved === 'dark') return saved;
-                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
-            } catch (e) {}
-            return 'dark';
-        }
-        window.__opToggleTheme = function() {
-            const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-            const next = current === 'light' ? 'dark' : 'light';
-            applyTheme(next);
-            try { localStorage.setItem(STORAGE_KEY_THEME, next); } catch (e) {}
-            renderToggleIcon();
-        };
-        try { applyTheme(detectInitialTheme()); } catch(e) {}
-        document.addEventListener('DOMContentLoaded', function() {
-            const btn = document.getElementById('op-theme-btn');
-            if (btn) btn.addEventListener('click', window.__opToggleTheme);
-            renderToggleIcon();
-        });
-    })();
-    </script>
+    <script src="theme-init.js"></script>
 </head>
 <body>
 
@@ -61,7 +22,7 @@
 
     <!-- OPERIX brand -->
     <div class="splash-brand-row">
-      <img class="splash-operix-icon" src="assets/Logo_Operix.svg" alt="OPERIX" onerror="this.style.display='none'">
+      <img class="splash-operix-icon" src="assets/Logo_Operix.svg" alt="OPERIX" data-fallback-hide>
       <span class="splash-operix-text">OPERIX</span>
     </div>
 
@@ -114,34 +75,34 @@
                         <input type="text" id="analystName" placeholder="Nome de quem está medindo..." >
                     </div>
                     <div class="input-group full-width">
-                        <label class="label-with-info">Tipo de análise <button type="button" class="info-icon info-inline" aria-label="Informações sobre tipo de análise" onclick="showInfo('modo_analise')">!</button></label>
-                        <select id="analysisMode" onchange="changeAnalysisMode()">
+                        <label class="label-with-info">Tipo de análise <button type="button" class="info-icon info-inline" aria-label="Informações sobre tipo de análise" data-action="info" data-info="modo_analise">!</button></label>
+                        <select id="analysisMode" data-on-change="changeAnalysisMode">
                             <option value="cycle">Tempo por ciclo</option>
                             <option value="interval">Produção por intervalo</option>
                         </select>
                     </div>
                     <div class="input-group" id="unitsGroup">
-                        <label class="label-with-info">Peças / Ciclo <button type="button" class="info-icon info-inline" aria-label="Informações sobre peças por ciclo" onclick="showInfo('pecas_ciclo')">!</button></label>
-                        <input type="number" id="units" value="1" min="1" inputmode="numeric" oninput="syncTargets('units')">
+                        <label class="label-with-info">Peças / Ciclo <button type="button" class="info-icon info-inline" aria-label="Informações sobre peças por ciclo" data-action="info" data-info="pecas_ciclo">!</button></label>
+                        <input type="number" id="units" value="1" min="1" inputmode="numeric" data-on-change="syncTargets" data-source="units">
                     </div>
                     <div class="input-group" id="defaultLapQtyGroup" style="display:none;">
-                        <label class="label-with-info">Qtd. padrão por lap <button type="button" class="info-icon info-inline" aria-label="Informações sobre quantidade padrão por lap" onclick="showInfo('qtd_lap')">!</button></label>
+                        <label class="label-with-info">Qtd. padrão por lap <button type="button" class="info-icon info-inline" aria-label="Informações sobre quantidade padrão por lap" data-action="info" data-info="qtd_lap">!</button></label>
                         <input type="number" id="defaultLapQty" placeholder="Opcional" min="1" inputmode="numeric">
                     </div>
                     <div class="input-group">
                         <label>Medida de Capacidade</label>
-                        <select id="timeUnit" onchange="changeTimeUnit()">
+                        <select id="timeUnit" data-on-change="changeTimeUnit">
                             <option value="3600">Por Hora (un/h)</option>
                             <option value="60">Por Minuto (un/min)</option>
                         </select>
                     </div>
                     <div class="input-group">
-                        <label class="label-with-info">Takt Time (s) <button type="button" class="info-icon info-inline" aria-label="Informações sobre Takt Time" onclick="showInfo('takt')">!</button></label>
-                        <input type="number" id="takt" placeholder="Opcional" inputmode="numeric" oninput="syncTargets('takt')">
+                        <label class="label-with-info">Takt Time (s) <button type="button" class="info-icon info-inline" aria-label="Informações sobre Takt Time" data-action="info" data-info="takt">!</button></label>
+                        <input type="number" id="takt" placeholder="Opcional" inputmode="numeric" data-on-change="syncTargets" data-source="takt">
                     </div>
                     <div class="input-group">
-                        <label id="lblTarget" class="label-with-info"><span id="lblTargetText">Meta (un/h)</span> <button type="button" class="info-icon info-inline" aria-label="Informações sobre meta de produção" onclick="showInfo('meta')">!</button></label>
-                        <input type="number" id="target" placeholder="Opcional" inputmode="numeric" oninput="syncTargets('target')">
+                        <label id="lblTarget" class="label-with-info"><span id="lblTargetText">Meta (un/h)</span> <button type="button" class="info-icon info-inline" aria-label="Informações sobre meta de produção" data-action="info" data-info="meta">!</button></label>
+                        <input type="number" id="target" placeholder="Opcional" inputmode="numeric" data-on-change="syncTargets" data-source="target">
                     </div>
                     <div class="input-group" id="lapQtyModeGroup" style="display:none;">
                         <label>Qtd no lap</label>
@@ -166,9 +127,9 @@
 
             <div class="card">
                 <div class="btn-row">
-                    <button id="btnStart" class="btn-start" onclick="startTimer()">▶ Iniciar</button>
-                    <button id="btnStop" class="btn-stop" onclick="stopTimer()" disabled>⏸ Pausar</button>
-                    <button id="btnReset" class="btn-reset" onclick="resetTimer()">⏹ Zerar</button>
+                    <button id="btnStart" class="btn-start" data-action="start">▶ Iniciar</button>
+                    <button id="btnStop" class="btn-stop" data-action="stop" disabled>⏸ Pausar</button>
+                    <button id="btnReset" class="btn-reset" data-action="reset">⏹ Zerar</button>
                 </div>
 
                 <div class="live-timer" id="liveTimer" role="timer" aria-label="Tempo do ciclo atual">00:00.00</div>
@@ -180,47 +141,47 @@
 
                 <div class="results-grid">
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre amostras" onclick="showInfo('amostras')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre amostras" data-action="info" data-info="amostras">!</button>
                         <div class="result-title">AMOSTRAS (n)</div>
                         <span id="valSamples" class="result-value">0</span>
                     </div>
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre capacidade" onclick="showInfo('capacidade')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre capacidade" data-action="info" data-info="capacidade">!</button>
                         <div class="result-title" id="lblCapTitle">CAPACIDADE (un/h)</div>
                         <span id="valHourlyCap" class="result-value text-blue">0</span>
                     </div>
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre último ciclo" onclick="showInfo('ultimo')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre último ciclo" data-action="info" data-info="ultimo">!</button>
                         <div class="result-title" id="lblLastCycleTitle">ÚLTIMO CICLO</div>
                         <span id="valLastCycle" class="result-value">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre ciclo médio" onclick="showInfo('medio')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre ciclo médio" data-action="info" data-info="medio">!</button>
                         <div class="result-title" id="lblAvgCycleTitle">CICLO MÉDIO</div>
                         <span id="valAvgCycle" class="result-value text-yellow">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre valor mínimo" onclick="showInfo('minimo')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre valor mínimo" data-action="info" data-info="minimo">!</button>
                         <div class="result-title">MÍNIMO</div>
                         <span id="valMinCycle" class="result-value text-green">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre valor máximo" onclick="showInfo('maximo')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre valor máximo" data-action="info" data-info="maximo">!</button>
                         <div class="result-title">MÁXIMO</div>
                         <span id="valMaxCycle" class="result-value text-red">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre desvio padrão" onclick="showInfo('desvio')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre desvio padrão" data-action="info" data-info="desvio">!</button>
                         <div class="result-title">DESVIO PADRÃO</div>
                         <span id="valStdDev" class="result-value">0.00s</span>
                     </div>
                     <div class="result-box">
-                        <button type="button" class="info-icon" aria-label="Informações sobre índice de estabilidade" onclick="showInfo('estabilidade')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre índice de estabilidade" data-action="info" data-info="estabilidade">!</button>
                         <div class="result-title">ÍNDICE DE ESTABIL.</div>
                         <span id="valEstabilidade" class="result-value">100.0%</span>
                     </div>
                     <div class="result-box full-width">
-                        <button type="button" class="info-icon" aria-label="Informações sobre eficiência" onclick="showInfo('eficiencia')">!</button>
+                        <button type="button" class="info-icon" aria-label="Informações sobre eficiência" data-action="info" data-info="eficiencia">!</button>
                         <div class="result-title">EFICIÊNCIA (%)</div>
                         <span id="valEfficiency" class="result-value">--</span>
                     </div>
@@ -230,10 +191,10 @@
 
         <div class="col-2">
             <div class="card">
-                <div class="chart-title">Curva de Controle de Ciclos <button type="button" class="info-icon info-inline" aria-label="Informações sobre curva de controle" onclick="showInfo('curva_controle')">!</button></div>
+                <div class="chart-title">Curva de Controle de Ciclos <button type="button" class="info-icon info-inline" aria-label="Informações sobre curva de controle" data-action="info" data-info="curva_controle">!</button></div>
                 <div class="chart-wrapper" id="chartContainer"></div>
                 
-                <div class="chart-title">Histograma (Distribuição) <button type="button" class="info-icon info-inline" aria-label="Informações sobre histograma" onclick="showInfo('histograma')">!</button></div>
+                <div class="chart-title">Histograma (Distribuição) <button type="button" class="info-icon info-inline" aria-label="Informações sobre histograma" data-action="info" data-info="histograma">!</button></div>
                 <div class="histogram-wrapper" id="histogramContainer"></div>
             </div>
         </div>
@@ -244,10 +205,10 @@
         <div class="history-container print-only-history" id="historyListPrint"></div>
 
         <div class="config-grid" id="actionButtons" style="margin-top: 6px; grid-template-columns: 1fr 1fr 1fr 1fr;">
-            <button id="btnExport" class="btn-action btn-action-csv" onclick="exportToExcel()" disabled>⬇ CSV</button>
-            <button id="btnPNG" class="btn-action btn-action-png" onclick="generatePNG()" disabled>📷 PNG</button>
-            <button id="btnPDF" class="btn-action btn-action-pdf" onclick="generateRealPDF()" disabled>📄 PDF</button>
-            <button id="btnWhatsApp" class="btn-action btn-action-wa" onclick="shareWhatsApp()" disabled>💬 WhatsApp</button>
+            <button id="btnExport" class="btn-action btn-action-csv" data-action="exportCsv" disabled>⬇ CSV</button>
+            <button id="btnPNG" class="btn-action btn-action-png" data-action="exportPng" disabled>📷 PNG</button>
+            <button id="btnPDF" class="btn-action btn-action-pdf" data-action="exportPdf" disabled>📄 PDF</button>
+            <button id="btnWhatsApp" class="btn-action btn-action-wa" data-action="shareWhatsapp" disabled>💬 WhatsApp</button>
         </div>
     </div>
 </div>
@@ -273,8 +234,8 @@
         <div class="modal-text">Informe a quantidade produzida neste lap:</div>
         <input type="number" id="qtyModalInput" class="modal-input" inputmode="numeric" min="0.01" step="any">
         <div class="modal-actions">
-            <button class="btn-modal btn-modal-secondary" onclick="closeQtyModal(false)">Cancelar</button>
-            <button class="btn-modal btn-modal-primary" onclick="closeQtyModal(true)">Confirmar</button>
+            <button class="btn-modal btn-modal-secondary" data-action="closeQty" data-confirm="false">Cancelar</button>
+            <button class="btn-modal btn-modal-primary" data-action="closeQty" data-confirm="true">Confirmar</button>
         </div>
     </div>
 </div>
@@ -284,23 +245,23 @@
         <div class="modal-title modal-title-danger" id="confirmModalTitle">Confirmar</div>
         <div class="modal-text" id="confirmModalText">Deseja zerar todos os dados?</div>
         <div class="modal-actions">
-            <button id="confirmModalCancel" class="btn-modal btn-modal-secondary" onclick="closeConfirmModal(false)">Cancelar</button>
-            <button id="confirmModalOk" class="btn-modal btn-modal-danger" onclick="closeConfirmModal(true)">Zerar</button>
+            <button id="confirmModalCancel" class="btn-modal btn-modal-secondary" data-action="closeConfirm" data-confirm="false">Cancelar</button>
+            <button id="confirmModalOk" class="btn-modal btn-modal-danger" data-action="closeConfirm" data-confirm="true">Zerar</button>
         </div>
     </div>
 </div>
 
-<div class="modal-overlay" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="if(event.target===this)closeInfo()">
+<div class="modal-overlay" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-content">
         <div class="modal-title" id="modalTitle">Título</div>
         <div class="modal-text" id="modalText">Texto de explicação.</div>
-        <button class="btn-close-modal" onclick="closeInfo()" style="background:var(--blue); width:100%; border:none; padding:12px; color:white; border-radius:8px; font-weight:bold; cursor:pointer;">Entendi</button>
+        <button class="btn-close-modal" data-action="closeInfo" style="background:var(--blue); width:100%; border:none; padding:12px; color:white; border-radius:8px; font-weight:bold; cursor:pointer;">Entendi</button>
     </div>
 </div>
 
 <div class="fixed-bottom">
     <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
-    <button id="btnLap" class="btn-lap" onclick="recordLap()" disabled>⏱ LAP</button>
+    <button id="btnLap" class="btn-lap" data-action="lap" disabled>⏱ LAP</button>
 </div>
 
 <script src="app.js" defer></script>
