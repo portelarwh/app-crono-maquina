@@ -104,6 +104,12 @@ function bind(){
     if(t.classList?.contains('history-qty-input'))updateLapQty(t.dataset.lapId,t.value);
   });
   els.infoModal?.addEventListener('click',e=>{if(e.target===els.infoModal)closeInfo()});
+  [els.equipName,els.analystName].forEach(el=>el?.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!state.running&&(els.equipName?.value||'').trim()){
+      e.preventDefault();
+      startTimer();
+    }
+  }));
   document.querySelectorAll('img[data-fallback-hide]').forEach(img=>{
     if(img.complete&&img.naturalWidth===0)img.style.display='none';
     else img.addEventListener('error',()=>{img.style.display='none'});
