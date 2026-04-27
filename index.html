@@ -257,7 +257,10 @@
 
 <!-- LAP fixo na base -->
 <div class="fixed-bottom">
-    <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
+    <div class="lap-meta-row">
+        <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
+        <select id="lapCause" class="lap-cause-select" aria-label="Causa do ciclo" style="display:none;"></select>
+    </div>
     <button id="btnLap" class="btn-lap" data-action="lap" disabled>⏱ LAP</button>
 </div>
 
