@@ -55,7 +55,8 @@ function startTimer(){if(state.running)return;const now=Date.now();state.running
 function stopTimer(){if(!state.running||!state.startedAt)return;const now=Date.now();state.totalElapsedMs+=now-state.startedAt;state.startedAt=null;state.running=false;stopTick();render();persist()}
 let confirmCb=null;function resetTimer(){if(state.laps.length||totalMs()>0||state.running){openConfirm('Zerar medição','Deseja zerar todos os tempos, amostras e histórico?',doReset);return}doReset()}
 function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,currentLapStartMs:null,laps:[],pendingLap:null});if(els.lapObs)els.lapObs.value='';render();persist()}
-function tick(){stopTick();state.tickId=setInterval(renderTimersOnly,100)}function stopTick(){if(state.tickId){clearInterval(state.tickId);state.tickId=null}}
+function tick(){stopTick();let last=0;const loop=t=>{if(!state.running)return;if(t-last>=100){renderTimersOnly();last=t}state.tickId=requestAnimationFrame(loop)};state.tickId=requestAnimationFrame(loop)}
+function stopTick(){if(state.tickId){cancelAnimationFrame(state.tickId);state.tickId=null}}
 function renderTimersOnly(){if(els.liveTimer)els.liveTimer.textContent=fmtClock(lapMs(),true);if(els.totalTimer)els.totalTimer.textContent=fmtClock(totalMs(),false)}
 function recordLap(){if(!state.running||!state.currentLapStartMs)return;const now=Date.now(),durationMs=now-state.currentLapStartMs;let q=n(els.units,1)||1;if(els.analysisMode.value==='interval'){const d=n(els.defaultLapQty,NaN);q=Number.isFinite(d)&&d>0?d:null;if(els.lapQtyMode.value==='durante'){if(state.pendingLap){els.qtyModalInput.focus();return}state.pendingLap={durationMs,endedAt:now};els.qtyModalInput.value=q||'';els.qtyModal.style.display='flex';els.qtyModalInput.focus();return}}addLap(durationMs,q,now)}
 function addLap(durationMs,q,endedAt){state.laps.push({id:id(),durationMs:Math.max(0,durationMs),qty:q,obs:(els.lapObs?.value||'').trim(),endedAt});state.currentLapStartMs=endedAt;if(els.lapObs)els.lapObs.value='';render();persist()}
@@ -84,6 +85,9 @@ async function shareWhatsApp(){if(typeof window.html2canvas!=='function'){showLi
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({state:{running:state.running,startedAt:state.startedAt,totalElapsedMs:state.totalElapsedMs,currentLapStartMs:state.currentLapStartMs,laps:state.laps},form:{equipName:els.equipName.value,analystName:els.analystName.value,analysisMode:els.analysisMode.value,units:els.units.value,defaultLapQty:els.defaultLapQty.value,timeUnit:els.timeUnit.value,takt:els.takt.value,target:els.target.value,lapQtyMode:els.lapQtyMode.value}}))}catch(e){console.warn('[Crono] Falha ao salvar dados locais:',e)}}
 function load(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return;const data=JSON.parse(raw);if(data&&typeof data==='object'&&data.form&&typeof data.form==='object')Object.entries(data.form).forEach(([k,v])=>{if(els[k]&&(typeof v==='string'||typeof v==='number'))els[k].value=String(v).slice(0,200)});if(data&&data.state&&typeof data.state==='object'){state.running=false;state.startedAt=null;state.totalElapsedMs=Math.max(0,Number(data.state.totalElapsedMs)||0);state.currentLapStartMs=Number(data.state.currentLapStartMs)||null;const arr=Array.isArray(data.state.laps)?data.state.laps:[];state.laps=arr.filter(l=>l&&typeof l==='object').map(l=>({id:typeof l.id==='string'&&/^[A-Za-z0-9._-]{1,64}$/.test(l.id)?l.id:id(),durationMs:Math.max(0,Number(l.durationMs)||0),qty:Number.isFinite(Number(l.qty))?Number(l.qty):null,obs:typeof l.obs==='string'?l.obs.slice(0,200):'',endedAt:Number(l.endedAt)||null}))}}catch(e){localStorage.removeItem(STORAGE_KEY)}}
 const ACTIONS={start:startTimer,stop:stopTimer,reset:resetTimer,lap:recordLap,exportCsv:exportToExcel,exportPng:()=>window.generatePNG?.(),exportPdf:()=>window.generateRealPDF?.(),shareWhatsapp:shareWhatsApp,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteLap:t=>deleteLap(t.dataset.lapId)};
+const debounce=(fn,ms)=>{let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms)}};
+const renderDeb=debounce(render,80);
+const persistDeb=debounce(persist,250);
 function bind(){
   const inputs=[els.equipName,els.analystName,els.analysisMode,els.units,els.defaultLapQty,els.timeUnit,els.takt,els.target,els.lapQtyMode];
   ['input','change'].forEach(ev=>inputs.forEach(el=>el&&el.addEventListener(ev,e=>{
@@ -91,7 +95,7 @@ function bind(){
     if(oc==='syncTargets'){syncTargets(t.dataset.source);return}
     if(oc==='changeTimeUnit'&&ev==='change'){changeTimeUnit();return}
     if(oc==='changeAnalysisMode'&&ev==='change'){changeAnalysisMode();return}
-    render();persist();
+    renderDeb();persistDeb();
   })));
   document.addEventListener('click',e=>{
     const t=e.target.closest('[data-action]');
