@@ -3,18 +3,6 @@
 const CRONO_MAQUINA_VERSION = window.APP_VERSION || 'v2.4.11';
 const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_'+CRONO_MAQUINA_VERSION.replace(/[^0-9]/g,'');
 
-function loadA4ExportEngine(){
-  const enhanced=document.createElement('script');
-  enhanced.src='report-enhancements.js?v=layout-executivo-2';
-  enhanced.async=false;
-  document.body.appendChild(enhanced);
-
-  const improvements=document.createElement('script');
-  improvements.src='general-improvements.js?v=1';
-  improvements.async=false;
-  document.body.appendChild(improvements);
-}
-
 function injectSplashStyles(){
   if(document.getElementById('crono-splash-styles')) return;
   const style=document.createElement('style');
@@ -78,6 +66,5 @@ function registerServiceWorker(){
 
 document.addEventListener('DOMContentLoaded', function(){
   setupSplash();
-  loadA4ExportEngine();
   registerServiceWorker();
 });

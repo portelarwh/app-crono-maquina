@@ -16,8 +16,253 @@
     <script src="theme-init.js"></script>
 </head>
 <body>
-<!-- (conteúdo mantido igual) -->
+
+<!-- SPLASH SCREEN -->
+<div id="splashScreen" role="status" aria-label="Carregando Cronoanálise Pro">
+  <div class="splash-content">
+    <div class="splash-brand-row">
+      <img class="splash-operix-icon" src="assets/Logo_Operix.svg" alt="OPERIX" data-fallback-hide>
+      <span class="splash-operix-text">OPERIX</span>
+    </div>
+    <div class="splash-icon-wrap">
+      <img class="splash-app-icon" src="assets/Crono-maquina.png" alt="Cronoanálise Máquina">
+    </div>
+    <div class="splash-title-block">
+      <p class="splash-app-title">CRONOANALISE</p>
+      <p class="splash-app-subtitle">MÁQUINA</p>
+    </div>
+    <div class="splash-progress">
+      <div class="splash-progress-bar"></div>
+    </div>
+  </div>
+</div>
+
+<div class="app-header" id="appHeader">
+    <span class="app-version" id="appVersion">v2.4.11</span>
+    <button class="theme-toggle-btn" id="op-theme-btn" type="button" aria-label="Alternar tema claro/escuro" title="Alternar tema">☀️</button>
+</div>
+
+<div id="exportContainer">
+
+    <div class="print-header">
+        <div>
+            <h1>Relatório de Cronoanálise de Processos</h1>
+            <p>Documento de controle de estabilidade e tempo padrão.</p>
+        </div>
+        <div style="text-align: right;">
+            <p><strong>Data:</strong> <span id="printDate">--/--/----</span></p>
+            <p><strong>Analista:</strong> <span id="printAnalyst">—</span></p>
+        </div>
+    </div>
+
+    <div id="print-wrapper">
+        <div class="col-1">
+            <div class="card" id="configForm">
+                <div class="config-grid">
+                    <div class="input-group full-width">
+                        <label>Equipamento / Operação</label>
+                        <input type="text" id="equipName" placeholder="Ex: Torno CNC, Montagem...">
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Analista Responsável</label>
+                        <input type="text" id="analystName" placeholder="Nome de quem está medindo...">
+                    </div>
+                    <div class="input-group full-width">
+                        <label class="label-with-info">Tipo de análise <button type="button" class="info-icon info-inline" aria-label="Informações sobre tipo de análise" data-action="info" data-info="modo_analise">!</button></label>
+                        <select id="analysisMode" data-on-change="changeAnalysisMode">
+                            <option value="cycle">Tempo por ciclo</option>
+                            <option value="interval">Produção por intervalo</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="unitsGroup">
+                        <label class="label-with-info">Peças / Ciclo <button type="button" class="info-icon info-inline" aria-label="Informações sobre peças por ciclo" data-action="info" data-info="pecas_ciclo">!</button></label>
+                        <input type="number" id="units" value="1" min="1" inputmode="numeric" data-on-change="syncTargets" data-source="units">
+                    </div>
+                    <div class="input-group" id="defaultLapQtyGroup" style="display:none;">
+                        <label class="label-with-info">Qtd. padrão por lap <button type="button" class="info-icon info-inline" aria-label="Informações sobre quantidade padrão por lap" data-action="info" data-info="qtd_lap">!</button></label>
+                        <input type="number" id="defaultLapQty" placeholder="Opcional" min="1" inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>Medida de Capacidade</label>
+                        <select id="timeUnit" data-on-change="changeTimeUnit">
+                            <option value="3600">Por Hora (un/h)</option>
+                            <option value="60">Por Minuto (un/min)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label class="label-with-info">Takt Time (s) <button type="button" class="info-icon info-inline" aria-label="Informações sobre Takt Time" data-action="info" data-info="takt">!</button></label>
+                        <input type="number" id="takt" placeholder="Opcional" inputmode="numeric" data-on-change="syncTargets" data-source="takt">
+                    </div>
+                    <div class="input-group">
+                        <label id="lblTarget" class="label-with-info"><span id="lblTargetText">Meta (un/h)</span> <button type="button" class="info-icon info-inline" aria-label="Informações sobre meta de produção" data-action="info" data-info="meta">!</button></label>
+                        <input type="number" id="target" placeholder="Opcional" inputmode="numeric" data-on-change="syncTargets" data-source="target">
+                    </div>
+                    <div class="input-group" id="lapQtyModeGroup" style="display:none;">
+                        <label>Qtd no lap</label>
+                        <select id="lapQtyMode">
+                            <option value="durante">Durante</option>
+                            <option value="depois">Depois</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="print-summary">
+                <div><strong>Equipamento/Operação:</strong> <span id="printEquipName">—</span></div>
+                <div><strong>Tipo de análise:</strong> <span id="printAnalysisMode">—</span></div>
+                <div><strong>Peças/Ciclo:</strong> <span id="printUnits">—</span></div>
+                <div><strong>Capacidade Medida:</strong> <span id="printTimeUnit">—</span></div>
+                <div><strong>Takt Time:</strong> <span id="printTakt">—</span></div>
+                <div><strong>Meta de Produção:</strong> <span id="printTarget">—</span></div>
+            </div>
+
+            <div class="print-executive-summary" id="printExecutiveSummary">—</div>
+
+            <div class="card">
+                <div class="btn-row">
+                    <button id="btnStart" class="btn-start" data-action="start">▶ Iniciar</button>
+                    <button id="btnStop" class="btn-stop" data-action="stop" disabled>⏸ Pausar</button>
+                    <button id="btnReset" class="btn-reset" data-action="reset">⏹ Zerar</button>
+                </div>
+
+                <div class="live-timer" id="liveTimer" role="timer" aria-label="Tempo do ciclo atual">00:00.00</div>
+
+                <div class="total-timer-wrap">
+                    <span class="total-timer-label">Tempo total de medição </span>
+                    <span class="total-timer" id="totalTimer" role="timer" aria-label="Tempo total de medição">00:00</span>
+                </div>
+
+                <div class="results-grid">
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre amostras" data-action="info" data-info="amostras">!</button>
+                        <div class="result-title">AMOSTRAS (n)</div>
+                        <span id="valSamples" class="result-value">0</span>
+                    </div>
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre capacidade" data-action="info" data-info="capacidade">!</button>
+                        <div class="result-title" id="lblCapTitle">CAPACIDADE (un/h)</div>
+                        <span id="valHourlyCap" class="result-value text-blue">0</span>
+                    </div>
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre último ciclo" data-action="info" data-info="ultimo">!</button>
+                        <div class="result-title" id="lblLastCycleTitle">ÚLTIMO CICLO</div>
+                        <span id="valLastCycle" class="result-value">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre ciclo médio" data-action="info" data-info="medio">!</button>
+                        <div class="result-title" id="lblAvgCycleTitle">CICLO MÉDIO</div>
+                        <span id="valAvgCycle" class="result-value text-yellow">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre valor mínimo" data-action="info" data-info="minimo">!</button>
+                        <div class="result-title">MÍNIMO</div>
+                        <span id="valMinCycle" class="result-value text-green">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre valor máximo" data-action="info" data-info="maximo">!</button>
+                        <div class="result-title">MÁXIMO</div>
+                        <span id="valMaxCycle" class="result-value text-red">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre desvio padrão" data-action="info" data-info="desvio">!</button>
+                        <div class="result-title">DESVIO PADRÃO</div>
+                        <span id="valStdDev" class="result-value">0.00s</span>
+                    </div>
+                    <div class="result-box">
+                        <button type="button" class="info-icon" aria-label="Informações sobre índice de estabilidade" data-action="info" data-info="estabilidade">!</button>
+                        <div class="result-title">ÍNDICE DE ESTABIL.</div>
+                        <span id="valEstabilidade" class="result-value">100.0%</span>
+                    </div>
+                    <div class="result-box full-width">
+                        <button type="button" class="info-icon" aria-label="Informações sobre eficiência" data-action="info" data-info="eficiencia">!</button>
+                        <div class="result-title">EFICIÊNCIA (%)</div>
+                        <span id="valEfficiency" class="result-value">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-2">
+            <div class="card">
+                <div class="chart-title">Curva de Controle de Ciclos <button type="button" class="info-icon info-inline" aria-label="Informações sobre curva de controle" data-action="info" data-info="curva_controle">!</button></div>
+                <div class="chart-wrapper" id="chartContainer"></div>
+
+                <div class="chart-title">Histograma (Distribuição) <button type="button" class="info-icon info-inline" aria-label="Informações sobre histograma" data-action="info" data-info="histograma">!</button></div>
+                <div class="histogram-wrapper" id="histogramContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="historyCard">
+        <div class="history-container" id="historyListScreen"></div>
+        <div class="history-container print-only-history" id="historyListPrint"></div>
+
+        <div class="config-grid" id="actionButtons" style="margin-top: 6px; grid-template-columns: 1fr 1fr 1fr 1fr;">
+            <button id="btnExport" class="btn-action btn-action-csv" data-action="exportCsv" disabled>⬇ CSV</button>
+            <button id="btnPNG" class="btn-action btn-action-png" data-action="exportPng" disabled>📷 PNG</button>
+            <button id="btnPDF" class="btn-action btn-action-pdf" data-action="exportPdf" disabled>📄 PDF</button>
+            <button id="btnWhatsApp" class="btn-action btn-action-wa" data-action="shareWhatsapp" disabled>💬 WhatsApp</button>
+        </div>
+    </div>
+</div>
+
+<footer class="branding" role="contentinfo">
+    <span>
+        Desenvolvido por
+        <a href="https://www.linkedin.com/in/pedro-ag-portela" target="_blank" rel="noopener noreferrer" class="linkedin-link" aria-label="Perfil LinkedIn de Pedro Portela">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+            Pedro Portela
+        </a>
+        &nbsp;·&nbsp;
+        <a href="https://wa.me/5541991771410?text=Ol%C3%A1%20tudo%20bem%3F%20Vim%20pelo%20aplicativo%20-%20Cron%C3%B6an%C3%A1lise%20Pro." target="_blank" rel="noopener noreferrer" class="whatsapp-footer-link" aria-label="Contato via WhatsApp">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Fale comigo
+        </a>
+    </span>
+</footer>
+
+<!-- MODAL: Quantidade do Lap -->
+<div class="modal-overlay" id="qtyModal" role="dialog" aria-modal="true" aria-labelledby="qtyModalLabel" style="z-index:1200;">
+    <div class="modal-content">
+        <div class="modal-title" id="qtyModalLabel">Quantidade Produzida</div>
+        <div class="modal-text">Informe a quantidade produzida neste lap:</div>
+        <input type="number" id="qtyModalInput" class="modal-input" inputmode="numeric" min="0.01" step="any">
+        <div class="modal-actions">
+            <button class="btn-modal btn-modal-secondary" data-action="closeQty" data-confirm="false">Cancelar</button>
+            <button class="btn-modal btn-modal-primary" data-action="closeQty" data-confirm="true">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Confirmação -->
+<div class="modal-overlay" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" style="z-index:1100;">
+    <div class="modal-content">
+        <div class="modal-title modal-title-danger" id="confirmModalTitle">Confirmar</div>
+        <div class="modal-text" id="confirmModalText">Deseja zerar todos os dados?</div>
+        <div class="modal-actions">
+            <button id="confirmModalCancel" class="btn-modal btn-modal-secondary" data-action="closeConfirm" data-confirm="false">Cancelar</button>
+            <button id="confirmModalOk" class="btn-modal btn-modal-danger" data-action="closeConfirm" data-confirm="true">Zerar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Informação -->
+<div class="modal-overlay" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-content">
+        <div class="modal-title" id="modalTitle">Título</div>
+        <div class="modal-text" id="modalText">Texto de explicação.</div>
+        <button class="btn-close-modal" data-action="closeInfo" style="background:var(--blue); width:100%; border:none; padding:12px; color:white; border-radius:8px; font-weight:bold; cursor:pointer;">Entendi</button>
+    </div>
+</div>
+
+<!-- LAP fixo na base -->
+<div class="fixed-bottom">
+    <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
+    <button id="btnLap" class="btn-lap" data-action="lap" disabled>⏱ LAP</button>
+</div>
+
 <script src="app.js" defer></script>
+<script src="report-enhancements.js" defer></script>
 <script src="general-improvements.js" defer></script>
 <script src="pwa-ui.js" defer></script>
 </body>
