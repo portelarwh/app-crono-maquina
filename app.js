@@ -13,6 +13,38 @@ function qty(lap){if(Number.isFinite(Number(lap.qty)))return Number(lap.qty);con
 function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0}
 function sd(a){if(a.length<2)return 0;const m=avg(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length)}
 function stats(){const sec=state.laps.map(l=>l.durationMs/1000).filter(Number.isFinite);const t=sec.reduce((a,b)=>a+b,0);const q=state.laps.reduce((a,l)=>a+qty(l),0);const base=n(els.timeUnit,3600);const cap=t>0?q/t*base:0;const av=avg(sec),dev=sd(sec),target=n(els.target,0);return{sec,t,q,cap,av,dev,min:sec.length?Math.min(...sec):0,max:sec.length?Math.max(...sec):0,stab:av>0?Math.max(0,100-dev/av*100):100,eff:target>0?cap/target*100:null}}
+function getCronoMachineData(){
+  const s=stats();
+  return{
+    version:'v2.4.9',
+    running:state.running,
+    totalElapsedMs:totalMs(),
+    form:{
+      equipName:els.equipName?.value||'',
+      analystName:els.analystName?.value||'',
+      analysisMode:els.analysisMode?.value||'cycle',
+      analysisModeLabel:els.analysisMode?.value==='interval'?'Produção por intervalo':'Tempo por ciclo',
+      units:n(els.units,1),
+      defaultLapQty:n(els.defaultLapQty,0),
+      timeUnit:els.timeUnit?.value||'3600',
+      timeUnitLabel:els.timeUnit?.value==='60'?'un/min':'un/h',
+      takt:n(els.takt,0),
+      target:n(els.target,0),
+      lapQtyMode:els.lapQtyMode?.value||'durante'
+    },
+    stats:s,
+    laps:state.laps.map((lap,index)=>({
+      index:index+1,
+      id:lap.id,
+      durationMs:lap.durationMs,
+      durationSec:lap.durationMs/1000,
+      qty:qty(lap),
+      rawQty:lap.qty,
+      obs:lap.obs||'',
+      endedAt:lap.endedAt||null
+    }))
+  };
+}
 function startTimer(){if(state.running)return;const now=Date.now();state.running=true;state.startedAt=now;state.currentLapStartMs=state.currentLapStartMs??now;tick();render();persist()}
 function stopTimer(){if(!state.running||!state.startedAt)return;const now=Date.now();state.totalElapsedMs+=now-state.startedAt;state.startedAt=null;state.running=false;stopTick();render();persist()}
 let confirmCb=null;function resetTimer(){if(state.laps.length||totalMs()>0||state.running){openConfirm('Zerar medição','Deseja zerar todos os tempos, amostras e histórico?',doReset);return}doReset()}
@@ -47,4 +79,4 @@ function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({state:{r
 function load(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return;const data=JSON.parse(raw);if(data.form)Object.entries(data.form).forEach(([k,v])=>{if(els[k])els[k].value=v});if(data.state){state.running=false;state.startedAt=null;state.totalElapsedMs=Number(data.state.totalElapsedMs)||0;state.currentLapStartMs=data.state.currentLapStartMs||null;state.laps=Array.isArray(data.state.laps)?data.state.laps:[]}}catch(e){localStorage.removeItem(STORAGE_KEY)}}
 function bind(){['input','change'].forEach(ev=>{[els.equipName,els.analystName,els.analysisMode,els.units,els.defaultLapQty,els.timeUnit,els.takt,els.target,els.lapQtyMode].forEach(el=>el&&el.addEventListener(ev,()=>{render();persist()}))});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});window.addEventListener('beforeunload',()=>{stopTick();persist()})}
 function init(){if(els.appVersion)els.appVersion.textContent='v2.4.9';setTimeout(()=>{if(els.splashScreen)els.splashScreen.style.display='none'},1800);load();bind();render()}init();
-window.startTimer=startTimer;window.stopTimer=stopTimer;window.resetTimer=resetTimer;window.recordLap=recordLap;window.updateLapQty=updateLapQty;window.deleteLap=deleteLap;window.syncTargets=syncTargets;window.changeTimeUnit=changeTimeUnit;window.changeAnalysisMode=changeAnalysisMode;window.closeQtyModal=closeQtyModal;window.closeConfirmModal=closeConfirmModal;window.showInfo=showInfo;window.closeInfo=closeInfo;window.exportToExcel=exportToExcel;window.generatePNG=generatePNG;window.generateRealPDF=generateRealPDF;window.shareWhatsApp=shareWhatsApp;
+window.getCronoMachineData=getCronoMachineData;window.startTimer=startTimer;window.stopTimer=stopTimer;window.resetTimer=resetTimer;window.recordLap=recordLap;window.updateLapQty=updateLapQty;window.deleteLap=deleteLap;window.syncTargets=syncTargets;window.changeTimeUnit=changeTimeUnit;window.changeAnalysisMode=changeAnalysisMode;window.closeQtyModal=closeQtyModal;window.closeConfirmModal=closeConfirmModal;window.showInfo=showInfo;window.closeInfo=closeInfo;window.exportToExcel=exportToExcel;window.generatePNG=generatePNG;window.generateRealPDF=generateRealPDF;window.shareWhatsApp=shareWhatsApp;
