@@ -1,4 +1,5 @@
 'use strict';
+(()=>{
 const APP_VERSION='v2.4.11';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v240';
@@ -123,3 +124,4 @@ function bind(){
 }
 function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render()}init();
 window.getCronoMachineData=getCronoMachineData;
+})();
