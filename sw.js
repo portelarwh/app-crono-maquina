@@ -1,13 +1,12 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v2.4.10';
+const CACHE_NAME = 'crono-maquina-v2.4.11';
 const ASSETS = [
   './',
   './index.html',
   './app.js',
   './theme-init.js',
   './pwa-ui.js',
-  './export-fixes.js',
   './report-enhancements.js',
   './styles.css',
   './manifest.json',
