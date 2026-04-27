@@ -71,7 +71,17 @@ function setupSplash(){
   },2000);
 }
 
+function registerServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(err){
+      console.warn('[Crono] Service Worker falhou:', err);
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function(){
   setupSplash();
   loadA4ExportEngine();
+  registerServiceWorker();
 });
