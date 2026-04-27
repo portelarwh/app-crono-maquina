@@ -1,0 +1,165 @@
+'use strict';
+
+(function(){
+  var EXTRA_KEY='operix_crono_maquina_extras_v1';
+  var SHIFT_HOURS=8;
+
+  function $(id){return document.getElementById(id)}
+  function n(v,fb){var x=parseFloat(String(v==null?'':v).replace(',','.').trim());return Number.isFinite(x)?x:(fb||0)}
+  function safe(s){return String(s==null?'':s).slice(0,180)}
+  function slug(s){return String(s||'crono-maquina').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9-_]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase()||'crono-maquina'}
+  function stamp(){var d=new Date(),p=function(x){return String(x).padStart(2,'0')};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())}
+  function getExtras(){
+    return {
+      lineName: $('lineName')?$('lineName').value:'',
+      shiftName: $('shiftName')?$('shiftName').value:'',
+      productName: $('productName')?$('productName').value:'',
+      shiftHours: $('shiftHours')?n($('shiftHours').value,SHIFT_HOURS):SHIFT_HOURS
+    };
+  }
+  function saveExtras(){try{localStorage.setItem(EXTRA_KEY,JSON.stringify(getExtras()))}catch(e){}}
+  function loadExtras(){try{return JSON.parse(localStorage.getItem(EXTRA_KEY)||'{}')||{}}catch(e){return{}}}
+  function insertAfter(ref,node){if(ref&&ref.parentNode)ref.parentNode.insertBefore(node,ref.nextSibling)}
+  function injectFields(){
+    var config=$('configForm'); if(!config||$('lineName')) return;
+    var grid=config.querySelector('.config-grid'); if(!grid) return;
+    var block=document.createElement('div');
+    block.className='config-grid extra-config-grid full-width';
+    block.style.gridColumn='span 2';
+    block.style.marginTop='2px';
+    block.innerHTML='\
+      <div class="input-group">\
+        <label>Linha</label>\
+        <input type="text" id="lineName" placeholder="Ex: Linha 1">\
+      </div>\
+      <div class="input-group">\
+        <label>Turno</label>\
+        <input type="text" id="shiftName" placeholder="Ex: 1º turno">\
+      </div>\
+      <div class="input-group">\
+        <label>Produto</label>\
+        <input type="text" id="productName" placeholder="Ex: Produto / código">\
+      </div>\
+      <div class="input-group">\
+        <label>Horas/turno</label>\
+        <input type="number" id="shiftHours" value="8" min="0.1" step="0.1" inputmode="decimal">\
+      </div>';
+    grid.appendChild(block);
+    var saved=loadExtras();
+    ['lineName','shiftName','productName','shiftHours'].forEach(function(id){var el=$(id); if(el&&saved[id]!=null)el.value=saved[id]; if(el)el.addEventListener('input',saveExtras);});
+  }
+  function injectUndo(){
+    if($('btnUndoLap')) return;
+    var row=document.querySelector('.btn-row'); if(!row) return;
+    var btn=document.createElement('button');
+    btn.id='btnUndoLap';
+    btn.type='button';
+    btn.className='btn-undo-lap';
+    btn.textContent='↩ Desfazer';
+    btn.title='Remove a última amostra registrada';
+    row.appendChild(btn);
+  }
+  function injectImpactCards(){
+    if($('impactPanel')) return;
+    var results=document.querySelector('.results-grid'); if(!results) return;
+    var panel=document.createElement('div');
+    panel.id='impactPanel';
+    panel.className='impact-panel full-width';
+    panel.innerHTML='\
+      <div class="impact-title">Gap de capacidade e perda estimada</div>\
+      <div class="impact-grid">\
+        <div><span>Gap</span><strong id="valCapacityGap">--</strong></div>\
+        <div><span>Perda/h</span><strong id="valLossHour">--</strong></div>\
+        <div><span>Perda/turno</span><strong id="valLossShift">--</strong></div>\
+      </div>';
+    results.appendChild(panel);
+  }
+  function computeImpact(data){
+    data=data||{}; var st=data.stats||{}, form=data.form||{}, extras=getExtras();
+    var target=Number(form.target)||0, cap=Number(st.cap)||0, shiftHours=Number(extras.shiftHours)||SHIFT_HOURS;
+    var base=String(form.timeUnit||'3600')==='60'?60:1;
+    var gap=target>0?cap-target:0;
+    var gapPct=target>0?(gap/target*100):null;
+    var lossPerBase=Math.max(0,target-cap);
+    var lossPerHour=String(form.timeUnit||'3600')==='60'?lossPerBase*60:lossPerBase;
+    var lossPerShift=lossPerHour*shiftHours;
+    return {target:target,cap:cap,gap:gap,gapPct:gapPct,lossPerBase:lossPerBase,lossPerHour:lossPerHour,lossPerShift:lossPerShift,shiftHours:shiftHours,unitLabel:form.timeUnitLabel||'un/h'};
+  }
+  function stabilityClass(stab){
+    stab=Number(stab)||0;
+    if(stab>=85)return'Alta estabilidade';
+    if(stab>=70)return'Estabilidade moderada';
+    if(stab>=50)return'Alta variabilidade';
+    return'Processo instável';
+  }
+  function conclusion(data){
+    var st=(data&&data.stats)||{}, form=(data&&data.form)||{}, impact=computeImpact(data), stab=Number(st.stab)||0;
+    var parts=[];
+    parts.push(stabilityClass(stab)+'.');
+    if(Number(form.takt)>0&&Number(st.av)>0)parts.push(Number(st.av)>Number(form.takt)?'O ciclo médio está acima do Takt Time, indicando risco de não atendimento da demanda.':'O ciclo médio está abaixo do Takt Time, indicando capacidade de atendimento da demanda nas condições medidas.');
+    if(impact.target>0)parts.push(impact.gap<0?'Existe perda estimada de capacidade em relação à meta informada.':'A capacidade medida atende ou supera a meta informada.');
+    return parts.join(' ');
+  }
+  function enrichData(original){
+    var data=original&&typeof original==='object'?original:{};
+    var extras=getExtras();
+    data.extras=extras;
+    data.impact=computeImpact(data);
+    data.analysis={stabilityClass:stabilityClass(data.stats&&data.stats.stab),conclusion:conclusion(data)};
+    data.fileBaseName='crono-maquina_'+slug((data.form&&data.form.equipName)||'estudo')+'_'+stamp();
+    return data;
+  }
+  function patchDataGetter(){
+    var original=window.getCronoMachineData;
+    if(typeof original!=='function'||original.__operixEnhanced) return;
+    var wrapped=function(){return enrichData(original())};
+    wrapped.__operixEnhanced=true;
+    window.getCronoMachineData=wrapped;
+  }
+  function updateImpact(){
+    var data=typeof window.getCronoMachineData==='function'?window.getCronoMachineData():null;
+    if(!data||!data.impact)return;
+    var i=data.impact, gap=$('valCapacityGap'), lh=$('valLossHour'), ls=$('valLossShift');
+    if(gap)gap.textContent=i.target>0?(i.gap.toFixed(1)+' '+i.unitLabel+' ('+(i.gapPct||0).toFixed(1)+'%)'):'--';
+    if(lh)lh.textContent=i.target>0?i.lossPerHour.toFixed(1)+' un/h':'--';
+    if(ls)ls.textContent=i.target>0?i.lossPerShift.toFixed(0)+' un/turno':'--';
+  }
+  function undoLastLap(){
+    var rows=[].slice.call(document.querySelectorAll('#historyListScreen [data-action="deleteLap"]'));
+    var last=rows[rows.length-1];
+    if(last)last.click();
+  }
+  function lockConfig(running){
+    ['analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours'].forEach(function(id){var el=$(id); if(el)el.disabled=!!running;});
+  }
+  function installStyles(){
+    if($('general-improvements-style'))return;
+    var style=document.createElement('style');
+    style.id='general-improvements-style';
+    style.textContent='\
+      .extra-config-grid{border-top:1px solid var(--border);padding-top:8px;margin-top:4px}\
+      .btn-undo-lap{flex:1;padding:12px 2px;background:#6c757d;font-size:.82rem}\
+      .impact-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center}\
+      .impact-title{font-size:.65rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:7px}\
+      .impact-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}\
+      .impact-grid div{background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:6px 4px}\
+      .impact-grid span{display:block;font-size:.62rem;color:var(--text-muted);font-weight:700;text-transform:uppercase}\
+      .impact-grid strong{display:block;font-size:.86rem;color:var(--text-main);margin-top:2px}\
+    ';
+    document.head.appendChild(style);
+  }
+  function bind(){
+    document.addEventListener('click',function(e){if(e.target&&e.target.id==='btnUndoLap')undoLastLap();});
+    document.addEventListener('input',function(){setTimeout(updateImpact,60)});
+    document.addEventListener('click',function(){setTimeout(function(){patchDataGetter();updateImpact();},80)});
+    setInterval(function(){
+      patchDataGetter();
+      updateImpact();
+      var data=typeof window.getCronoMachineData==='function'?window.getCronoMachineData():null;
+      lockConfig(!!(data&&data.running));
+      var u=$('btnUndoLap'); if(u)u.disabled=!(data&&data.laps&&data.laps.length);
+    },500);
+  }
+  function init(){installStyles();injectFields();injectUndo();injectImpactCards();patchDataGetter();bind();updateImpact();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
