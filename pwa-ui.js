@@ -1,18 +1,9 @@
 'use strict';
 
-const CRONO_MAQUINA_VERSION = 'v2.4.9';
-const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_v249';
+const CRONO_MAQUINA_VERSION = window.APP_VERSION || 'v2.4.11';
+const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_'+CRONO_MAQUINA_VERSION.replace(/[^0-9]/g,'');
 
 function loadA4ExportEngine(){
-  const old=document.getElementById('export-fixes-script');
-  if(old) old.remove();
-
-  const script=document.createElement('script');
-  script.id='export-fixes-script';
-  script.src='export-fixes.js?v=249-a4-final-2';
-  script.async=false;
-  document.body.appendChild(script);
-
   const enhanced=document.createElement('script');
   enhanced.src='report-enhancements.js?v=249-enhanced-2';
   enhanced.async=false;
