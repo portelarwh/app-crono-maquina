@@ -6,6 +6,7 @@ const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_v249';
 function loadA4ExportEngine(){
   const old=document.getElementById('export-fixes-script');
   if(old) old.remove();
+
   const script=document.createElement('script');
   script.id='export-fixes-script';
   script.src='export-fixes.js?v=249-a4-final-2';
@@ -13,7 +14,7 @@ function loadA4ExportEngine(){
   document.body.appendChild(script);
 
   const enhanced=document.createElement('script');
-  enhanced.src='report-enhancements.js?v=249-enhanced-1';
+  enhanced.src='report-enhancements.js?v=249-enhanced-2';
   enhanced.async=false;
   document.body.appendChild(enhanced);
 }
