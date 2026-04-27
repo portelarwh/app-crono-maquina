@@ -117,5 +117,5 @@ function bind(){
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist()});
   window.addEventListener('beforeunload',()=>{stopTick();persist()});
 }
-function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;setTimeout(()=>{if(els.splashScreen)els.splashScreen.style.display='none'},1800);load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render()}init();
+function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render()}init();
 window.getCronoMachineData=getCronoMachineData;
