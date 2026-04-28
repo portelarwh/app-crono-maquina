@@ -1,6 +1,6 @@
 'use strict';
 
-const CRONO_MAQUINA_VERSION = window.APP_VERSION || 'v2.4.11';
+const CRONO_MAQUINA_VERSION = window.APP_VERSION || 'v3.0.0';
 const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_'+CRONO_MAQUINA_VERSION.replace(/[^0-9]/g,'');
 
 function injectSplashStyles(){
