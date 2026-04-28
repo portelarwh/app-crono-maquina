@@ -36,10 +36,16 @@
     return s.filter(function(a){return a.time>threshold}).sort(function(a,b){return b.time-a.time}).slice(0,3).map(function(a){return a.idx});
   }
   function executiveConclusion(){
-    var picks=criticalSampleIndexes();
-    var text='Conclusão: Alta variabilidade. O ciclo médio está acima do Takt Time, indicando risco de não atendimento da demanda. Embora esteja próximo do tempo padrão calculado, a instabilidade dos ciclos reduz a capacidade real da máquina. Recomenda-se investigar os picos das amostras críticas e classificar as causas das perdas para direcionar ações de melhoria.';
-    if(picks.length) text='Conclusão: Alta variabilidade. O ciclo médio está acima do Takt Time, indicando risco de não atendimento da demanda. Embora esteja próximo do tempo padrão calculado, a instabilidade dos ciclos reduz a capacidade real da máquina. Recomenda-se investigar os picos das amostras '+picks.join(', ')+' e classificar as causas das perdas para direcionar ações de melhoria.';
-    return text;
+    var d=data(),analysis=d.analysis||{},base=String(analysis.conclusion||'').trim(),picks=criticalSampleIndexes();
+    var action='Recomenda-se investigar os picos de ciclo acima do Takt Time e classificar as causas das perdas para direcionar ações de melhoria.';
+    if(!base){
+      var x=st(samples()),risk=x.takt>0&&x.mean>x.takt;
+      base='Conclusão: '+(risk?'O ciclo médio está acima do Takt Time, indicando risco de não atendimento da demanda.':'O ciclo médio está dentro do Takt Time nas condições medidas.');
+    }else if(!/^Conclus[aã]o:/i.test(base)){
+      base='Conclusão: '+base;
+    }
+    if(picks.length) return base+' Recomenda-se investigar os picos das amostras '+picks.join(', ')+' e classificar as causas das perdas para direcionar ações de melhoria.';
+    return base+' '+action;
   }
   function impactBlock(){
     var d=data(),i=d.impact||{},std=d.standardTime||{},an=d.analysis||{},ex=d.extras||{};
