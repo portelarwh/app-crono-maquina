@@ -28,8 +28,8 @@ function injectSplashStyles(){
 
 function setupSplash(){
   const splash=document.getElementById('splashScreen');
-  const appVersion=document.getElementById('appVersion');
-  if(appVersion) appVersion.textContent=CRONO_MAQUINA_VERSION;
+  const splashVersion=document.getElementById('splashVersion');
+  if(splashVersion) splashVersion.textContent=CRONO_MAQUINA_VERSION;
   if(!splash) return;
 
   let alreadySeen=false;
