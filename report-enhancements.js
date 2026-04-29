@@ -217,15 +217,24 @@
     pdf.addImage(canvas.toDataURL('image/png'),'PNG',x,y,imgW,imgH,undefined,'FAST');
   }
 
-  async function exportPNG(){
-    var r = btn('btnPNG','⏳ Gerando...');
+  async function buildPNGBlob(){
+    var sb = sandbox();
     try{
-      var sb = sandbox(), el = report(sb.doc,{includeSamples:true,footer:true});
+      var el = report(sb.doc,{includeSamples:true,footer:true});
       sb.doc.body.appendChild(el);
       await new Promise(function(ok){ setTimeout(ok,120); });
       var c = await cap(el);
-      sb.iframe.remove();
-      dl(await toBlob(c),fileName('.png'));
+      return await toBlob(c);
+    }finally{
+      if(sb && sb.iframe) sb.iframe.remove();
+    }
+  }
+
+  async function exportPNG(){
+    var r = btn('btnPNG','⏳ Gerando...');
+    try{
+      var blob = await buildPNGBlob();
+      dl(blob,fileName('.png'));
     }catch(e){ console.error(e); alert(e.message || 'Erro ao gerar PNG.'); }
     finally{ r(); }
   }
@@ -256,5 +265,7 @@
   }
 
   window.generatePNG = exportPNG;
+  window.buildCronoMachinePNGBlob = buildPNGBlob;
+  window.getCronoMachinePNGFileName = function(){ return fileName('.png'); };
   window.generateRealPDF = exportPDF;
 })();
