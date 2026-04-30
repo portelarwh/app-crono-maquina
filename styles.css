@@ -215,7 +215,7 @@ body.export-mode .chart-title{
         .btn-action-wa  { background-color: #25D366; }
         html[data-theme="light"] .btn-action-pdf { background-color: #e2e2e2; color: #121212; }
 
-        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, var(--bg-color) 30%); z-index: 50;}
+        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, var(--bg-color) 30%); z-index: 50; transform: translateZ(0); -webkit-transform: translateZ(0); }
         .btn-lap { width: 100%; padding: 20px; font-size: 1.8rem; background-color: var(--blue); border-radius: 10px; box-shadow: var(--shadow-btn); color: var(--text-on-accent); }
         .btn-lap:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
         .lap-meta-row {
@@ -582,9 +582,11 @@ body.export-mode .hist-label{
     .history-container { max-height: 220px; }
 
     .fixed-bottom {
-        left: 50%;
-        transform: translateX(-50%);
+        left: 0;
+        right: 0;
         max-width: 1180px;
+        margin-left: auto;
+        margin-right: auto;
         padding: 12px 24px;
     }
     .btn-lap { max-width: 420px; margin: 0 auto; display: block; }
