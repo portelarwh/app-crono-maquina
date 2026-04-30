@@ -70,7 +70,7 @@
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
-            padding-bottom: 110px;
+            padding-bottom: 170px;
             transition: background-color 0.2s ease, color 0.2s ease;
             overflow-x: hidden;
         }
@@ -225,17 +225,22 @@ body.export-mode .chart-title{
             display: flex; gap: 6px; margin-bottom: 6px;
         }
         .lap-obs-input {
-            flex: 1; box-sizing: border-box; padding: 8px 10px;
-            border-radius: 6px; border: 1px solid var(--border);
-            background: var(--input-bg); color: var(--text-main);
-            font-size: 0.9rem; display: none;
+            display: none !important;
         }
         .lap-obs-input::placeholder { color: var(--text-muted); }
         .lap-cause-select {
-            box-sizing: border-box; padding: 8px 6px;
-            border-radius: 6px; border: 1px solid var(--border);
-            background: var(--input-bg); color: var(--text-main);
-            font-size: 0.85rem; flex: 0 0 auto; min-width: 130px;
+            box-sizing: border-box;
+            width: 100%;
+            padding: 16px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            text-align-last: center;
+            -webkit-text-align-last: center;
         }
 
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
@@ -556,7 +561,7 @@ body.export-mode .hist-label{
 @media (min-width: 720px) {
     body {
         padding: 16px 24px;
-        padding-bottom: 120px;
+        padding-bottom: 175px;
         max-width: 1180px;
         margin: 0 auto;
     }
@@ -605,7 +610,7 @@ body.export-mode .hist-label{
    LAYOUT RESPONSIVO — Desktop (≥ 1024px)
    ========================================================= */
 @media (min-width: 1024px) {
-    body { padding: 20px 32px; padding-bottom: 140px; }
+    body { padding: 20px 32px; padding-bottom: 195px; }
     .live-timer { font-size: 4rem; }
     .chart-wrapper, .histogram-wrapper { height: 220px !important; }
     .result-value { font-size: 1.5rem; }
