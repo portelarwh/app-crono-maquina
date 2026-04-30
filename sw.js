@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v3.0.2';
+const CACHE_NAME = 'crono-maquina-v3.0.3';
 const ASSETS = [
   './',
   './index.html',
