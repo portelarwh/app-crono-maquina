@@ -1,8 +1,8 @@
 'use strict';
 
-window.APP_VERSION = 'v3.0.1';
+window.APP_VERSION = 'v3.0.2';
 
-const CRONO_MAQUINA_VERSION = window.APP_VERSION || 'v3.0.1';
+const CRONO_MAQUINA_VERSION = window.APP_VERSION || 'v3.0.2';
 const CRONO_SPLASH_KEY = 'crono_maquina_splash_seen_'+CRONO_MAQUINA_VERSION.replace(/[^0-9]/g,'');
 
 let cronoRefreshing = false;

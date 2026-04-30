@@ -59,6 +59,8 @@
 
         * { box-sizing: border-box; }
 
+        html { overflow-x: hidden; }
+
         body {
             font-family: var(--font-base);
             padding: 8px;
@@ -70,6 +72,7 @@
             -webkit-user-select: none;
             padding-bottom: 110px;
             transition: background-color 0.2s ease, color 0.2s ease;
+            overflow-x: hidden;
         }
 
         #print-wrapper { display: flex; flex-direction: column; gap: 0; width: 100%; }
