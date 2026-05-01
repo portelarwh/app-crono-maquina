@@ -1,6 +1,6 @@
 {
-  "name": "Operix Cronoanálise Máquina",
-  "short_name": "Crono Máquina",
+  "name": "Cronoanálise Máquina",
+  "short_name": "Máquina",
   "description": "Cronoanálise de máquina para estudo de tempos, capacidade e estabilidade operacional.",
   "start_url": "./",
   "scope": "./",

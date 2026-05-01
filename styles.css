@@ -59,6 +59,8 @@
 
         * { box-sizing: border-box; }
 
+        html { overflow-x: hidden; }
+
         body {
             font-family: var(--font-base);
             padding: 8px;
@@ -68,8 +70,9 @@
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
-            padding-bottom: 110px;
+            padding-bottom: 170px;
             transition: background-color 0.2s ease, color 0.2s ease;
+            overflow-x: hidden;
         }
 
         #print-wrapper { display: flex; flex-direction: column; gap: 0; width: 100%; }
@@ -215,16 +218,30 @@ body.export-mode .chart-title{
         .btn-action-wa  { background-color: #25D366; }
         html[data-theme="light"] .btn-action-pdf { background-color: #e2e2e2; color: #121212; }
 
-        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, var(--bg-color) 30%); z-index: 50;}
+        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, var(--bg-color) 30%); z-index: 50; transform: translateZ(0); -webkit-transform: translateZ(0); }
         .btn-lap { width: 100%; padding: 20px; font-size: 1.8rem; background-color: var(--blue); border-radius: 10px; box-shadow: var(--shadow-btn); color: var(--text-on-accent); }
         .btn-lap:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+        .lap-meta-row {
+            display: flex; gap: 6px; margin-bottom: 6px;
+        }
         .lap-obs-input {
-            width: 100%; box-sizing: border-box; padding: 8px 10px;
-            border-radius: 6px; border: 1px solid var(--border);
-            background: var(--input-bg); color: var(--text-main);
-            font-size: 0.9rem; margin-bottom: 6px; display: none;
+            display: none !important;
         }
         .lap-obs-input::placeholder { color: var(--text-muted); }
+        .lap-cause-select {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 16px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            text-align-last: center;
+            -webkit-text-align-last: center;
+        }
 
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
         .modal-content { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-card);}
@@ -256,22 +273,33 @@ body.export-mode .chart-title{
         }
         .modal-title-danger { color: var(--red) !important; }
 
-        .branding { text-align: center; margin-top: 20px; margin-bottom: 30px; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px;}
-        .linkedin-link { color: #0a66c2; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; font-weight: bold;}
-        .linkedin-link:hover { text-decoration: underline; }
-        .linkedin-link svg { width: 14px; height: 14px; fill: currentColor; transform: translateY(-1px);}
-        html[data-theme="light"] .linkedin-link { color: #0a66c2; }
-        .whatsapp-footer-link {
-            color: #25D366; text-decoration: none; display: inline-flex;
-            align-items: center; gap: 4px; font-weight: bold; vertical-align: middle;
+        .app-footer {
+            padding: 16px 10px;
+            text-align: center;
+            font-size: 13px;
+            color: #9ca3af;
         }
-        .whatsapp-footer-link:hover { text-decoration: underline; }
-        .whatsapp-footer-link svg { width: 14px; height: 14px; fill: currentColor; transform: translateY(-1px); }
-
-        
-
-    /* Branding do rodapé — footer */
-    .branding a { color: inherit; }
+        .footer-content {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .footer-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.2s ease;
+        }
+        .footer-link:hover { opacity: 0.85; }
+        .footer-link.linkedin { color: #0A66C2; }
+        .footer-link.whatsapp { color: #25D366; }
+        .footer-separator { margin: 0 6px; opacity: 0.6; }
+        .footer-icon { width: 16px; height: 16px; display: inline-flex; }
+        .footer-icon svg { width: 100%; height: 100%; fill: currentColor; }
 /* ELEMENTOS EXCLUSIVOS DO EXPORT */
         .print-header { display: none; }
         .print-summary { display: none; }
@@ -309,7 +337,7 @@ body.export-mode .chart-title{
         .export-mode .btn-delete, 
         .export-mode #actionButtons,
         .export-mode #lapQtyModeGroup,
-        .export-mode .branding { 
+        .export-mode .app-footer { 
             display: none !important; 
         }
 
@@ -533,7 +561,7 @@ body.export-mode .hist-label{
 @media (min-width: 720px) {
     body {
         padding: 16px 24px;
-        padding-bottom: 120px;
+        padding-bottom: 175px;
         max-width: 1180px;
         margin: 0 auto;
     }
@@ -562,9 +590,11 @@ body.export-mode .hist-label{
     .history-container { max-height: 220px; }
 
     .fixed-bottom {
-        left: 50%;
-        transform: translateX(-50%);
+        left: 0;
+        right: 0;
         max-width: 1180px;
+        margin-left: auto;
+        margin-right: auto;
         padding: 12px 24px;
     }
     .btn-lap { max-width: 420px; margin: 0 auto; display: block; }
@@ -580,7 +610,7 @@ body.export-mode .hist-label{
    LAYOUT RESPONSIVO — Desktop (≥ 1024px)
    ========================================================= */
 @media (min-width: 1024px) {
-    body { padding: 20px 32px; padding-bottom: 140px; }
+    body { padding: 20px 32px; padding-bottom: 195px; }
     .live-timer { font-size: 4rem; }
     .chart-wrapper, .histogram-wrapper { height: 220px !important; }
     .result-value { font-size: 1.5rem; }

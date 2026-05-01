@@ -1,17 +1,17 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v2.4.10';
+const CACHE_NAME = 'crono-maquina-v3.0.3';
 const ASSETS = [
   './',
   './index.html',
   './app.js',
   './theme-init.js',
   './pwa-ui.js',
-  './export-fixes.js',
   './report-enhancements.js',
+  './whatsapp-share-fix.js',
+  './general-improvements.js',
   './styles.css',
   './manifest.json',
-  './assets/Crono-maquina.png',
   './assets/Icon-192.png',
   './assets/Icon-512.png'
 ];
@@ -26,7 +26,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
 });
 

@@ -17,7 +17,6 @@
     var el = $(id);
     return clean(el ? (el.value || el.textContent || el.innerText) : '', fallback || '—');
   }
-
   function downloadBlob(blob, name){
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -30,41 +29,40 @@
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   }
 
-  function getConclusion(stats, impact){
-    var executive = fieldValue('printExecutiveSummary', '');
-    if(executive && executive !== '—') return executive;
+function getConclusion(stats, impact){
+  var executive = fieldValue('printExecutiveSummary', '');
+  if(executive && executive !== '—') return executive;
 
-    var stability = Number(stats && stats.stab);
-    var gapPct = Number(impact && impact.gapPct);
+  var stability = Number(stats && stats.stab);
+  var gapPct = Number(impact && impact.gapPct);
 
-    if(Number.isFinite(gapPct) && gapPct < 0){
-      return 'A capacidade medida ficou abaixo da meta definida. A prioridade deve ser entender os ciclos acima do padrão e as perdas de ritmo.';
-    }
-    if(Number.isFinite(stability) && stability < 85){
-      return 'A operação apresentou variação relevante entre os ciclos, indicando possível instabilidade no método, no processo ou nas condições de operação.';
-    }
-    if(Number.isFinite(stability) && stability >= 95){
-      return 'A operação apresentou boa estabilidade na amostragem atual, com variação controlada entre os ciclos medidos.';
-    }
-    return 'A cronoanálise consolidou os principais indicadores de ciclo, capacidade e estabilidade do processo.';
+  if(Number.isFinite(gapPct) && gapPct < 0){
+    return 'A capacidade medida ficou abaixo da meta definida. A prioridade deve ser entender os ciclos acima do padrão e as perdas de ritmo.';
   }
-
-  function getAction(stats, impact){
-    var stability = Number(stats && stats.stab);
-    var gapPct = Number(impact && impact.gapPct);
-
-    if(Number.isFinite(gapPct) && gapPct < 0){
-      return 'Priorizar a análise dos ciclos mais longos, validar o método operacional e atuar nas causas que reduzem a capacidade frente à meta.';
-    }
-    if(Number.isFinite(stability) && stability < 85){
-      return 'Investigar causas de variação, padronizar o método e repetir a medição após estabilizar o processo.';
-    }
-    if(Number.isFinite(stability) && stability >= 95){
-      return 'Manter o padrão atual e usar os dados como referência para capacidade, tempo padrão e acompanhamento operacional.';
-    }
-    return 'Confirmar meta e takt, revisar os ciclos de maior duração e ampliar a amostragem para validar a estabilidade.';
+  if(Number.isFinite(stability) && stability < 85){
+    return 'A operação apresentou variação relevante entre os ciclos, indicando possível instabilidade no método, no processo ou nas condições de operação.';
   }
+  if(Number.isFinite(stability) && stability >= 95){
+    return 'A operação apresentou boa estabilidade na amostragem atual, com variação controlada entre os ciclos medidos.';
+  }
+  return 'A cronoanálise consolidou os principais indicadores de ciclo, capacidade e estabilidade do processo.';
+}
 
+function getAction(stats, impact){
+  var stability = Number(stats && stats.stab);
+  var gapPct = Number(impact && impact.gapPct);
+
+  if(Number.isFinite(gapPct) && gapPct < 0){
+    return 'Priorizar a análise dos ciclos mais longos, validar o método operacional e atuar nas causas que reduzem a capacidade frente à meta.';
+  }
+  if(Number.isFinite(stability) && stability < 85){
+    return 'Investigar causas de variação, padronizar o método e repetir a medição após estabilizar o processo.';
+  }
+  if(Number.isFinite(stability) && stability >= 95){
+    return 'Manter o padrão atual e usar os dados como referência para capacidade, tempo padrão e acompanhamento operacional.';
+  }
+  return 'Confirmar meta e takt, revisar os ciclos de maior duração e ampliar a amostragem para validar a estabilidade.';
+}
   function buildSummaryText(){
     var data = typeof window.getCronoMachineData === 'function' ? window.getCronoMachineData() : {};
     var form = data.form || {};
