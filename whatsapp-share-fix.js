@@ -117,6 +117,7 @@ function getAction(stats, impact){
 
   + '━━━━━━━━━━━━━━━━━━━━\n'
   + '⚙️ Operix • Cronoanálise Máquina';
+}
 
   async function shareOfficialPNG(){
     var btn = $('btnWhatsApp');
