@@ -20,6 +20,18 @@
     } catch (e) {}
     return 'dark';
   }
+
+  function scheduleSplashFallback() {
+    var hide = function () {
+      var splash = document.getElementById('splashScreen');
+      if (!splash) return;
+      splash.classList.add('sp-out');
+      setTimeout(function () { splash.style.display = 'none'; }, 700);
+    };
+    setTimeout(hide, 4500);
+    window.addEventListener('load', function () { setTimeout(hide, 1200); }, { once: true });
+  }
+
   function toggleTheme() {
     var current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
     var next = current === 'light' ? 'dark' : 'light';
@@ -32,5 +44,6 @@
     var btn = document.getElementById('op-theme-btn');
     if (btn) btn.addEventListener('click', toggleTheme);
     renderToggleIcon();
+    scheduleSplashFallback();
   });
 })();
