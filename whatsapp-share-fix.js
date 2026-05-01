@@ -78,36 +78,45 @@ function getAction(stats, impact){
     var takt = fieldValue('takt', 'Não definido');
     var target = impact.target ? (num(impact.target, 1) + ' ' + unit) : fieldValue('target', 'Não definido');
 
-    return 'Resumo Executivo - Cronoanálise Máquina\n\n'
-      + 'Equipamento/Operação: ' + equip + '\n'
-      + 'Analista: ' + analyst + '\n'
-      + 'Linha/Turno/Produto: ' + clean(extras.lineName, '-') + ' / ' + clean(extras.shiftName, '-') + ' / ' + clean(extras.productName, '-') + '\n'
-      + 'Data: ' + new Date().toLocaleDateString('pt-BR') + '\n'
-      + 'Tipo de análise: ' + mode + '\n'
-      + 'Amostras: ' + samples + '\n\n'
-      + 'Indicadores principais\n'
-      + '• Ciclo médio: ' + num(stats.av, 2) + 's\n'
-      + '• Último ciclo: ' + fieldValue('valLastCycle', '—') + '\n'
-      + '• Menor ciclo: ' + num(stats.min, 2) + 's\n'
-      + '• Maior ciclo: ' + num(stats.max, 2) + 's\n'
-      + '• Desvio padrão: ' + num(stats.std, 2) + 's\n'
-      + '• Estabilidade: ' + num(stats.stab, 1) + '%\n\n'
-      + 'Capacidade\n'
-      + '• Capacidade medida: ' + num(stats.cap, 1) + ' ' + unit + '\n'
-      + '• Meta: ' + target + '\n'
-      + '• Gap vs meta: ' + (impact.target ? (num(impact.gap, 1) + ' (' + num(impact.gapPct, 1) + '%) ' + unit) : 'Não definido') + '\n'
-      + '• Perda estimada/hora: ' + (impact.target ? (num(impact.lossPerHour, 0) + ' un/h') : 'Não definido') + '\n'
-      + '• Perda estimada/turno: ' + (impact.target ? (num(impact.lossPerShift, 0) + ' un') : 'Não definido') + '\n\n'
-      + 'Tempo padrão e referência\n'
-      + '• Tempo padrão calculado: ' + (standardTime.standardSec ? (num(standardTime.standardSec, 2) + 's') : 'Não calculado') + '\n'
-      + '• Takt Time: ' + (takt === 'Não definido' ? takt : takt + 's') + '\n'
-      + '• Peças por ciclo: ' + fieldValue('units', '1') + '\n\n'
-      + 'Conclusão\n'
-      + getConclusion(stats, impact) + '\n\n'
-      + 'Ação recomendada\n'
-      + getAction(stats, impact) + '\n\n'
-      + 'Gerado pelo Operix Cronoanálise Máquina';
-  }
+   return '📊 *Resumo Executivo da Cronoanálise Máquina*\n'
+  + '━━━━━━━━━━━━━━━━━━━━\n\n'
+
+  + '🏭 *Operação*\n'
+  + '• Equipamento: ' + equip + '\n'
+  + '• Analista: ' + analyst + '\n'
+  + '• Linha/Turno/Produto: ' + clean(extras.lineName, '-') + ' / ' + clean(extras.shiftName, '-') + ' / ' + clean(extras.productName, '-') + '\n'
+  + '• Data: ' + new Date().toLocaleDateString('pt-BR') + '\n'
+  + '• Tipo: ' + mode + '\n'
+  + '• Amostras: ' + samples + '\n\n'
+
+  + '⏱️ *Indicadores de Ciclo*\n'
+  + '• Médio: ' + num(stats.av, 2) + 's\n'
+  + '• Último: ' + fieldValue('valLastCycle', '—') + '\n'
+  + '• Mínimo: ' + num(stats.min, 2) + 's\n'
+  + '• Máximo: ' + num(stats.max, 2) + 's\n'
+  + '• Desvio: ' + num(stats.std, 2) + 's\n'
+  + '• Estabilidade: ' + num(stats.stab, 1) + '%\n\n'
+
+  + '🏁 *Capacidade*\n'
+  + '• Produção: ' + num(stats.cap, 1) + ' ' + unit + '\n'
+  + '• Meta: ' + target + '\n'
+  + '• Gap: ' + (impact.target ? (num(impact.gap, 1) + ' (' + num(impact.gapPct, 1) + '%)') : '—') + '\n'
+  + '• Perda/h: ' + (impact.target ? (num(impact.lossPerHour, 0) + ' un/h') : '—') + '\n'
+  + '• Perda/turno: ' + (impact.target ? (num(impact.lossPerShift, 0) + ' un') : '—') + '\n\n'
+
+  + '📐 *Referência de Processo*\n'
+  + '• Tempo padrão: ' + (standardTime.standardSec ? (num(standardTime.standardSec, 2) + 's') : '—') + '\n'
+  + '• Takt Time: ' + (takt === 'Não definido' || takt === '—' ? '—' : takt + 's') + '\n'
+  + '• Peças/ciclo: ' + fieldValue('units', '1') + '\n\n'
+
+  + '📌 *Conclusão*\n'
+  + getConclusion(stats, impact) + '\n\n'
+
+  + '🚀 *Ação recomendada*\n'
+  + getAction(stats, impact) + '\n\n'
+
+  + '━━━━━━━━━━━━━━━━━━━━\n'
+  + '⚙️ Operix • Cronoanálise Máquina';
 
   async function shareOfficialPNG(){
     var btn = $('btnWhatsApp');
