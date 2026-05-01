@@ -38,7 +38,7 @@ function registerServiceWorker(){
 
     toast('Buscando atualização...');
 
-    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'})
+    navigator.serviceWorker.register('sw.js?v=3.0.6',{updateViaCache:'none'})
       .then(reg=>{
         if(reg.installing) watch(reg.installing);
         reg.addEventListener('updatefound',()=>watch(reg.installing));
