@@ -169,7 +169,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v3.0.7', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v3.0.8', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras
@@ -187,8 +187,8 @@
     return { baseMean, tolerancePct: data.extras.tolerancePct, standardSec, used: cleanValues.length, total: values.length, removed: Math.max(0, values.length - cleanValues.length), limits: { lsc, lic } };
   }
   function calculatePareto(data){
-    const takt = data.form.takt || data.stats.av || 0, grouped = {};
-    data.laps.forEach(lap => { const cause = lap.cause || 'Normal', lossSec = Math.max(0, lap.durationSec - takt); if(!grouped[cause]) grouped[cause] = { cause, lossSec: 0, count: 0 }; grouped[cause].lossSec += lossSec; grouped[cause].count += 1; });
+    const takt = parseNumber(data.form.takt, 0), grouped = {};
+    data.laps.forEach(lap => { const cause = lap.cause || 'Normal', lossSec = cause === 'Normal' ? Math.max(0, lap.durationSec - takt) : Math.max(0, lap.durationSec); if(!grouped[cause]) grouped[cause] = { cause, lossSec: 0, count: 0 }; grouped[cause].lossSec += lossSec; grouped[cause].count += 1; });
     const rows = Object.values(grouped).sort((a, b) => b.lossSec - a.lossSec), totalLossSec = rows.reduce((sum, row) => sum + row.lossSec, 0); let cumulative = 0;
     return rows.map(row => { const percent = totalLossSec > 0 ? row.lossSec / totalLossSec * 100 : 0; cumulative += percent; return { cause: row.cause, lossSec: row.lossSec, count: row.count, percent, cumulativePct: cumulative }; });
   }
