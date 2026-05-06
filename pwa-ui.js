@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'v3.0.8';
+var APP_VERSION = 'v4.0.0';
 window.APP_VERSION = APP_VERSION;
 
 let refreshing = false;
@@ -38,7 +38,7 @@ function registerServiceWorker(){
 
     toast('Buscando atualização...');
 
-    navigator.serviceWorker.register('sw.js?v=3.0.8',{updateViaCache:'none'})
+    navigator.serviceWorker.register('sw.js?v=4.0.0',{updateViaCache:'none'})
       .then(reg=>{
         if(reg.installing) watch(reg.installing);
         reg.addEventListener('updatefound',()=>watch(reg.installing));

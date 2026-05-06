@@ -245,9 +245,36 @@ body.export-mode .chart-title{
             box-shadow: var(--shadow-btn);
             cursor: pointer;
             line-height: 1.15;
+            transition: background-color .12s ease, border-color .12s ease, color .12s ease;
         }
         .btn-cause:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
         .btn-cause:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-cause.active {
+            background: #d9342b;
+            color: #fff;
+            border-color: #b21f17;
+            box-shadow: 0 0 0 2px rgba(217,52,43,.35);
+        }
+        .downtime-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            border-radius: 10px;
+            background: rgba(217,52,43,.12);
+            border: 1px solid rgba(217,52,43,.45);
+            color: #ff8a82;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: .02em;
+        }
+        html[data-theme="light"] .downtime-indicator { color: #b21f17; background: rgba(217,52,43,.08); }
+        .history-row.history-downtime { background: rgba(217,52,43,.08); }
+        .history-row.history-downtime .history-id { color: #d9342b; font-weight: 700; }
+        html[data-theme="light"] .history-row.history-downtime .history-id { color: #b21f17; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
         .modal-content { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-card);}
