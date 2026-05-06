@@ -1,11 +1,11 @@
 'use strict';
 (()=>{
-const APP_VERSION='v4.0.1';
+const APP_VERSION='v4.0.2';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars'};
-const els={equipName:$('equipName'),analystName:$('analystName'),analysisMode:$('analysisMode'),units:$('units'),defaultLapQty:$('defaultLapQty'),defaultLapQtyGroup:$('defaultLapQtyGroup'),timeUnit:$('timeUnit'),takt:$('takt'),target:$('target'),lblTargetText:$('lblTargetText'),lapQtyMode:$('lapQtyMode'),lapQtyModeGroup:$('lapQtyModeGroup'),btnStart:$('btnStart'),btnStop:$('btnStop'),btnReset:$('btnReset'),btnLap:$('btnLap'),btnExport:$('btnExport'),btnPNG:$('btnPNG'),btnPDF:$('btnPDF'),btnWhatsApp:$('btnWhatsApp'),liveTimer:$('liveTimer'),totalTimer:$('totalTimer'),lapObs:$('lapObs'),lapCauseGrid:$('lapCauseGrid'),downtimeIndicator:$('downtimeIndicator'),valSamples:$('valSamples'),valHourlyCap:$('valHourlyCap'),valLastCycle:$('valLastCycle'),valAvgCycle:$('valAvgCycle'),valMinCycle:$('valMinCycle'),valMaxCycle:$('valMaxCycle'),valStdDev:$('valStdDev'),valEstabilidade:$('valEstabilidade'),valEfficiency:$('valEfficiency'),lblCapTitle:$('lblCapTitle'),lblLastCycleTitle:$('lblLastCycleTitle'),lblAvgCycleTitle:$('lblAvgCycleTitle'),historyListScreen:$('historyListScreen'),historyListPrint:$('historyListPrint'),chartContainer:$('chartContainer'),histogramContainer:$('histogramContainer'),qtyModal:$('qtyModal'),qtyModalInput:$('qtyModalInput'),confirmModal:$('confirmModal'),confirmModalTitle:$('confirmModalTitle'),confirmModalText:$('confirmModalText'),infoModal:$('infoModal'),modalTitle:$('modalTitle'),modalText:$('modalText'),printDate:$('printDate'),printAnalyst:$('printAnalyst'),printEquipName:$('printEquipName'),printAnalysisMode:$('printAnalysisMode'),printUnits:$('printUnits'),printTimeUnit:$('printTimeUnit'),printTakt:$('printTakt'),printTarget:$('printTarget'),printExecutiveSummary:$('printExecutiveSummary'),appVersion:$('appVersion'),splashScreen:$('splashScreen')};
+const els={equipName:$('equipName'),analystName:$('analystName'),analysisMode:$('analysisMode'),units:$('units'),defaultLapQty:$('defaultLapQty'),defaultLapQtyGroup:$('defaultLapQtyGroup'),timeUnit:$('timeUnit'),takt:$('takt'),target:$('target'),lblTargetText:$('lblTargetText'),lapQtyMode:$('lapQtyMode'),lapQtyModeGroup:$('lapQtyModeGroup'),btnStart:$('btnStart'),btnStop:$('btnStop'),btnReset:$('btnReset'),btnLap:$('btnLap'),btnExport:$('btnExport'),btnPNG:$('btnPNG'),btnPDF:$('btnPDF'),btnWhatsApp:$('btnWhatsApp'),liveTimer:$('liveTimer'),totalTimer:$('totalTimer'),lapObs:$('lapObs'),lapCauseGrid:$('lapCauseGrid'),downtimeIndicator:$('downtimeIndicator'),valSamples:$('valSamples'),valHourlyCap:$('valHourlyCap'),valLastCycle:$('valLastCycle'),valAvgCycle:$('valAvgCycle'),valMinCycle:$('valMinCycle'),valMaxCycle:$('valMaxCycle'),valStdDev:$('valStdDev'),valEstabilidade:$('valEstabilidade'),valEfficiency:$('valEfficiency'),lblCapTitle:$('lblCapTitle'),lblLastCycleTitle:$('lblLastCycleTitle'),lblAvgCycleTitle:$('lblAvgCycleTitle'),historyListScreen:$('historyListScreen'),historyListPrint:$('historyListPrint'),chartContainer:$('chartContainer'),histogramContainer:$('histogramContainer'),eventTimeline:$('eventTimeline'),qtyModal:$('qtyModal'),qtyModalInput:$('qtyModalInput'),confirmModal:$('confirmModal'),confirmModalTitle:$('confirmModalTitle'),confirmModalText:$('confirmModalText'),infoModal:$('infoModal'),modalTitle:$('modalTitle'),modalText:$('modalText'),printDate:$('printDate'),printAnalyst:$('printAnalyst'),printEquipName:$('printEquipName'),printAnalysisMode:$('printAnalysisMode'),printUnits:$('printUnits'),printTimeUnit:$('printTimeUnit'),printTakt:$('printTakt'),printTarget:$('printTarget'),printExecutiveSummary:$('printExecutiveSummary'),appVersion:$('appVersion'),splashScreen:$('splashScreen')};
 
 
 function dismissSplash(){
@@ -26,6 +26,25 @@ function lapMs(now=Date.now()){if(!state.currentCycle)return 0;let v=state.curre
 function activeDowntimeDurationMs(now=Date.now()){if(!state.activeDowntime)return 0;let v=state.activeDowntime.accumMs||0;if(state.running&&state.activeDowntime.startMs)v+=now-state.activeDowntime.startMs;return v}
 function cycles(){return state.events.filter(e=>e.type==='cycle')}
 function downtimesOf(){return state.events.filter(e=>e.type==='downtime')}
+function buildTimeline(){
+  const timeline=[];
+  const cyc=cycles().slice().sort((a,b)=>(a.startedAt||0)-(b.startedAt||0));
+  const dts=downtimesOf();
+  for(const c of cyc){
+    if(!c.startedAt||!c.endedAt)continue;
+    const inner=dts.filter(d=>d.startedAt&&d.endedAt&&d.startedAt>=c.startedAt&&d.endedAt<=c.endedAt).sort((a,b)=>(a.startedAt||0)-(b.startedAt||0));
+    let cursor=c.startedAt;
+    for(const d of inner){
+      const prodDur=(d.startedAt||0)-cursor;
+      if(prodDur>=300)timeline.push({type:'productive',cause:'Normal',durationMs:prodDur,cycleId:c.id});
+      timeline.push({type:'downtime',cause:d.cause,durationMs:d.durationMs,cycleId:c.id,id:d.id});
+      cursor=d.endedAt||cursor;
+    }
+    const finalDur=c.endedAt-cursor;
+    if(finalDur>=300)timeline.push({type:'productive',cause:'Normal',durationMs:finalDur,cycleId:c.id});
+  }
+  return timeline;
+}
 function qty(c){if(Number.isFinite(Number(c.qty)))return Number(c.qty);const d=n(els.defaultLapQty,NaN);if(Number.isFinite(d)&&d>0)return d;return n(els.units,1)||1}
 function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0}
 function sd(a){if(a.length<2)return 0;const m=avg(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length)}
@@ -181,7 +200,24 @@ function recordDowntime(t){
 }
 function updateLapQty(eventId,value){const e=state.events.find(x=>x.id===eventId);if(!e||e.type!=='cycle')return;const v=pn(value);e.qty=Number.isFinite(v)&&v>=0?v:null;render();persist()}
 function deleteEvent(eventId){state.events=state.events.filter(e=>e.id!==eventId);render();persist()}
-function render(){renderTimersOnly();renderMode();renderStats();renderHistory();renderCharts();renderPrint();renderControls()}
+function render(){renderTimersOnly();renderMode();renderStats();renderHistory();renderCharts();renderEventTimeline();renderPrint();renderControls()}
+function renderEventTimeline(){
+  const cont=els.eventTimeline;
+  if(!cont)return;
+  const timeline=buildTimeline();
+  if(!timeline.length){cont.innerHTML='';return}
+  const max=Math.max(...timeline.map(t=>(t.durationMs||0)/1000),1);
+  const prevW=cont.scrollWidth,prevL=cont.scrollLeft;
+  const wasAtEnd=prevW<=cont.clientWidth+1||(prevW-prevL-cont.clientWidth)<30;
+  cont.innerHTML=timeline.map((seg,i)=>{
+    const sec=(seg.durationMs||0)/1000;
+    const isProd=seg.type==='productive';
+    const isFirstOfCycle=i>0&&timeline[i-1].cycleId!==seg.cycleId;
+    const tip=`${isProd?'Normal':seg.cause}: ${sec.toFixed(2)}s`;
+    return `<div class="evt-bar ${isProd?'evt-bar-prod':'evt-bar-dt'}${isFirstOfCycle?' evt-cycle-sep':''}" style="height:${Math.max(4,sec/max*100)}%" title="${escAttr(tip)}">${!isProd?'<span class="evt-bar-icon">⏸</span>':''}</div>`;
+  }).join('');
+  requestAnimationFrame(()=>{if(wasAtEnd)cont.scrollLeft=cont.scrollWidth;else cont.scrollLeft=prevL});
+}
 function renderMode(){const interval=els.analysisMode.value==='interval';els.defaultLapQtyGroup.style.display=interval?'':'none';els.lapQtyModeGroup.style.display=interval?'':'none';els.lapObs.style.display=state.running?'block':'none';if(els.lapCauseGrid)els.lapCauseGrid.style.display=state.running?'grid':'none';if(els.downtimeIndicator)els.downtimeIndicator.style.display=state.mode==='downtime_active'?'flex':'none';els.lblLastCycleTitle.textContent=interval?'ÚLTIMO INTERVALO':'ÚLTIMO CICLO';els.lblAvgCycleTitle.textContent=interval?'MÉDIA INTERVALO':'CICLO MÉDIO';const ph=els.timeUnit.value==='3600';els.lblTargetText.textContent=ph?'Meta (un/h)':'Meta (un/min)';els.lblCapTitle.textContent=ph?'CAPACIDADE (un/h)':'CAPACIDADE (un/min)'}
 function renderStats(){const s=stats(),cyc=cycles(),last=cyc.at(-1);els.valSamples.textContent=cyc.length;els.valHourlyCap.textContent=s.cap?s.cap.toFixed(1):'0';els.valLastCycle.textContent=last?fmtS((last.productiveMs||last.durationMs||0)/1000):'0.00s';els.valAvgCycle.textContent=fmtS(s.av);els.valMinCycle.textContent=fmtS(s.min);els.valMaxCycle.textContent=fmtS(s.max);els.valStdDev.textContent=fmtS(s.dev);els.valEstabilidade.textContent=`${s.stab.toFixed(1)}%`;els.valEfficiency.textContent=s.eff===null?'--':`${s.eff.toFixed(1)}%`}
 function renderControls(){
@@ -246,7 +282,7 @@ function changeTimeUnit(){const tar=n(els.target,0);const cur=els.timeUnit.value
 function changeAnalysisMode(){render();persist()}
 function closeQtyModal(ok){if(state.pendingCycle&&ok){const q=n(els.qtyModalInput,0);const pc=state.pendingCycle;state.pendingCycle=null;els.qtyModal.style.display='none';finalizeCycle({...pc,q});return}state.pendingCycle=null;els.qtyModal.style.display='none'}
 function openConfirm(title,text,cb){confirmCb=cb;els.confirmModalTitle.textContent=title;els.confirmModalText.textContent=text;els.confirmModal.style.display='flex'}function closeConfirmModal(ok){els.confirmModal.style.display='none';if(ok&&confirmCb)confirmCb();confirmCb=null}
-const infoTexts={modo_analise:['Tipo de análise','Tempo por ciclo mede cada ciclo. Produção por intervalo mede uma janela de tempo e permite informar quantidade produzida.'],pecas_ciclo:['Peças por ciclo','Quantidade produzida a cada ciclo registrado.'],qtd_lap:['Qtd. padrão por lap','Quantidade usada automaticamente em cada intervalo quando não houver edição manual.'],takt:['Takt Time','Tempo disponível por unidade para atender a demanda.'],meta:['Meta','Capacidade esperada para comparação com a capacidade medida.'],amostras:['Amostras','Número de ciclos ou intervalos registrados.'],capacidade:['Capacidade','Produção estimada com base nas amostras coletadas.'],ultimo:['Último ciclo','Duração da última amostra registrada.'],medio:['Ciclo médio','Média das amostras registradas.'],minimo:['Mínimo','Menor tempo registrado.'],maximo:['Máximo','Maior tempo registrado.'],desvio:['Desvio padrão','Variação entre os tempos coletados.'],estabilidade:['Índice de estabilidade','Quanto menor a variação, maior a estabilidade.'],eficiencia:['Eficiência','Capacidade medida comparada com a meta informada.'],curva_controle:['Curva de controle','Mostra a sequência dos ciclos e a comparação com média e takt.'],histograma:['Histograma','Mostra a distribuição dos tempos coletados.']};
+const infoTexts={modo_analise:['Tipo de análise','Tempo por ciclo mede cada ciclo. Produção por intervalo mede uma janela de tempo e permite informar quantidade produzida.'],pecas_ciclo:['Peças por ciclo','Quantidade produzida a cada ciclo registrado.'],qtd_lap:['Qtd. padrão por lap','Quantidade usada automaticamente em cada intervalo quando não houver edição manual.'],takt:['Takt Time','Tempo disponível por unidade para atender a demanda.'],meta:['Meta','Capacidade esperada para comparação com a capacidade medida.'],amostras:['Amostras','Número de ciclos ou intervalos registrados.'],capacidade:['Capacidade','Produção estimada com base nas amostras coletadas.'],ultimo:['Último ciclo','Duração da última amostra registrada.'],medio:['Ciclo médio','Média das amostras registradas.'],minimo:['Mínimo','Menor tempo registrado.'],maximo:['Máximo','Maior tempo registrado.'],desvio:['Desvio padrão','Variação entre os tempos coletados.'],estabilidade:['Índice de estabilidade','Quanto menor a variação, maior a estabilidade.'],eficiencia:['Eficiência','Capacidade medida comparada com a meta informada.'],curva_controle:['Curva de controle','Mostra a sequência dos ciclos e a comparação com média e takt.'],histograma:['Histograma','Mostra a distribuição dos tempos coletados.'],etapas:['Etapas dos ciclos','Sequência de cada etapa: barra verde para tempo produtivo (Normal) e barra vermelha para parada (Microparada, Setup, etc.). Permite ver dentro de um ciclo onde o tempo foi gasto.']};
 function showInfo(key){const item=infoTexts[key]||['Informação','Sem descrição cadastrada.'];els.modalTitle.textContent=item[0];els.modalText.textContent=item[1];els.infoModal.style.display='flex'}function closeInfo(){els.infoModal.style.display='none'}
 function exportToExcel(){const rows=[['#','Tipo','Causa','Tempo_s','Quantidade','Observacao'],...state.events.map((e,i)=>{const sec=((e.type==='cycle'?e.productiveMs:e.durationMs)||0)/1000;return [i+1,e.type==='cycle'?'Ciclo':'Parada',e.cause||'',sec.toFixed(2).replace('.',','),e.type==='cycle'?qty(e):'',(e.obs||'').replace(/[\r\n]+/g,' ')]})];const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(';')).join('\r\n');downloadBlob(csv,'crono-maquina.csv','text/csv;charset=utf-8')}
 function downloadBlob(content,name,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),100)}

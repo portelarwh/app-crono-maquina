@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
-    <link rel="manifest" href="manifest.json?v=4.0.1">
+    <link rel="manifest" href="manifest.json?v=4.0.2">
     <meta name="theme-color" content="#0d1117">
     <title>Cronoanálise Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link rel="stylesheet" href="styles.css?v=4.0.1">
-    <script src="theme-init.js?v=4.0.1"></script>
+    <link rel="stylesheet" href="styles.css?v=4.0.2">
+    <script src="theme-init.js?v=4.0.2"></script>
 </head>
 <body>
 
@@ -145,6 +145,12 @@
                 <div class="chart-wrapper chart-bars" id="chartContainer"></div>
                 <div class="chart-title">Histograma (Distribuição) <button type="button" class="info-icon info-inline" aria-label="Informações sobre histograma" data-action="info" data-info="histograma">!</button></div>
                 <div class="histogram-wrapper" id="histogramContainer"></div>
+                <div class="chart-title">Etapas dos ciclos <button type="button" class="info-icon info-inline" aria-label="Informações sobre etapas dos ciclos" data-action="info" data-info="etapas">!</button></div>
+                <div class="event-timeline-wrapper" id="eventTimeline"></div>
+                <div class="event-timeline-legend">
+                    <span><i class="evt-legend-dot evt-legend-prod"></i> Produtivo</span>
+                    <span><i class="evt-legend-dot evt-legend-dt"></i> Parada</span>
+                </div>
             </div>
         </div>
     </div>
@@ -229,10 +235,10 @@
     <button id="btnLap" class="btn-lap" data-action="normal" disabled>⏱ NORMAL</button>
 </div>
 
-<script src="app.js?v=4.0.1" defer></script>
-<script src="general-improvements.js?v=4.0.1" defer></script>
-<script src="report-enhancements.js?v=4.0.1" defer></script>
-<script src="whatsapp-share-fix.js?v=4.0.1" defer></script>
-<script src="pwa-ui.js?v=4.0.1" defer></script>
+<script src="app.js?v=4.0.2" defer></script>
+<script src="general-improvements.js?v=4.0.2" defer></script>
+<script src="report-enhancements.js?v=4.0.2" defer></script>
+<script src="whatsapp-share-fix.js?v=4.0.2" defer></script>
+<script src="pwa-ui.js?v=4.0.2" defer></script>
 </body>
 </html>
