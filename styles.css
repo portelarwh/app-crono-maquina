@@ -178,10 +178,32 @@ body.export-mode .chart-title{
 }
 
         
-        .chart-wrapper { height: 110px; display: flex; align-items: flex-end; gap: 4px; position: relative; border-bottom: 2px solid var(--border); border-left: 2px solid var(--border); margin-bottom: 15px;}
-        .chart-bar { flex: 1; background-color: var(--blue); border-top-left-radius: 3px; border-top-right-radius: 3px; min-width: 8px; transition: height 0.3s ease; position: relative;}
+        .chart-wrapper { height: 110px; display: flex; align-items: flex-end; gap: 4px; position: relative; border-bottom: 2px solid var(--border); border-left: 2px solid var(--border); margin-bottom: 15px; overflow-x: auto; overflow-y: hidden; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+        .chart-wrapper::-webkit-scrollbar { height: 4px; }
+        .chart-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .chart-wrapper.chart-line { gap: 0; align-items: stretch; }
+        .chart-bar { flex: 0 0 22px; background-color: var(--blue); border-top-left-radius: 3px; border-top-right-radius: 3px; min-width: 22px; transition: height 0.3s ease; position: relative; }
         .chart-bar.over-takt { background-color: var(--red); }
         .chart-bar.under-takt { background-color: var(--green); }
+        .chart-bar .bar-warning { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 0.85rem; line-height: 1; color: #ffb92e; text-shadow: 0 0 2px rgba(0,0,0,.6); pointer-events: none; }
+        .chart-toggle { display: inline-flex; margin-left: 8px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; vertical-align: middle; }
+        .chart-toggle-btn { padding: 3px 9px; font-size: 0.7rem; font-weight: 700; background: var(--card-bg); color: var(--text-muted); border: none; cursor: pointer; line-height: 1.2; text-transform: none; }
+        .chart-toggle-btn.active { background: var(--blue); color: var(--text-on-accent); }
+        .chart-toggle-btn + .chart-toggle-btn { border-left: 1px solid var(--border); }
+        .chart-svg { display: block; }
+        .svg-line-curve { fill: none; stroke: var(--blue); stroke-width: 1.6; }
+        .svg-point.over-takt { fill: var(--red); }
+        .svg-point.under-takt { fill: var(--green); }
+        .svg-takt-line { stroke: var(--yellow); stroke-width: 1.5; }
+        .svg-avg-line { stroke: var(--accent-line, var(--text-muted)); stroke-width: 1; opacity: .8; }
+        .svg-warn { fill: #ffb92e; font-size: 11px; font-weight: 700; pointer-events: none; }
+        .chart-axis-label { position: absolute; right: 4px; font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 3px; pointer-events: none; }
+        .takt-axis-label { color: var(--yellow); background: rgba(0,0,0,.25); }
+        .avg-axis-label { color: var(--accent-line, var(--text-muted)); background: rgba(0,0,0,.25); }
+        html[data-theme="light"] .takt-axis-label, html[data-theme="light"] .avg-axis-label { background: rgba(255,255,255,.7); }
+        .export-mode .chart-wrapper { overflow: visible !important; }
+        .export-mode .chart-bar { flex: 1 !important; min-width: 4px !important; }
+        .export-mode .chart-svg { width: 100% !important; }
 
         .takt-line { position: absolute; left: 0; right: 0; height: 2px; background-color: var(--yellow); z-index: 10;}
         .takt-label { position: absolute; right: 0; color: var(--yellow); font-size: 0.65rem; font-weight: bold; transform: translateY(-110%);}
