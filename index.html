@@ -218,9 +218,9 @@
 <div class="fixed-bottom">
     <div class="lap-meta-row">
         <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
-        <select id="lapCause" class="lap-cause-select" aria-label="Causa do ciclo" style="display:none;"></select>
     </div>
-    <button id="btnLap" class="btn-lap" data-action="lap" disabled>⏱ LAP</button>
+    <div class="lap-cause-grid" id="lapCauseGrid" aria-label="Classificação do ciclo"></div>
+    <button id="btnLap" class="btn-lap" data-action="lap" data-cause="Normal" disabled>⏱ NORMAL</button>
 </div>
 
 <script src="app.js?v=3.0.6" defer></script>
