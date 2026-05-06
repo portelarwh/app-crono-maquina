@@ -228,20 +228,26 @@ body.export-mode .chart-title{
             display: none !important;
         }
         .lap-obs-input::placeholder { color: var(--text-muted); }
-        .lap-cause-select {
-            box-sizing: border-box;
-            width: 100%;
-            padding: 16px 12px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--input-bg);
-            color: var(--text-main);
-            font-size: 1.1rem;
-            font-weight: bold;
-            text-align: center;
-            text-align-last: center;
-            -webkit-text-align-last: center;
+        .lap-cause-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 6px;
         }
+        .btn-cause {
+            padding: 14px 6px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 10px;
+            background: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-btn);
+            cursor: pointer;
+            line-height: 1.15;
+        }
+        .btn-cause:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+        .btn-cause:disabled { opacity: 0.45; cursor: not-allowed; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
         .modal-content { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-card);}

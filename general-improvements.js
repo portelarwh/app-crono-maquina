@@ -11,9 +11,9 @@
     'Microparada',
     'Ajuste operador',
     'Falha de máquina',
-    'Espera material',
+    'Espera',
     'Setup',
-    'Interferência externa'
+    'Ociosidade'
   ];
 
   function $(id){ return document.getElementById(id); }
@@ -103,12 +103,14 @@
     Object.keys(mapping).forEach(id => { const el = $(id); if(el && mapping[id] !== undefined && mapping[id] !== null) el.value = mapping[id]; if(el){ el.addEventListener('input', persistExtras); el.addEventListener('change', persistExtras); } });
   }
 
-  function injectCauseOptions(){
-    const select = $('lapCause');
-    if(!select || select.dataset.operixReady === 'true') return;
-    select.innerHTML = CAUSES.map(cause => `<option value="${escapeHtml(cause)}">${escapeHtml(cause)}</option>`).join('');
-    select.dataset.operixReady = 'true';
-    select.style.display = '';
+  function injectCauseButtons(){
+    const grid = $('lapCauseGrid');
+    if(!grid || grid.dataset.operixReady === 'true') return;
+    const abnormal = CAUSES.filter(cause => cause !== 'Normal');
+    grid.innerHTML = abnormal.map(cause =>
+      `<button type="button" class="btn-cause" data-action="lap" data-cause="${escapeHtml(cause)}" disabled>${escapeHtml(cause)}</button>`
+    ).join('');
+    grid.dataset.operixReady = 'true';
   }
 
   function injectUndo(){
@@ -167,7 +169,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v3.0.6', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v3.0.7', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras
@@ -207,7 +209,7 @@
   function findStudy(id){ return getStudies().find(study => study.id === id); }
   function compareStudies(){ const output = $('compareResult'); if(!output) return; const baseStudy = findStudy($('studyBase')?.value); if(!baseStudy){ output.textContent = 'Selecione um estudo base.'; return; } const selected = $('studyCompare')?.value; const comp = selected === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(selected); if(!comp || !comp.data){ output.textContent = 'Selecione o estudo comparativo.'; return; } const a = baseStudy.data, b = comp.data, capGain = (b.stats?.cap || 0) - (a.stats?.cap || 0), cycleGain = (a.stats?.av || 0) - (b.stats?.av || 0), lossRed = (a.impact?.lossPerShift || 0) - (b.impact?.lossPerShift || 0); output.innerHTML = `<b>Comparativo:</b> ${escapeHtml(baseStudy.name)} × ${escapeHtml(comp.name || 'Medição atual')}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(b.form?.timeUnitLabel || 'un/h')} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno`; }
   function lockConfig(running){ ['analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours','tolerancePct'].forEach(id => { const el = $(id); if(el) el.disabled = !!running; }); }
-  function updateAll(){ patchDataGetter(); injectFields(); injectCauseOptions(); injectUndo(); injectPanels(); const data = getData(); renderImpact(data); renderStandard(data); renderPareto(data); injectLapCauseSelectors(data); renderStudyOptions(); lockConfig(!!data?.running); const undo = $('btnUndoLap'); if(undo) undo.disabled = !(data?.laps?.length); }
+  function updateAll(){ patchDataGetter(); injectFields(); injectCauseButtons(); injectUndo(); injectPanels(); const data = getData(); renderImpact(data); renderStandard(data); renderPareto(data); injectLapCauseSelectors(data); renderStudyOptions(); lockConfig(!!data?.running); const undo = $('btnUndoLap'); if(undo) undo.disabled = !(data?.laps?.length); }
 
   function bindEvents(){
     document.addEventListener('click', event => { if(event.target?.id === 'btnUndoLap') undoLastLap(); if(event.target?.id === 'btnSaveStudy') saveStudy(); if(event.target?.id === 'btnCompareStudy') compareStudies(); if(event.target?.id === 'studyBase' || event.target?.id === 'studyCompare') return; setTimeout(updateAll, 80); });
@@ -216,6 +218,6 @@
     setInterval(updateAll, 800);
   }
 
-  function init(){ injectStyles(); injectFields(); injectCauseOptions(); injectUndo(); injectPanels(); patchDataGetter(); bindEvents(); updateAll(); }
+  function init(){ injectStyles(); injectFields(); injectCauseButtons(); injectUndo(); injectPanels(); patchDataGetter(); bindEvents(); updateAll(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
