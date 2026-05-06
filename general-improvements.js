@@ -108,7 +108,7 @@
     if(!grid || grid.dataset.operixReady === 'true') return;
     const abnormal = CAUSES.filter(cause => cause !== 'Normal');
     grid.innerHTML = abnormal.map(cause =>
-      `<button type="button" class="btn-cause" data-action="lap" data-cause="${escapeHtml(cause)}" disabled>${escapeHtml(cause)}</button>`
+      `<button type="button" class="btn-cause" data-action="downtime" data-cause="${escapeHtml(cause)}" disabled>${escapeHtml(cause)}</button>`
     ).join('');
     grid.dataset.operixReady = 'true';
   }
@@ -169,7 +169,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v3.0.8', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v3.0.9', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras
@@ -188,7 +188,15 @@
   }
   function calculatePareto(data){
     const takt = parseNumber(data.form.takt, 0), grouped = {};
-    data.laps.forEach(lap => { const cause = lap.cause || 'Normal', lossSec = cause === 'Normal' ? Math.max(0, lap.durationSec - takt) : Math.max(0, lap.durationSec); if(!grouped[cause]) grouped[cause] = { cause, lossSec: 0, count: 0 }; grouped[cause].lossSec += lossSec; grouped[cause].count += 1; });
+    data.laps.forEach(lap => {
+      const cause = lap.cause || 'Normal';
+      const isCycle = (lap.type || 'cycle') === 'cycle';
+      const refSec = isCycle ? (lap.productiveSec ?? lap.durationSec) : lap.durationSec;
+      const lossSec = isCycle ? Math.max(0, (refSec || 0) - takt) : Math.max(0, refSec || 0);
+      if(!grouped[cause]) grouped[cause] = { cause, lossSec: 0, count: 0 };
+      grouped[cause].lossSec += lossSec;
+      grouped[cause].count += 1;
+    });
     const rows = Object.values(grouped).sort((a, b) => b.lossSec - a.lossSec), totalLossSec = rows.reduce((sum, row) => sum + row.lossSec, 0); let cumulative = 0;
     return rows.map(row => { const percent = totalLossSec > 0 ? row.lossSec / totalLossSec * 100 : 0; cumulative += percent; return { cause: row.cause, lossSec: row.lossSec, count: row.count, percent, cumulativePct: cumulative }; });
   }
@@ -204,7 +212,7 @@
   function renderPareto(data){ const box = $('paretoBox'); if(!box) return; const rows = (data?.pareto || []).slice(0,5); if(!rows.length){ box.innerHTML = 'Sem dados'; return; } box.innerHTML = rows.map((row, index) => `<div class="pareto-line"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatNumber(row.lossSec,1)}s</span></div>`).join(''); }
   function renderStudyOptions(){ const base = $('studyBase'), compare = $('studyCompare'); if(!base || !compare) return; if(document.activeElement === base || document.activeElement === compare) return; const baseVal = base.value; const compareVal = compare.value; const list = getStudies(); const options = list.map(study => `<option value="${study.id}">${escapeHtml(study.savedAt)} — ${escapeHtml(study.name)}</option>`).join(''); base.innerHTML = options || '<option value="">Nenhum estudo salvo</option>'; compare.innerHTML = '<option value="current">Medição atual</option>' + options; if(baseVal) base.value = baseVal; if(compareVal) compare.value = compareVal; }
   function injectLapCauseSelectors(data){ const rows = Array.from(document.querySelectorAll('#historyListScreen .history-row')); const anomalies = getAnomalies(); rows.forEach((row, index) => { const lap = data?.laps?.[index]; if(!lap || row.querySelector('.lap-cause-select-row')) return; const select = document.createElement('select'); select.className = 'lap-cause-select-row'; select.dataset.lapId = lap.id; select.innerHTML = CAUSES.map(cause => `<option value="${escapeHtml(cause)}">${escapeHtml(cause)}</option>`).join(''); select.value = anomalies[lap.id] || lap.cause || 'Normal'; select.addEventListener('change', () => { const all = getAnomalies(); all[lap.id] = select.value; setAnomalies(all); updateAll(); }); row.appendChild(select); }); }
-  function undoLastLap(){ const buttons = Array.from(document.querySelectorAll('#historyListScreen [data-action="deleteLap"]')); const last = buttons[buttons.length - 1]; if(last) last.click(); }
+  function undoLastLap(){ const buttons = Array.from(document.querySelectorAll('#historyListScreen [data-action="deleteEvent"]')); const last = buttons[buttons.length - 1]; if(last) last.click(); }
   function saveStudy(){ const data = getData(); if(!data || !data.laps.length){ alert('Registre ao menos uma amostra antes de salvar o estudo.'); return; } const name = $('studyName')?.value || `${data.form.equipName || 'Estudo'} - ${nowLabel()}`; const study = { id: `study_${Date.now()}`, name, savedAt: nowLabel(), data }; const list = getStudies(); list.unshift(study); setStudies(list.slice(0,30)); if($('studyName')) $('studyName').value = ''; renderStudyOptions(); alert('Estudo salvo com sucesso.'); }
   function findStudy(id){ return getStudies().find(study => study.id === id); }
   function compareStudies(){ const output = $('compareResult'); if(!output) return; const baseStudy = findStudy($('studyBase')?.value); if(!baseStudy){ output.textContent = 'Selecione um estudo base.'; return; } const selected = $('studyCompare')?.value; const comp = selected === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(selected); if(!comp || !comp.data){ output.textContent = 'Selecione o estudo comparativo.'; return; } const a = baseStudy.data, b = comp.data, capGain = (b.stats?.cap || 0) - (a.stats?.cap || 0), cycleGain = (a.stats?.av || 0) - (b.stats?.av || 0), lossRed = (a.impact?.lossPerShift || 0) - (b.impact?.lossPerShift || 0); output.innerHTML = `<b>Comparativo:</b> ${escapeHtml(baseStudy.name)} × ${escapeHtml(comp.name || 'Medição atual')}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(b.form?.timeUnitLabel || 'un/h')} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno`; }
