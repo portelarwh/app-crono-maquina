@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
-    <link rel="manifest" href="manifest.json?v=4.0.3">
+    <link rel="manifest" href="manifest.json?v=4.0.9">
     <meta name="theme-color" content="#0d1117">
     <title>Cronoanálise Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link rel="stylesheet" href="styles.css?v=4.0.3">
-    <script src="theme-init.js?v=4.0.3"></script>
+    <link rel="stylesheet" href="styles.css?v=4.0.9">
+    <script src="theme-init.js?v=4.0.9"></script>
 </head>
 <body>
 
@@ -130,7 +130,8 @@
                     <div class="result-box"><button type="button" class="info-icon" aria-label="Informações sobre valor máximo" data-action="info" data-info="maximo">!</button><div class="result-title">MÁXIMO</div><span id="valMaxCycle" class="result-value text-red">0.00s</span></div>
                     <div class="result-box"><button type="button" class="info-icon" aria-label="Informações sobre desvio padrão" data-action="info" data-info="desvio">!</button><div class="result-title">DESVIO PADRÃO</div><span id="valStdDev" class="result-value">0.00s</span></div>
                     <div class="result-box"><button type="button" class="info-icon" aria-label="Informações sobre índice de estabilidade" data-action="info" data-info="estabilidade">!</button><div class="result-title">ÍNDICE DE ESTABIL.</div><span id="valEstabilidade" class="result-value">100.0%</span></div>
-                    <div class="result-box full-width"><button type="button" class="info-icon" aria-label="Informações sobre eficiência" data-action="info" data-info="eficiencia">!</button><div class="result-title">EFICIÊNCIA (%)</div><span id="valEfficiency" class="result-value">--</span></div>
+                    <div class="result-box efficiency-box"><button type="button" class="info-icon" aria-label="Informações sobre eficiência" data-action="info" data-info="eficiencia">!</button><div class="result-title">EFICIÊNCIA (%)</div><span id="valEfficiency" class="result-value">--</span></div>
+                    <div class="oee-action-box full-width"><button id="btnOee" class="btn-oee" type="button" data-action="openOee">📊 Cálculo de OEE</button></div>
                 </div>
             </div>
         </div>
@@ -198,6 +199,9 @@
             Fale comigo
         </a>
     </span>
+    <div class="footer-guide-row">
+        <button id="btnGuide" class="btn-guide" type="button" data-action="openGuide" aria-label="Abrir guia de uso do aplicativo">📘 GUIA</button>
+    </div>
 </footer>
 
 <div class="modal-overlay" id="qtyModal" role="dialog" aria-modal="true" aria-labelledby="qtyModalLabel" style="z-index:1200;">
@@ -228,6 +232,104 @@
         <button class="btn-close-modal" data-action="closeInfo" style="background:var(--blue); width:100%; border:none; padding:12px; color:white; border-radius:8px; font-weight:bold; cursor:pointer;">Entendi</button>
     </div>
 </div>
+
+<div class="modal-overlay" id="guideModal" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+    <div class="modal-content guide-modal-content">
+        <div class="modal-title" id="guideModalTitle">📘 Guia rápido do Cronoanálise Máquina</div>
+        <div class="modal-text guide-modal-text">
+            <section class="guide-section guide-flow-section" aria-label="Fluxo de uso">
+                <h3>Fluxo básico</h3>
+                <div class="guide-flow">
+                    <span>1. Preencha</span>
+                    <span>2. Inicie</span>
+                    <span>3. Registre</span>
+                    <span>4. Analise</span>
+                    <span>5. Exporte</span>
+                </div>
+            </section>
+
+            <section class="guide-section">
+                <h3>Como o app funciona</h3>
+                <ol>
+                    <li><strong>Configure o estudo:</strong> informe equipamento/operação, analista, tipo de análise, peças por ciclo, takt ou meta.</li>
+                    <li><strong>Cronometre:</strong> toque em <strong>Iniciar</strong> e registre cada ciclo no botão <strong>Normal</strong>.</li>
+                    <li><strong>Classifique paradas:</strong> quando a máquina parar, toque na causa da parada. Ao voltar, toque em <strong>Normal</strong>.</li>
+                    <li><strong>Acompanhe os indicadores:</strong> veja capacidade, ciclo médio, estabilidade, eficiência, gráficos e paradas por causa.</li>
+                    <li><strong>Finalize:</strong> exporte em CSV, PNG, PDF ou compartilhe pelo WhatsApp.</li>
+                </ol>
+            </section>
+
+            <section class="guide-section">
+                <h3>Como preencher</h3>
+                <div class="guide-cards">
+                    <article><strong>Tipo de análise</strong><span>Use <b>Tempo por ciclo</b> para medir ciclos repetitivos. Use <b>Produção por intervalo</b> quando medir uma janela e informar a quantidade produzida.</span></article>
+                    <article><strong>Peças / ciclo</strong><span>Quantidade boa esperada a cada ciclo completo. Exemplo: molde com 2 cavidades = 2 peças/ciclo.</span></article>
+                    <article><strong>Takt Time</strong><span>Tempo máximo por peça para atender a demanda. Ajuda a comparar ciclo real contra necessidade.</span></article>
+                    <article><strong>Meta</strong><span>Produção esperada em un/h ou un/min. A eficiência compara a capacidade medida contra essa meta.</span></article>
+                    <article><strong>Paradas</strong><span>Registre apenas tempo não produtivo: falha, setup, espera, ajuste, ociosidade ou microparada.</span></article>
+                    <article><strong>Quantidade por lap</strong><span>No modo intervalo, informe a quantidade produzida no período para calcular capacidade corretamente.</span></article>
+                </div>
+            </section>
+
+            <section class="guide-section">
+                <h3>Glossário rápido</h3>
+                <dl class="guide-glossary">
+                    <div><dt>Ciclo</dt><dd>Uma repetição completa da operação medida.</dd></div>
+                    <div><dt>Capacidade</dt><dd>Produção estimada com base no tempo medido.</dd></div>
+                    <div><dt>Eficiência</dt><dd>Capacidade medida comparada com a meta informada.</dd></div>
+                    <div><dt>Estabilidade</dt><dd>Quanto menor a variação entre ciclos, maior a estabilidade.</dd></div>
+                    <div><dt>Parada</dt><dd>Tempo em que a máquina/processo não produziu.</dd></div>
+                    <div><dt>Pareto</dt><dd>Ranking das maiores perdas para priorizar melhorias.</dd></div>
+                    <div><dt>OEE</dt><dd>Indicador de disponibilidade, performance e qualidade.</dd></div>
+                    <div><dt>MTBF / MTTR</dt><dd>Tempo médio entre falhas / tempo médio para reparar falhas.</dd></div>
+                </dl>
+            </section>
+        </div>
+        <button class="btn-close-modal" data-action="closeGuide">Entendi</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="oeeModal" role="dialog" aria-modal="true" aria-labelledby="oeeModalTitle">
+    <div class="modal-content oee-modal-content">
+        <div class="modal-title" id="oeeModalTitle">📊 Cálculo de OEE</div>
+        <div class="modal-text oee-modal-text">
+            <p class="oee-intro">Simule o OEE com base na medição atual. Se fechar a janela, nada é salvo ou considerado no relatório.</p>
+
+            <section class="oee-section">
+                <h3>Base automática</h3>
+                <div class="oee-base-grid">
+                    <div><span>Tempo total</span><strong id="oeeTotalTime">00:00</strong></div>
+                    <div><span>Paradas</span><strong id="oeeDowntimeTime">00:00</strong></div>
+                    <div><span>Tempo rodando</span><strong id="oeeRunTime">00:00</strong></div>
+                    <div><span>Velocidade config.</span><strong id="oeeConfiguredSpeed">—</strong></div>
+                    <div class="oee-wide"><span>Produção esperada no tempo rodando</span><strong id="oeeExpectedQty">—</strong></div>
+                </div>
+            </section>
+
+            <section class="oee-section">
+                <h3>Dados reais</h3>
+                <div class="oee-input-grid">
+                    <label>Qtd. real produzida<input id="oeeActualQty" type="number" min="0" step="any" inputmode="decimal"></label>
+                    <label>Refugo<input id="oeeScrapQty" type="number" min="0" step="any" inputmode="decimal" value="0"></label>
+                    <label>Retrabalho<input id="oeeReworkQty" type="number" min="0" step="any" inputmode="decimal" value="0"></label>
+                </div>
+                <label class="oee-check"><input id="oeeReworkAsLoss" type="checkbox" checked> Considerar retrabalho como perda de qualidade</label>
+            </section>
+
+            <section class="oee-section">
+                <h3>Resultado</h3>
+                <div class="oee-result-grid">
+                    <div class="oee-main-result"><span>OEE</span><strong id="oeeValue">--</strong></div>
+                    <div><span>Disponibilidade</span><strong id="oeeAvailability">--</strong></div>
+                    <div><span>Performance</span><strong id="oeePerformance">--</strong></div>
+                    <div><span>Qualidade</span><strong id="oeeQuality">--</strong></div>
+                </div>
+                <div class="oee-diagnosis" id="oeeDiagnosis">Preencha os dados reais para calcular.</div>
+            </section>
+        </div>
+        <button class="btn-close-modal" data-action="closeOee">Fechar</button>
+    </div>
+</div>
 <div class="fixed-bottom">
     <div class="lap-meta-row">
         <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
@@ -237,10 +339,10 @@
     <button id="btnLap" class="btn-lap" data-action="normal" disabled>⏱ NORMAL</button>
 </div>
 
-<script src="app.js?v=4.0.3" defer></script>
-<script src="general-improvements.js?v=4.0.3" defer></script>
-<script src="report-enhancements.js?v=4.0.3" defer></script>
-<script src="whatsapp-share-fix.js?v=4.0.3" defer></script>
-<script src="pwa-ui.js?v=4.0.3" defer></script>
+<script src="app.js?v=4.0.9" defer></script>
+<script src="general-improvements.js?v=4.0.9" defer></script>
+<script src="report-enhancements.js?v=4.0.9" defer></script>
+<script src="whatsapp-share-fix.js?v=4.0.9" defer></script>
+<script src="pwa-ui.js?v=4.0.9" defer></script>
 </body>
 </html>
