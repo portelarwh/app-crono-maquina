@@ -1,11 +1,11 @@
 'use strict';
 (()=>{
-const APP_VERSION='v4.0.3';
+const APP_VERSION='v4.1.0';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
-const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars'};
-const els={equipName:$('equipName'),analystName:$('analystName'),analysisMode:$('analysisMode'),units:$('units'),defaultLapQty:$('defaultLapQty'),defaultLapQtyGroup:$('defaultLapQtyGroup'),timeUnit:$('timeUnit'),takt:$('takt'),target:$('target'),lblTargetText:$('lblTargetText'),lapQtyMode:$('lapQtyMode'),lapQtyModeGroup:$('lapQtyModeGroup'),btnStart:$('btnStart'),btnStop:$('btnStop'),btnReset:$('btnReset'),btnLap:$('btnLap'),btnExport:$('btnExport'),btnPNG:$('btnPNG'),btnPDF:$('btnPDF'),btnWhatsApp:$('btnWhatsApp'),liveTimer:$('liveTimer'),totalTimer:$('totalTimer'),lapObs:$('lapObs'),lapCauseGrid:$('lapCauseGrid'),downtimeIndicator:$('downtimeIndicator'),valSamples:$('valSamples'),valHourlyCap:$('valHourlyCap'),valLastCycle:$('valLastCycle'),valAvgCycle:$('valAvgCycle'),valMinCycle:$('valMinCycle'),valMaxCycle:$('valMaxCycle'),valStdDev:$('valStdDev'),valEstabilidade:$('valEstabilidade'),valEfficiency:$('valEfficiency'),lblCapTitle:$('lblCapTitle'),lblLastCycleTitle:$('lblLastCycleTitle'),lblAvgCycleTitle:$('lblAvgCycleTitle'),historyListScreen:$('historyListScreen'),historyListPrint:$('historyListPrint'),chartContainer:$('chartContainer'),histogramContainer:$('histogramContainer'),eventTimeline:$('eventTimeline'),paradasCardsGrid:$('paradasCardsGrid'),qtyModal:$('qtyModal'),qtyModalInput:$('qtyModalInput'),confirmModal:$('confirmModal'),confirmModalTitle:$('confirmModalTitle'),confirmModalText:$('confirmModalText'),infoModal:$('infoModal'),modalTitle:$('modalTitle'),modalText:$('modalText'),printDate:$('printDate'),printAnalyst:$('printAnalyst'),printEquipName:$('printEquipName'),printAnalysisMode:$('printAnalysisMode'),printUnits:$('printUnits'),printTimeUnit:$('printTimeUnit'),printTakt:$('printTakt'),printTarget:$('printTarget'),printExecutiveSummary:$('printExecutiveSummary'),appVersion:$('appVersion'),splashScreen:$('splashScreen')};
+const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null};
+const els={equipName:$('equipName'),analystName:$('analystName'),analysisMode:$('analysisMode'),units:$('units'),defaultLapQty:$('defaultLapQty'),defaultLapQtyGroup:$('defaultLapQtyGroup'),timeUnit:$('timeUnit'),takt:$('takt'),target:$('target'),lblTargetText:$('lblTargetText'),lapQtyMode:$('lapQtyMode'),lapQtyModeGroup:$('lapQtyModeGroup'),btnStart:$('btnStart'),btnStop:$('btnStop'),btnReset:$('btnReset'),btnLap:$('btnLap'),btnExport:$('btnExport'),btnPNG:$('btnPNG'),btnPDF:$('btnPDF'),btnWhatsApp:$('btnWhatsApp'),liveTimer:$('liveTimer'),totalTimer:$('totalTimer'),lapObs:$('lapObs'),lapCauseGrid:$('lapCauseGrid'),downtimeIndicator:$('downtimeIndicator'),valSamples:$('valSamples'),valHourlyCap:$('valHourlyCap'),valLastCycle:$('valLastCycle'),valAvgCycle:$('valAvgCycle'),valMinCycle:$('valMinCycle'),valMaxCycle:$('valMaxCycle'),valStdDev:$('valStdDev'),valEstabilidade:$('valEstabilidade'),valEfficiency:$('valEfficiency'),lblCapTitle:$('lblCapTitle'),lblLastCycleTitle:$('lblLastCycleTitle'),lblAvgCycleTitle:$('lblAvgCycleTitle'),historyListScreen:$('historyListScreen'),historyListPrint:$('historyListPrint'),chartContainer:$('chartContainer'),histogramContainer:$('histogramContainer'),eventTimeline:$('eventTimeline'),paradasCardsGrid:$('paradasCardsGrid'),oeeSavedSummary:$('oeeSavedSummary'),guideModal:$('guideModal'),oeeModal:$('oeeModal'),qtyModal:$('qtyModal'),qtyModalInput:$('qtyModalInput'),confirmModal:$('confirmModal'),confirmModalTitle:$('confirmModalTitle'),confirmModalText:$('confirmModalText'),infoModal:$('infoModal'),modalTitle:$('modalTitle'),modalText:$('modalText'),printDate:$('printDate'),printAnalyst:$('printAnalyst'),printEquipName:$('printEquipName'),printAnalysisMode:$('printAnalysisMode'),printUnits:$('printUnits'),printTimeUnit:$('printTimeUnit'),printTakt:$('printTakt'),printTarget:$('printTarget'),printExecutiveSummary:$('printExecutiveSummary'),appVersion:$('appVersion'),splashScreen:$('splashScreen')};
 
 
 function dismissSplash(){
@@ -87,7 +87,8 @@ function getCronoMachineData(){
       obs:e.obs||'',
       startedAt:e.startedAt||null,
       endedAt:e.endedAt||null
-    }))
+    })),
+    oee:state.oee
   };
 }
 function startTimer(){
@@ -123,7 +124,7 @@ function stopTimer(){
   stopTick();render();persist();
 }
 let confirmCb=null;function resetTimer(){if(state.events.length||totalMs()>0||state.running||state.mode!=='idle'){openConfirm('Zerar medição','Deseja zerar todos os tempos, amostras e histórico?',doReset);return}doReset()}
-function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null});if(els.lapObs)els.lapObs.value='';render();persist()}
+function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,oee:null});if(els.lapObs)els.lapObs.value='';render();persist()}
 function tick(){stopTick();let last=0;const loop=t=>{if(!state.running)return;if(t-last>=100){renderTimersOnly();last=t}state.tickId=requestAnimationFrame(loop)};state.tickId=requestAnimationFrame(loop)}
 function stopTick(){if(state.tickId){cancelAnimationFrame(state.tickId);state.tickId=null}}
 function renderTimersOnly(){if(els.liveTimer)els.liveTimer.textContent=fmtClock(lapMs(),true);if(els.totalTimer)els.totalTimer.textContent=fmtClock(totalMs(),false);if(els.downtimeIndicator&&state.mode==='downtime_active'&&state.activeDowntime){els.downtimeIndicator.textContent=`⏸ ${state.activeDowntime.cause} · ${fmtClock(activeDowntimeDurationMs(),false)}`}}
@@ -200,7 +201,7 @@ function recordDowntime(t){
 }
 function updateLapQty(eventId,value){const e=state.events.find(x=>x.id===eventId);if(!e||e.type!=='cycle')return;const v=pn(value);e.qty=Number.isFinite(v)&&v>=0?v:null;render();persist()}
 function deleteEvent(eventId){state.events=state.events.filter(e=>e.id!==eventId);render();persist()}
-function render(){renderTimersOnly();renderMode();renderStats();renderHistory();renderCharts();renderEventTimeline();renderParadasCards();renderPrint();renderControls()}
+function render(){renderTimersOnly();renderMode();renderStats();renderHistory();renderCharts();renderEventTimeline();renderParadasCards();renderOeeSaved();renderPrint();renderControls()}
 function fmtDur(ms){const s=Math.max(0,Math.floor((ms||0)/1000));if(s<60)return `${s}s`;const m=Math.floor(s/60),ss=s%60;if(m<60)return `${m}m ${String(ss).padStart(2,'0')}s`;const h=Math.floor(m/60),mm=m%60;return `${h}h ${String(mm).padStart(2,'0')}m`}
 function renderParadasCards(){
   const cont=els.paradasCardsGrid;
@@ -213,6 +214,153 @@ function renderParadasCards(){
   const rows=Object.values(grouped).sort((a,b)=>b.totalMs-a.totalMs);
   cont.innerHTML=rows.map(r=>{const pct=total>0?(r.totalMs/total*100):0;return `<div class="parada-card"><div class="parada-card-cause">${escAttr(r.cause)}</div><div class="parada-card-time">${fmtDur(r.totalMs)}</div><div class="parada-card-pct">${pct.toFixed(1)}% · ${r.count}x</div></div>`}).join('');
 }
+const OEE_DEFAULT_CFG={failureCauses:['Falha de máquina'],plannedDowntimeCauses:['Setup']};
+function oeeConfigGet(){if(!state.oeeConfig)state.oeeConfig={failureCauses:[...OEE_DEFAULT_CFG.failureCauses],plannedDowntimeCauses:[...OEE_DEFAULT_CFG.plannedDowntimeCauses]};return state.oeeConfig}
+function fmtMtMs(ms){if(!Number.isFinite(ms))return'--';const s=Math.max(0,Math.floor(ms/1000));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return `${h}h ${String(m).padStart(2,'0')}m`;if(m>0)return `${m}m ${String(ss).padStart(2,'0')}s`;return `${ss}s`}
+function oeePct(v){return Number.isFinite(v)?`${(v*100).toFixed(1)}%`:'--'}
+function oeeColorClass(v){if(!Number.isFinite(v))return'';if(v>=0.75)return'oee-good';if(v>=0.60)return'oee-warn';return'oee-bad'}
+function oeeReadNum(idStr){const v=parseFloat(String($(idStr)?.value||'').replace(',','.'));return Number.isFinite(v)?v:NaN}
+function oeePlannedMs(){const min=oeeReadNum('oeePlannedMin');return Number.isFinite(min)&&min>0?min*60*1000:totalMs()}
+function oeeRate(){const override=oeeReadNum('oeeRateOverride');const base=n(els.timeUnit,3600);if(Number.isFinite(override)&&override>0)return{ratePerSec:override/base,configuredRate:override};const target=n(els.target,0),takt=n(els.takt,0),units=n(els.units,1)||1;let ratePerSec=target>0?target/base:0;if(!ratePerSec&&takt>0)ratePerSec=units/takt;return{ratePerSec,configuredRate:ratePerSec*base}}
+function oeeBase(){
+  const cfg=oeeConfigGet();
+  const dts=downtimesOf();
+  const paradasByCause={};
+  for(const d of dts){const c=d.cause||'—';if(!paradasByCause[c])paradasByCause[c]={totalMs:0,count:0};paradasByCause[c].totalMs+=d.durationMs||0;paradasByCause[c].count+=1}
+  if(state.activeDowntime){const c=state.activeDowntime.cause||'—';const ms=activeDowntimeDurationMs();if(!paradasByCause[c])paradasByCause[c]={totalMs:0,count:0};paradasByCause[c].totalMs+=ms}
+  const plannedRawMs=oeePlannedMs();
+  const allDowntimeMs=Object.values(paradasByCause).reduce((a,p)=>a+p.totalMs,0);
+  const planned=cfg.plannedDowntimeCauses||[];
+  const plannedDowntimeMs=planned.reduce((a,c)=>a+(paradasByCause[c]?.totalMs||0),0);
+  const effectivePlannedMs=Math.max(0,plannedRawMs-plannedDowntimeMs);
+  const availabilityDowntimeMs=Math.max(0,allDowntimeMs-plannedDowntimeMs);
+  const runMs=Math.max(0,effectivePlannedMs-availabilityDowntimeMs);
+  const failureCausesList=cfg.failureCauses||[];
+  const failures=dts.filter(d=>failureCausesList.includes(d.cause));
+  const failureCount=failures.length;
+  const totalRepairMs=failures.reduce((a,f)=>a+(f.durationMs||0),0);
+  const mtbfMs=failureCount>0?runMs/failureCount:NaN;
+  const mttrMs=failureCount>0?totalRepairMs/failureCount:NaN;
+  return{plannedRawMs,plannedDowntimeMs,effectivePlannedMs,allDowntimeMs,availabilityDowntimeMs,runMs,failureCount,totalRepairMs,mtbfMs,mttrMs,paradasByCause};
+}
+function renderOeeCauseCheckboxes(){
+  const b=oeeBase();
+  const cfg=oeeConfigGet();
+  const causes=Object.keys(b.paradasByCause).filter(c=>c!=='Normal').sort();
+  const renderList=(containerId,key,inverted)=>{
+    const cont=$(containerId);
+    if(!cont)return;
+    if(causes.length===0){cont.innerHTML='<div class="oee-cause-empty">Nenhuma parada registrada ainda.</div>';return}
+    const cfgList=cfg[key]||[];
+    cont.innerHTML=causes.map(c=>{
+      const inList=cfgList.includes(c);
+      const checked=inverted?!inList:inList;
+      const info=b.paradasByCause[c];
+      return `<label class="oee-cause-item${checked?' on':''}"><input type="checkbox" data-oee-cause-key="${escAttr(key)}" data-oee-cause="${escAttr(c)}" ${checked?'checked':''}> <span>${escAttr(c)}</span><em>${info.count}× · ${fmtMtMs(info.totalMs)}</em></label>`;
+    }).join('');
+  };
+  renderList('oeeCausesAvailability','plannedDowntimeCauses',true);
+  renderList('oeeCausesFailure','failureCauses',false);
+}
+function renderOeeCalc(){
+  const b=oeeBase();
+  const r=oeeRate();
+  const expectedQty=r.ratePerSec*(b.runMs/1000);
+  const actual=Math.max(0,oeeReadNum('oeeActualQty')||0);
+  const scrap=Math.max(0,oeeReadNum('oeeScrapQty')||0);
+  const rework=Math.max(0,oeeReadNum('oeeReworkQty')||0);
+  const reworkAsLoss=$('oeeReworkAsLoss')?.checked!==false;
+  const good=Math.max(0,actual-scrap-(reworkAsLoss?rework:0));
+  const availability=b.effectivePlannedMs>0?Math.min(1,b.runMs/b.effectivePlannedMs):NaN;
+  const performanceRaw=expectedQty>0?actual/expectedQty:NaN;
+  const performance=Number.isFinite(performanceRaw)?Math.min(1,performanceRaw):NaN;
+  const quality=actual>0?Math.min(1,good/actual):NaN;
+  const oee=[availability,performance,quality].every(Number.isFinite)?availability*performance*quality:NaN;
+  const set=(id,v)=>{const el=$(id);if(el)el.textContent=v};
+  set('oeeTotalTime',fmtMtMs(b.plannedRawMs));
+  set('oeeDowntimeTime',fmtMtMs(b.allDowntimeMs));
+  set('oeeRunTime',fmtMtMs(b.runMs));
+  const rateBase=els.timeUnit?.value==='60'?'min':'h';
+  set('oeeRateBase',rateBase);
+  set('oeeValue',oeePct(oee));
+  set('oeeAvailability',oeePct(availability));
+  set('oeeQuality',oeePct(quality));
+  const perfNote=$('oeePerfNote');
+  if(Number.isFinite(performanceRaw)&&performanceRaw>1.001){
+    set('oeePerformance',`${oeePct(1)} (real ${(performanceRaw*100).toFixed(1)}%)`);
+    if(perfNote){perfNote.textContent='⚠ Acima do esperado — revisar takt/meta';perfNote.style.display=''}
+  }else{
+    set('oeePerformance',oeePct(performance));
+    if(perfNote){perfNote.textContent='';perfNote.style.display='none'}
+  }
+  const main=$('oeeMainResult');
+  if(main){main.classList.remove('oee-good','oee-warn','oee-bad');const cls=oeeColorClass(oee);if(cls)main.classList.add(cls)}
+  set('oeeMtbf',fmtMtMs(b.mtbfMs));
+  set('oeeMttr',fmtMtMs(b.mttrMs));
+  set('oeeFailureCount',b.failureCount);
+  set('oeeScrapPct',actual>0?`${((scrap/actual)*100).toFixed(1)}%`:'--');
+  let diagnosis='';
+  if(!b.plannedRawMs)diagnosis='Registre tempo de medição antes de calcular OEE.';
+  else if(!r.configuredRate)diagnosis='Informe Meta ou Takt no painel principal (ou Velocidade nominal aqui) para calcular Performance.';
+  else if(!actual)diagnosis='Informe a quantidade total produzida (saídas).';
+  else{
+    const causesArr=Object.entries(b.paradasByCause).filter(([c])=>c!=='Normal').sort((a,b)=>b[1].totalMs-a[1].totalMs);
+    const top=causesArr[0];
+    const losses=[
+      {name:'Disponibilidade',loss:Number.isFinite(availability)?1-availability:-1},
+      {name:'Performance',loss:Number.isFinite(performance)?1-performance:-1},
+      {name:'Qualidade',loss:Number.isFinite(quality)?1-quality:-1}
+    ].sort((a,b)=>b.loss-a.loss);
+    const mainGap=losses[0]&&losses[0].loss>0.001?losses[0].name:'Sem gap dominante';
+    diagnosis=top?`Maior parada por tempo: <b>${escAttr(top[0])}</b> (${fmtMtMs(top[1].totalMs)}). Maior gap no OEE: <b>${mainGap}</b>.`:`Sem paradas registradas. Maior gap no OEE: <b>${mainGap}</b>.`;
+  }
+  const diagEl=$('oeeDiagnosis');if(diagEl)diagEl.innerHTML=diagnosis;
+  const cfg=oeeConfigGet();
+  return{oee,availability,performance,performanceRaw,quality,actual,expected:expectedQty,scrap,rework,reworkAsLoss,good,plannedMs:b.plannedRawMs,plannedDowntimeMs:b.plannedDowntimeMs,effectivePlannedMs:b.effectivePlannedMs,runMs:b.runMs,allDowntimeMs:b.allDowntimeMs,mtbfMs:b.mtbfMs,mttrMs:b.mttrMs,failureCount:b.failureCount,configuredRate:r.configuredRate,unitLabel:els.timeUnit?.value==='60'?'un/min':'un/h',failureCauses:[...(cfg.failureCauses||[])],plannedDowntimeCauses:[...(cfg.plannedDowntimeCauses||[])],diagnosis};
+}
+function openOee(){
+  const modal=els.oeeModal;if(!modal)return;
+  oeeConfigGet();
+  const saved=state.oee;
+  const sQty=stats().q;
+  $('oeeActualQty').value=Number.isFinite(saved?.actualQty)?saved.actualQty:(sQty?Number(sQty).toFixed(2):'');
+  $('oeeScrapQty').value=Number.isFinite(saved?.scrapQty)?saved.scrapQty:'0';
+  $('oeeReworkQty').value=Number.isFinite(saved?.reworkQty)?saved.reworkQty:'0';
+  $('oeeReworkAsLoss').checked=saved?.reworkAsLoss!==undefined?!!saved.reworkAsLoss:true;
+  $('oeePlannedMin').value='';
+  $('oeeRateOverride').value='';
+  renderOeeCauseCheckboxes();
+  renderOeeCalc();
+  modal.style.display='flex';
+  setTimeout(()=>$('oeeActualQty')?.focus(),50);
+}
+function closeOee(){if(els.oeeModal)els.oeeModal.style.display='none'}
+function saveOee(){
+  const r=renderOeeCalc();
+  if(!Number.isFinite(r.oee)){alert('Preencha os dados necessários para calcular o OEE antes de salvar.');return}
+  state.oee=sanitizeOee({...r,savedAt:Date.now()});
+  renderOeeSaved();persist();closeOee();
+}
+function clearOee(){state.oee=null;renderOeeSaved();persist()}
+function sanitizeOee(o){
+  if(!o||typeof o!=='object')return null;
+  const num=k=>Number.isFinite(Number(o[k]))?Number(o[k]):NaN;
+  const arr=k=>Array.isArray(o[k])?o[k].filter(c=>typeof c==='string').slice(0,20):[];
+  const out={oee:num('oee'),availability:num('availability'),performance:num('performance'),performanceRaw:num('performanceRaw'),quality:num('quality'),actualQty:num('actual'),expectedQty:num('expected'),scrapQty:num('scrap'),reworkQty:num('rework'),reworkAsLoss:!!o.reworkAsLoss,goodQty:num('good'),plannedMs:num('plannedMs'),plannedDowntimeMs:num('plannedDowntimeMs'),effectivePlannedMs:num('effectivePlannedMs'),runMs:num('runMs'),allDowntimeMs:num('allDowntimeMs'),mtbfMs:num('mtbfMs'),mttrMs:num('mttrMs'),failureCount:num('failureCount'),configuredRate:num('configuredRate'),unitLabel:typeof o.unitLabel==='string'?o.unitLabel.slice(0,20):'un/h',failureCauses:arr('failureCauses'),plannedDowntimeCauses:arr('plannedDowntimeCauses'),diagnosis:typeof o.diagnosis==='string'?o.diagnosis.slice(0,400):'',savedAt:Number(o.savedAt)||Date.now()};
+  return Number.isFinite(out.oee)?out:null;
+}
+function renderOeeSaved(){
+  const box=$('oeeSavedSummary');if(!box)return;
+  const o=state.oee;
+  if(!o){box.innerHTML=`<button class="btn-open-oee" type="button" data-action="openOee">📊 Calcular OEE</button>`;return}
+  const cls=oeeColorClass(o.oee);
+  const mtbf=Number.isFinite(o.mtbfMs)?`MTBF ${fmtMtMs(o.mtbfMs)}`:'';
+  const mttr=Number.isFinite(o.mttrMs)?`MTTR ${fmtMtMs(o.mttrMs)}`:'';
+  const aux=[mtbf,mttr].filter(Boolean).join(' · ');
+  box.innerHTML=`<div class="oee-saved-card ${cls}"><div class="oee-saved-main"><span>OEE</span><strong>${oeePct(o.oee)}</strong></div><div class="oee-saved-sub">D ${oeePct(o.availability)} · P ${oeePct(o.performance)} · Q ${oeePct(o.quality)}${aux?' · '+escAttr(aux):''}</div><div class="oee-saved-actions"><button type="button" data-action="openOee">Ver / editar</button><button type="button" class="oee-saved-clear" data-action="clearOee" aria-label="Limpar OEE salvo">×</button></div></div>`;
+}
+function openGuide(){if(els.guideModal)els.guideModal.style.display='flex'}
+function closeGuide(){if(els.guideModal)els.guideModal.style.display='none'}
 function renderEventTimeline(){
   const cont=els.eventTimeline;
   if(!cont)return;
@@ -296,11 +444,19 @@ function closeQtyModal(ok){if(state.pendingCycle&&ok){const q=n(els.qtyModalInpu
 function openConfirm(title,text,cb){confirmCb=cb;els.confirmModalTitle.textContent=title;els.confirmModalText.textContent=text;els.confirmModal.style.display='flex'}function closeConfirmModal(ok){els.confirmModal.style.display='none';if(ok&&confirmCb)confirmCb();confirmCb=null}
 const infoTexts={modo_analise:['Tipo de análise','Tempo por ciclo mede cada ciclo. Produção por intervalo mede uma janela de tempo e permite informar quantidade produzida.'],pecas_ciclo:['Peças por ciclo','Quantidade produzida a cada ciclo registrado.'],qtd_lap:['Qtd. padrão por lap','Quantidade usada automaticamente em cada intervalo quando não houver edição manual.'],takt:['Takt Time','Tempo disponível por unidade para atender a demanda.'],meta:['Meta','Capacidade esperada para comparação com a capacidade medida.'],amostras:['Amostras','Número de ciclos ou intervalos registrados.'],capacidade:['Capacidade','Produção estimada com base nas amostras coletadas.'],ultimo:['Último ciclo','Duração da última amostra registrada.'],medio:['Ciclo médio','Média das amostras registradas.'],minimo:['Mínimo','Menor tempo registrado.'],maximo:['Máximo','Maior tempo registrado.'],desvio:['Desvio padrão','Variação entre os tempos coletados.'],estabilidade:['Índice de estabilidade','Quanto menor a variação, maior a estabilidade.'],eficiencia:['Eficiência','Capacidade medida comparada com a meta informada.'],curva_controle:['Curva de controle','Mostra a sequência dos ciclos e a comparação com média e takt.'],histograma:['Histograma','Mostra a distribuição dos tempos coletados.'],etapas:['Etapas dos ciclos','Sequência de cada etapa: barra verde para tempo produtivo (Normal) e barra vermelha para parada (Microparada, Setup, etc.). Permite ver dentro de um ciclo onde o tempo foi gasto.'],paradas_causa:['Paradas por causa','Tempo total e participação percentual de cada tipo de parada. Ordenado da maior para a menor.']};
 function showInfo(key){const item=infoTexts[key]||['Informação','Sem descrição cadastrada.'];els.modalTitle.textContent=item[0];els.modalText.textContent=item[1];els.infoModal.style.display='flex'}function closeInfo(){els.infoModal.style.display='none'}
-function exportToExcel(){const rows=[['#','Tipo','Causa','Tempo_s','Quantidade','Observacao'],...state.events.map((e,i)=>{const sec=((e.type==='cycle'?e.productiveMs:e.durationMs)||0)/1000;return [i+1,e.type==='cycle'?'Ciclo':'Parada',e.cause||'',sec.toFixed(2).replace('.',','),e.type==='cycle'?qty(e):'',(e.obs||'').replace(/[\r\n]+/g,' ')]})];const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(';')).join('\r\n');downloadBlob(csv,'crono-maquina.csv','text/csv;charset=utf-8')}
+function exportToExcel(){
+  const rows=[['#','Tipo','Causa','Tempo_s','Quantidade','Observacao'],...state.events.map((e,i)=>{const sec=((e.type==='cycle'?e.productiveMs:e.durationMs)||0)/1000;return [i+1,e.type==='cycle'?'Ciclo':'Parada',e.cause||'',sec.toFixed(2).replace('.',','),e.type==='cycle'?qty(e):'',(e.obs||'').replace(/[\r\n]+/g,' ')]})];
+  if(state.oee){
+    const o=state.oee,fmt=v=>Number.isFinite(v)?(v*100).toFixed(1).replace('.',','):'';
+    rows.push([],['OEE','','','','',''],['Indicador','Valor','','','',''],['OEE',fmt(o.oee)+'%','','','',''],['Disponibilidade',fmt(o.availability)+'%','','','',''],['Performance',fmt(o.performance)+'%','','','',''],['Qualidade',fmt(o.quality)+'%','','','',''],['MTBF',fmtMtMs(o.mtbfMs),'','','',''],['MTTR',fmtMtMs(o.mttrMs),'','','',''],['Falhas',o.failureCount||0,'','','',''],['Qtd. real',Number.isFinite(o.actualQty)?o.actualQty:'','','','',''],['Refugo',Number.isFinite(o.scrapQty)?o.scrapQty:'','','','',''],['Retrabalho',Number.isFinite(o.reworkQty)?o.reworkQty:'','','','','']);
+  }
+  const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(';')).join('\r\n');
+  downloadBlob(csv,'crono-maquina.csv','text/csv;charset=utf-8');
+}
 function downloadBlob(content,name,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),100)}
 function showLibError(){alert('Biblioteca de exportação não carregada. Verifique sua conexão com a internet e recarregue a página.')}
-async function shareWhatsApp(){if(typeof window.html2canvas!=='function'){showLibError();return}const restoreBtn=(()=>{const b=els.btnWhatsApp;if(!b)return()=>{};const t=b.textContent;b.disabled=true;b.textContent='⏳ Gerando...';return()=>{b.textContent=t;b.disabled=!(state.events.length>0)}})();const s=stats();const cycCount=cycles().length;const unitLabel=els.timeUnit.value==='3600'?'un/h':'un/min';const data=typeof window.getCronoMachineData==='function'?window.getCronoMachineData():null;const impact=data?.impact||{};const std=data?.standardTime||{};const ex=data?.extras||{};const f=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):'—';const text=`Resumo Executivo — Cronoanálise Máquina\n\nEquipamento: ${(els.equipName.value||'').trim()||'-'}\nLinha/Turno/Produto: ${ex.lineName||'-'} / ${ex.shiftName||'-'} / ${ex.productName||'-'}\nCiclos: ${cycCount}\nCiclo médio: ${s.av.toFixed(2)}s\nCapacidade: ${s.cap.toFixed(1)} ${unitLabel}\nEstabilidade: ${s.stab.toFixed(1)}%\nGap: ${impact.target?`${f(impact.gap,1)} (${f(impact.gapPct,1)}%) ${unitLabel}`:'—'}\nPerda/h: ${impact.target?`${f(impact.lossPerHour,0)} un/h`:'—'}\nPerda/turno: ${impact.target?`${f(impact.lossPerShift,0)} un`:'—'}\nTempo padrão: ${std.standardSec?`${f(std.standardSec,2)}s`:'—'}`;renderPrint();try{const canvas=await html2canvas($('exportContainer'),{scale:2,backgroundColor:'#ffffff',onclone:function(doc){doc.documentElement.removeAttribute('data-theme');doc.body.classList.add('export-mode')}});const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));const file=new File([blob],'crono.png',{type:'image/png'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Crono Máquina',text})}else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='crono-maquina.png';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),100);window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer')}}catch(e){if(e.name!=='AbortError')console.error('Erro WhatsApp:',e)}finally{restoreBtn()}}
-function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({state:{running:state.running,startedAt:state.startedAt,totalElapsedMs:state.totalElapsedMs,mode:state.mode,currentCycle:state.currentCycle,activeDowntime:state.activeDowntime,events:state.events,chartType:state.chartType},form:{equipName:els.equipName.value,analystName:els.analystName.value,analysisMode:els.analysisMode.value,units:els.units.value,defaultLapQty:els.defaultLapQty.value,timeUnit:els.timeUnit.value,takt:els.takt.value,target:els.target.value,lapQtyMode:els.lapQtyMode.value}}))}catch(e){console.warn('[Crono] Falha ao salvar dados locais:',e)}}
+async function shareWhatsApp(){if(typeof window.html2canvas!=='function'){showLibError();return}const restoreBtn=(()=>{const b=els.btnWhatsApp;if(!b)return()=>{};const t=b.textContent;b.disabled=true;b.textContent='⏳ Gerando...';return()=>{b.textContent=t;b.disabled=!(state.events.length>0)}})();const s=stats();const cycCount=cycles().length;const unitLabel=els.timeUnit.value==='3600'?'un/h':'un/min';const data=typeof window.getCronoMachineData==='function'?window.getCronoMachineData():null;const impact=data?.impact||{};const std=data?.standardTime||{};const ex=data?.extras||{};const f=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):'—';const oee=data?.oee||state.oee||null;const oeeLine=oee&&Number.isFinite(Number(oee.oee))?`\nOEE: ${f(Number(oee.oee)*100,1)}% (D ${f(Number(oee.availability)*100,1)}% · P ${f(Number(oee.performance)*100,1)}% · Q ${f(Number(oee.quality)*100,1)}%)${Number.isFinite(Number(oee.mtbfMs))?` · MTBF ${fmtMtMs(Number(oee.mtbfMs))}`:''}${Number.isFinite(Number(oee.mttrMs))?` · MTTR ${fmtMtMs(Number(oee.mttrMs))}`:''}`:'';const text=`Resumo Executivo — Cronoanálise Máquina\n\nEquipamento: ${(els.equipName.value||'').trim()||'-'}\nLinha/Turno/Produto: ${ex.lineName||'-'} / ${ex.shiftName||'-'} / ${ex.productName||'-'}\nCiclos: ${cycCount}\nCiclo médio: ${s.av.toFixed(2)}s\nCapacidade: ${s.cap.toFixed(1)} ${unitLabel}\nEstabilidade: ${s.stab.toFixed(1)}%\nGap: ${impact.target?`${f(impact.gap,1)} (${f(impact.gapPct,1)}%) ${unitLabel}`:'—'}\nPerda/h: ${impact.target?`${f(impact.lossPerHour,0)} un/h`:'—'}\nPerda/turno: ${impact.target?`${f(impact.lossPerShift,0)} un`:'—'}\nTempo padrão: ${std.standardSec?`${f(std.standardSec,2)}s`:'—'}${oeeLine}`;renderPrint();try{const canvas=await html2canvas($('exportContainer'),{scale:2,backgroundColor:'#ffffff',onclone:function(doc){doc.documentElement.removeAttribute('data-theme');doc.body.classList.add('export-mode')}});const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));const file=new File([blob],'crono.png',{type:'image/png'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Crono Máquina',text})}else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='crono-maquina.png';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),100);window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer')}}catch(e){if(e.name!=='AbortError')console.error('Erro WhatsApp:',e)}finally{restoreBtn()}}
+function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({state:{running:state.running,startedAt:state.startedAt,totalElapsedMs:state.totalElapsedMs,mode:state.mode,currentCycle:state.currentCycle,activeDowntime:state.activeDowntime,events:state.events,chartType:state.chartType,oee:state.oee,oeeConfig:state.oeeConfig},form:{equipName:els.equipName.value,analystName:els.analystName.value,analysisMode:els.analysisMode.value,units:els.units.value,defaultLapQty:els.defaultLapQty.value,timeUnit:els.timeUnit.value,takt:els.takt.value,target:els.target.value,lapQtyMode:els.lapQtyMode.value}}))}catch(e){console.warn('[Crono] Falha ao salvar dados locais:',e)}}
 function load(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY);
@@ -318,10 +474,17 @@ function load(){
       state.activeDowntime=data.state.activeDowntime&&typeof data.state.activeDowntime==='object'?{id:typeof data.state.activeDowntime.id==='string'?data.state.activeDowntime.id:id(),cause:typeof data.state.activeDowntime.cause==='string'?data.state.activeDowntime.cause.slice(0,50):'Microparada',startMs:null,firstStartMs:Number(data.state.activeDowntime.firstStartMs)||Number(data.state.activeDowntime.startMs)||null,accumMs:Math.max(0,Number(data.state.activeDowntime.accumMs)||0)}:null;
       const arr=Array.isArray(data.state.events)?data.state.events:[];
       state.events=arr.filter(e=>e&&typeof e==='object').map(e=>({id:typeof e.id==='string'&&/^[A-Za-z0-9._-]{1,64}$/.test(e.id)?e.id:id(),type:e.type==='downtime'?'downtime':'cycle',cause:typeof e.cause==='string'?e.cause.slice(0,50):'Normal',durationMs:Math.max(0,Number(e.durationMs)||0),productiveMs:Number.isFinite(Number(e.productiveMs))?Math.max(0,Number(e.productiveMs)):undefined,qty:Number.isFinite(Number(e.qty))?Number(e.qty):null,obs:typeof e.obs==='string'?e.obs.slice(0,200):'',startedAt:Number(e.startedAt)||null,endedAt:Number(e.endedAt)||null}));
+      state.oee=sanitizeOee(data.state.oee);
+      const cfg=data.state.oeeConfig;
+      if(cfg&&typeof cfg==='object'){
+        const arrStr=v=>Array.isArray(v)?v.filter(c=>typeof c==='string').slice(0,20):null;
+        const fc=arrStr(cfg.failureCauses),pc=arrStr(cfg.plannedDowntimeCauses);
+        state.oeeConfig={failureCauses:fc||[...OEE_DEFAULT_CFG.failureCauses],plannedDowntimeCauses:pc||[...OEE_DEFAULT_CFG.plannedDowntimeCauses]};
+      }
     }
   }catch(e){localStorage.removeItem(STORAGE_KEY)}
 }
-const ACTIONS={start:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>window.generatePNG?.(),exportPdf:()=>window.generateRealPDF?.(),shareWhatsapp:shareWhatsApp,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId)};
+const ACTIONS={start:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>window.generatePNG?.(),exportPdf:()=>window.generateRealPDF?.(),shareWhatsapp:shareWhatsApp,openGuide:openGuide,closeGuide:closeGuide,openOee:openOee,closeOee:closeOee,saveOee:saveOee,clearOee:clearOee,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId)};
 const debounce=(fn,ms)=>{let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms)}};
 const renderDeb=debounce(render,80);
 const persistDeb=debounce(persist,250);
@@ -345,6 +508,23 @@ function bind(){
     if(t.classList?.contains('history-qty-input'))updateLapQty(t.dataset.eventId,t.value);
   });
   els.infoModal?.addEventListener('click',e=>{if(e.target===els.infoModal)closeInfo()});
+  els.guideModal?.addEventListener('click',e=>{if(e.target===els.guideModal)closeGuide()});
+  els.oeeModal?.addEventListener('click',e=>{if(e.target===els.oeeModal)closeOee()});
+  ['oeeActualQty','oeeScrapQty','oeeReworkQty','oeePlannedMin','oeeRateOverride'].forEach(id=>$(id)?.addEventListener('input',renderOeeCalc));
+  $('oeeReworkAsLoss')?.addEventListener('change',renderOeeCalc);
+  ['oeeCausesAvailability','oeeCausesFailure'].forEach(id=>$(id)?.addEventListener('change',e=>{
+    const t=e.target;if(!t||!t.dataset?.oeeCauseKey)return;
+    const key=t.dataset.oeeCauseKey,cause=t.dataset.oeeCause,cfg=oeeConfigGet();
+    if(key==='plannedDowntimeCauses'){
+      const list=cfg.plannedDowntimeCauses||[];
+      cfg.plannedDowntimeCauses=t.checked?list.filter(c=>c!==cause):(list.includes(cause)?list:[...list,cause]);
+    }else if(key==='failureCauses'){
+      const list=cfg.failureCauses||[];
+      cfg.failureCauses=t.checked?(list.includes(cause)?list:[...list,cause]):list.filter(c=>c!==cause);
+    }
+    renderOeeCalc();persist();
+  }));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeInfo();closeGuide();closeOee();}});
   [els.equipName,els.analystName].forEach(el=>el?.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!state.running&&(els.equipName?.value||'').trim()){
       e.preventDefault();
