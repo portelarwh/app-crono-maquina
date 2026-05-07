@@ -12,8 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v4.0.6',
-
+      version: window.APP_VERSION || 'v4.1.0',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -145,6 +144,31 @@
     return '<section class="panel chartPanel hist"><h2>Histograma</h2><div class="chartBox"><div class="hBars">'+bars+'</div></div></section>';
   }
 
+  function fmtMtMsRpt(ms){
+    if(!isFinite(Number(ms)))return'--';
+    var s=Math.max(0,Math.floor(Number(ms)/1000)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
+    if(h>0)return h+'h '+(m<10?'0':'')+m+'m';
+    if(m>0)return m+'m '+(ss<10?'0':'')+ss+'s';
+    return ss+'s';
+  }
+  function oeeBlock(){
+    var o = data().oee;
+    if(!o || !isFinite(Number(o.oee))) return '';
+    var pct = function(v){ return isFinite(Number(v)) ? f(Number(v) * 100, 1) + '%' : '—'; };
+    var oeeVal = Number(o.oee), cls = oeeVal >= 0.75 ? 'oeeGood' : oeeVal >= 0.60 ? 'oeeWarn' : 'oeeBad';
+    return '<section class="panel diagnostic oeePanel '+cls+'"><h2>OEE — Disponibilidade · Performance · Qualidade</h2><div class="diagGrid">'
+      + '<div><b>OEE</b><strong>'+esc(pct(o.oee))+'</strong></div>'
+      + '<div><b>Disponib.</b><strong>'+esc(pct(o.availability))+'</strong></div>'
+      + '<div><b>Performance</b><strong>'+esc(pct(o.performance))+'</strong></div>'
+      + '<div><b>Qualidade</b><strong>'+esc(pct(o.quality))+'</strong></div>'
+      + '<div><b>MTBF</b><strong>'+esc(fmtMtMsRpt(o.mtbfMs))+'</strong></div>'
+      + '<div><b>MTTR</b><strong>'+esc(fmtMtMsRpt(o.mttrMs))+'</strong></div>'
+      + '<div><b>Falhas</b><strong>'+esc(String(o.failureCount||0))+'</strong></div>'
+      + '<div><b>Qtd. real</b><strong>'+esc(f(o.actualQty,1))+'</strong></div>'
+      + '</div>'
+      + (o.diagnosis ? '<p class="small"><b>Diagnóstico:</b> '+esc(String(o.diagnosis).replace(/<[^>]+>/g,''))+'</p>' : '')
+      + '</section>';
+  }
   function paretoBlock(){
     var s = samples(), groups = {}, total = s.length;
     s.forEach(function(x){ var c = x.cause || 'Normal'; if(!groups[c]) groups[c] = {cause:c,count:0}; groups[c].count += 1; });
@@ -183,6 +207,7 @@
       + '<div class="sectionLabel">Visão executiva</div>'
       + kpis(s)
       + impactBlock()
+      + oeeBlock()
       + '<main class="main"><section>'+chart(s)+hist(s)+'</section><aside>'+auxiliary(s)+'<div class="time"><small>Tempo total de medição</small><span>'+esc(($('totalTimer') && $('totalTimer').textContent) || '00:00')+'</span></div></aside></main>'
       + paretoBlock()
       + comparisonBlock()
