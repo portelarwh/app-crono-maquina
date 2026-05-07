@@ -143,6 +143,16 @@
         }
         
         .result-value { display: block; font-size: 1.3rem; font-weight: bold; margin-top: 4px; }
+        .oee-action-box { display: flex; }
+        .btn-oee {
+            width: 100%; min-height: 50px; padding: 12px 14px;
+            background: linear-gradient(135deg, #6b35a8, var(--blue));
+            color: var(--text-on-accent); border-radius: 10px;
+            font-size: 0.9rem; letter-spacing: 0.04em;
+            box-shadow: 0 4px 12px rgba(107,53,168,.24);
+        }
+        .btn-oee:hover { opacity: .92; }
+
         
         .text-green { color: var(--green) !important; }
         .text-red { color: var(--red) !important; }
@@ -520,6 +530,7 @@ body.export-mode .chart-title{
         .export-mode .info-icon, 
         .export-mode .btn-delete, 
         .export-mode #actionButtons,
+        .export-mode .oee-action-box,
         .export-mode #lapQtyModeGroup,
         .export-mode .app-footer { 
             display: none !important; 
@@ -541,6 +552,7 @@ body.export-mode .chart-title{
         .export-mode .result-value { font-size: 12pt !important; color: #000 !important; }
         .export-mode .results-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 5px !important; }
         .export-mode .full-width { grid-column: span 4 !important; }
+        .export-mode .efficiency-box { grid-column: span 4 !important; }
 
         .export-mode .text-green { color: #28a745 !important; }
         .export-mode .text-red { color: #dc3545 !important; }
@@ -757,6 +769,7 @@ body.export-mode .hist-label{
 
     .results-grid { grid-template-columns: repeat(4, 1fr); }
     .results-grid .full-width { grid-column: span 4; }
+    .results-grid .oee-action-box { grid-column: span 3; }
 
     .live-timer { font-size: 3.4rem; }
     .card { padding: 16px; }
