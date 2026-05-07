@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
-    <link rel="manifest" href="manifest.json?v=4.1.0">
+    <link rel="manifest" href="manifest.json?v=4.1.1">
     <meta name="theme-color" content="#0d1117">
     <title>Cronoanálise Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link rel="stylesheet" href="styles.css?v=4.1.0">
-    <script src="theme-init.js?v=4.1.0"></script>
+    <link rel="stylesheet" href="styles.css?v=4.1.1">
+    <script src="theme-init.js?v=4.1.1"></script>
 </head>
 <body>
 
@@ -130,8 +130,7 @@
                     <div class="result-box"><button type="button" class="info-icon" aria-label="Informações sobre valor máximo" data-action="info" data-info="maximo">!</button><div class="result-title">MÁXIMO</div><span id="valMaxCycle" class="result-value text-red">0.00s</span></div>
                     <div class="result-box"><button type="button" class="info-icon" aria-label="Informações sobre desvio padrão" data-action="info" data-info="desvio">!</button><div class="result-title">DESVIO PADRÃO</div><span id="valStdDev" class="result-value">0.00s</span></div>
                     <div class="result-box"><button type="button" class="info-icon" aria-label="Informações sobre índice de estabilidade" data-action="info" data-info="estabilidade">!</button><div class="result-title">ÍNDICE DE ESTABIL.</div><span id="valEstabilidade" class="result-value">100.0%</span></div>
-                    <div class="result-box efficiency-box"><button type="button" class="info-icon" aria-label="Informações sobre eficiência" data-action="info" data-info="eficiencia">!</button><div class="result-title">EFICIÊNCIA (%)</div><span id="valEfficiency" class="result-value">--</span></div>
-                    <div class="oee-action-box full-width"><button id="btnOee" class="btn-oee" type="button" data-action="info" data-info="oee_calc">📊 Cálculo de OEE</button></div>
+                    <div class="result-box full-width"><button type="button" class="info-icon" aria-label="Informações sobre eficiência" data-action="info" data-info="eficiencia">!</button><div class="result-title">EFICIÊNCIA (%)</div><span id="valEfficiency" class="result-value">--</span></div>
                 </div>
             </div>
         </div>
@@ -306,30 +305,31 @@
     <div class="modal-content oee-modal-content">
         <div class="modal-title" id="oeeModalTitle">📊 Cálculo de OEE</div>
         <div class="modal-text oee-modal-text">
-            <p class="oee-intro">Simule OEE, MTBF e MTTR a partir da medição atual. Os campos editáveis começam preenchidos automaticamente.</p>
+            <p class="oee-intro">Simule OEE, MTBF e MTTR a partir da medição atual. Os campos editáveis já vêm preenchidos automaticamente.</p>
+            <button type="button" class="oee-help-btn" data-action="info" data-info="oee_help">📘 Como preencher cada campo</button>
 
             <details class="oee-section" open>
                 <summary>1. Tempo de produção</summary>
                 <div class="oee-base-grid">
-                    <div><span>Tempo total medido</span><strong id="oeeTotalTime">00:00</strong></div>
-                    <div><span>Tempo de paradas</span><strong id="oeeDowntimeTime">00:00</strong></div>
-                    <div><span>Tempo rodando</span><strong id="oeeRunTime">00:00</strong></div>
+                    <div><span>Tempo total</span><strong id="oeeTotalTime">00:00</strong></div>
+                    <div><span>Paradas</span><strong id="oeeDowntimeTime">00:00</strong></div>
+                    <div><span>Rodando</span><strong id="oeeRunTime">00:00</strong></div>
                 </div>
                 <label class="oee-edit-row">
-                    Tempo planejado (editável — desconte refeição, reunião, etc.)
-                    <input id="oeePlannedMin" type="number" min="0" step="0.1" inputmode="decimal" placeholder="minutos">
-                    <span class="oee-edit-hint">Em branco = usa tempo total medido</span>
+                    <span class="oee-label">Tempo planejado de produção</span>
+                    <input id="oeePlannedMin" type="number" min="0" step="0.1" inputmode="decimal" placeholder="minutos (auto = tempo total)">
+                    <small class="oee-help">Em branco usa o tempo total medido. Edite para descontar refeição, reunião ou paradas planejadas que ficam fora do estudo.</small>
                 </label>
             </details>
 
             <details class="oee-section" open>
                 <summary>2. Causas de parada</summary>
                 <div class="oee-cause-block">
-                    <div class="oee-cause-title">Contam como <b>indisponibilidade</b> (entram em D)</div>
+                    <div class="oee-cause-title">Contam como <b>indisponibilidade</b> <small>(entram em D)</small></div>
                     <div id="oeeCausesAvailability" class="oee-cause-list"></div>
                 </div>
                 <div class="oee-cause-block">
-                    <div class="oee-cause-title">Contam como <b>falha</b> (entram em MTBF/MTTR)</div>
+                    <div class="oee-cause-title">Contam como <b>falha</b> <small>(entram em MTBF/MTTR)</small></div>
                     <div id="oeeCausesFailure" class="oee-cause-list"></div>
                 </div>
             </details>
@@ -337,14 +337,15 @@
             <details class="oee-section" open>
                 <summary>3. Produção e qualidade</summary>
                 <div class="oee-input-grid">
-                    <label>Total de saídas (boas + refugo + retrabalho)<input id="oeeActualQty" type="number" min="0" step="any" inputmode="decimal"></label>
-                    <label>Refugo<input id="oeeScrapQty" type="number" min="0" step="any" inputmode="decimal" value="0"></label>
-                    <label>Retrabalho<input id="oeeReworkQty" type="number" min="0" step="any" inputmode="decimal" value="0"></label>
+                    <label><span class="oee-label">Total produzido</span><input id="oeeActualQty" type="number" min="0" step="any" inputmode="decimal"><small class="oee-help">Boas + refugo + retrabalho</small></label>
+                    <label><span class="oee-label">Refugo</span><input id="oeeScrapQty" type="number" min="0" step="any" inputmode="decimal" value="0"><small class="oee-help">Peças perdidas</small></label>
+                    <label><span class="oee-label">Retrabalho</span><input id="oeeReworkQty" type="number" min="0" step="any" inputmode="decimal" value="0"><small class="oee-help">Peças refeitas</small></label>
                 </div>
-                <label class="oee-check"><input id="oeeReworkAsLoss" type="checkbox" checked> Considerar retrabalho como perda de qualidade</label>
+                <label class="oee-check"><input id="oeeReworkAsLoss" type="checkbox" checked> <span>Retrabalho conta como perda de qualidade</span></label>
                 <label class="oee-edit-row">
-                    Velocidade nominal (un/<span id="oeeRateBase">h</span>) — editável
-                    <input id="oeeRateOverride" type="number" min="0" step="any" inputmode="decimal" placeholder="auto (meta/takt)">
+                    <span class="oee-label">Velocidade nominal <span id="oeeRateUnit">(un/h)</span></span>
+                    <input id="oeeRateOverride" type="number" min="0" step="any" inputmode="decimal">
+                    <small class="oee-help" id="oeeRateHelp">Calculado automaticamente da Meta ou do Takt. Edite se quiser usar outra velocidade.</small>
                 </label>
             </details>
 
@@ -383,10 +384,10 @@
     <button id="btnLap" class="btn-lap" data-action="normal" disabled>⏱ NORMAL</button>
 </div>
 
-<script src="app.js?v=4.1.0" defer></script>
-<script src="general-improvements.js?v=4.1.0" defer></script>
-<script src="report-enhancements.js?v=4.1.0" defer></script>
-<script src="whatsapp-share-fix.js?v=4.1.0" defer></script>
-<script src="pwa-ui.js?v=4.1.0" defer></script>
+<script src="app.js?v=4.1.1" defer></script>
+<script src="general-improvements.js?v=4.1.1" defer></script>
+<script src="report-enhancements.js?v=4.1.1" defer></script>
+<script src="whatsapp-share-fix.js?v=4.1.1" defer></script>
+<script src="pwa-ui.js?v=4.1.1" defer></script>
 </body>
 </html>

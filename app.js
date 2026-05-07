@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v4.1.0';
+const APP_VERSION='v4.1.1';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -256,7 +256,7 @@ function renderOeeCauseCheckboxes(){
       const inList=cfgList.includes(c);
       const checked=inverted?!inList:inList;
       const info=b.paradasByCause[c];
-      return `<label class="oee-cause-item${checked?' on':''}"><input type="checkbox" data-oee-cause-key="${escAttr(key)}" data-oee-cause="${escAttr(c)}" ${checked?'checked':''}> <span>${escAttr(c)}</span><em>${info.count}× · ${fmtMtMs(info.totalMs)}</em></label>`;
+      return `<label class="oee-cause-item${checked?' on':''}"><input type="checkbox" data-oee-cause-key="${escAttr(key)}" data-oee-cause="${escAttr(c)}" ${checked?'checked':''}><span class="oee-cause-name">${escAttr(c)}</span><span class="oee-cause-info">${info.count}× · ${fmtMtMs(info.totalMs)}</span></label>`;
     }).join('');
   };
   renderList('oeeCausesAvailability','plannedDowntimeCauses',true);
@@ -281,7 +281,19 @@ function renderOeeCalc(){
   set('oeeDowntimeTime',fmtMtMs(b.allDowntimeMs));
   set('oeeRunTime',fmtMtMs(b.runMs));
   const rateBase=els.timeUnit?.value==='60'?'min':'h';
-  set('oeeRateBase',rateBase);
+  const unitLabel=`(un/${rateBase})`;
+  set('oeeRateUnit',unitLabel);
+  const rateInput=$('oeeRateOverride');
+  const rateHelp=$('oeeRateHelp');
+  if(rateInput){
+    if(r.configuredRate>0){
+      rateInput.placeholder=`Auto: ${r.configuredRate.toFixed(1).replace('.',',')} un/${rateBase}`;
+      if(rateHelp)rateHelp.textContent=`Calculado automaticamente da Meta ou do Takt. Edite se quiser usar outra velocidade.`;
+    }else{
+      rateInput.placeholder='Informe a velocidade ideal';
+      if(rateHelp)rateHelp.textContent='Defina Meta ou Takt no painel principal, ou digite a velocidade ideal aqui.';
+    }
+  }
   set('oeeValue',oeePct(oee));
   set('oeeAvailability',oeePct(availability));
   set('oeeQuality',oeePct(quality));
@@ -442,7 +454,7 @@ function changeTimeUnit(){const tar=n(els.target,0);const cur=els.timeUnit.value
 function changeAnalysisMode(){render();persist()}
 function closeQtyModal(ok){if(state.pendingCycle&&ok){const q=n(els.qtyModalInput,0);const pc=state.pendingCycle;state.pendingCycle=null;els.qtyModal.style.display='none';finalizeCycle({...pc,q});return}state.pendingCycle=null;els.qtyModal.style.display='none'}
 function openConfirm(title,text,cb){confirmCb=cb;els.confirmModalTitle.textContent=title;els.confirmModalText.textContent=text;els.confirmModal.style.display='flex'}function closeConfirmModal(ok){els.confirmModal.style.display='none';if(ok&&confirmCb)confirmCb();confirmCb=null}
-const infoTexts={modo_analise:['Tipo de análise','Tempo por ciclo mede cada ciclo. Produção por intervalo mede uma janela de tempo e permite informar quantidade produzida.'],pecas_ciclo:['Peças por ciclo','Quantidade produzida a cada ciclo registrado.'],qtd_lap:['Qtd. padrão por lap','Quantidade usada automaticamente em cada intervalo quando não houver edição manual.'],takt:['Takt Time','Tempo disponível por unidade para atender a demanda.'],meta:['Meta','Capacidade esperada para comparação com a capacidade medida.'],amostras:['Amostras','Número de ciclos ou intervalos registrados.'],capacidade:['Capacidade','Produção estimada com base nas amostras coletadas.'],ultimo:['Último ciclo','Duração da última amostra registrada.'],medio:['Ciclo médio','Média das amostras registradas.'],minimo:['Mínimo','Menor tempo registrado.'],maximo:['Máximo','Maior tempo registrado.'],desvio:['Desvio padrão','Variação entre os tempos coletados.'],estabilidade:['Índice de estabilidade','Quanto menor a variação, maior a estabilidade.'],eficiencia:['Eficiência','Capacidade medida comparada com a meta informada.'],curva_controle:['Curva de controle','Mostra a sequência dos ciclos e a comparação com média e takt.'],histograma:['Histograma','Mostra a distribuição dos tempos coletados.'],etapas:['Etapas dos ciclos','Sequência de cada etapa: barra verde para tempo produtivo (Normal) e barra vermelha para parada (Microparada, Setup, etc.). Permite ver dentro de um ciclo onde o tempo foi gasto.'],paradas_causa:['Paradas por causa','Tempo total e participação percentual de cada tipo de parada. Ordenado da maior para a menor.'],oee_calc:['Cálculo de OEE','Este botão reserva o espaço do próximo passo: calcular Disponibilidade, Performance e Qualidade usando tempo total, paradas, velocidade configurada e quantidade real produzida.']};
+const infoTexts={modo_analise:['Tipo de análise','Tempo por ciclo mede cada ciclo. Produção por intervalo mede uma janela de tempo e permite informar quantidade produzida.'],pecas_ciclo:['Peças por ciclo','Quantidade produzida a cada ciclo registrado.'],qtd_lap:['Qtd. padrão por lap','Quantidade usada automaticamente em cada intervalo quando não houver edição manual.'],takt:['Takt Time','Tempo disponível por unidade para atender a demanda.'],meta:['Meta','Capacidade esperada para comparação com a capacidade medida.'],amostras:['Amostras','Número de ciclos ou intervalos registrados.'],capacidade:['Capacidade','Produção estimada com base nas amostras coletadas.'],ultimo:['Último ciclo','Duração da última amostra registrada.'],medio:['Ciclo médio','Média das amostras registradas.'],minimo:['Mínimo','Menor tempo registrado.'],maximo:['Máximo','Maior tempo registrado.'],desvio:['Desvio padrão','Variação entre os tempos coletados.'],estabilidade:['Índice de estabilidade','Quanto menor a variação, maior a estabilidade.'],eficiencia:['Eficiência','Capacidade medida comparada com a meta informada.'],curva_controle:['Curva de controle','Mostra a sequência dos ciclos e a comparação com média e takt.'],histograma:['Histograma','Mostra a distribuição dos tempos coletados.'],etapas:['Etapas dos ciclos','Sequência de cada etapa: barra verde para tempo produtivo (Normal) e barra vermelha para parada (Microparada, Setup, etc.). Permite ver dentro de um ciclo onde o tempo foi gasto.'],paradas_causa:['Paradas por causa','Tempo total e participação percentual de cada tipo de parada. Ordenado da maior para a menor.'],oee_help:['Como preencher o cálculo de OEE','• Tempo planejado: tempo do estudo descontando paradas que não fazem parte da operação (refeição, reunião). Em branco usa o tempo total medido.\n• Causas de indisponibilidade: marque quais tipos de parada reduzem a Disponibilidade. Por padrão Setup fica desmarcado (parada planejada).\n• Causas de falha: marque quais paradas contam para MTBF e MTTR. Por padrão só "Falha de máquina".\n• Total produzido: todas as saídas, inclusive refugo e retrabalho.\n• Refugo: peças não recuperáveis.\n• Retrabalho: peças que precisaram ser refeitas. Use o checkbox para decidir se contam como perda de qualidade.\n• Velocidade nominal: ritmo ideal de produção. Auto = Meta ou Takt do painel principal.\n• Cores: ≥75% verde · 60-75% amarelo · <60% vermelho. Faixas de referência (ajuste conforme sua operação).'],oee_calc:['Cálculo de OEE','Este botão reserva o espaço do próximo passo: calcular Disponibilidade, Performance e Qualidade usando tempo total, paradas, velocidade configurada e quantidade real produzida.']};
 function showInfo(key){const item=infoTexts[key]||['Informação','Sem descrição cadastrada.'];els.modalTitle.textContent=item[0];els.modalText.textContent=item[1];els.infoModal.style.display='flex'}function closeInfo(){els.infoModal.style.display='none'}
 function exportToExcel(){
   const rows=[['#','Tipo','Causa','Tempo_s','Quantidade','Observacao'],...state.events.map((e,i)=>{const sec=((e.type==='cycle'?e.productiveMs:e.durationMs)||0)/1000;return [i+1,e.type==='cycle'?'Ciclo':'Parada',e.cause||'',sec.toFixed(2).replace('.',','),e.type==='cycle'?qty(e):'',(e.obs||'').replace(/[\r\n]+/g,' ')]})];

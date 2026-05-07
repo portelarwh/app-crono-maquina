@@ -143,17 +143,8 @@
         }
         
         .result-value { display: block; font-size: 1.3rem; font-weight: bold; margin-top: 4px; }
-        .oee-action-box { display: flex; }
-        .btn-oee {
-            width: 100%; min-height: 50px; padding: 12px 14px;
-            background: linear-gradient(135deg, #6b35a8, var(--blue));
-            color: var(--text-on-accent); border-radius: 10px;
-            font-size: 0.9rem; letter-spacing: 0.04em;
-            box-shadow: 0 4px 12px rgba(107,53,168,.24);
-        }
-        .btn-oee:hover { opacity: .92; }
 
-        
+
         .text-green { color: var(--green) !important; }
         .text-red { color: var(--red) !important; }
         .text-yellow { color: var(--yellow) !important; }
@@ -407,7 +398,8 @@ body.export-mode .chart-title{
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
         .modal-content { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-card);}
         .modal-title { font-size: 1.2rem; font-weight: bold; color: var(--blue); margin-bottom: 10px;}
-        .modal-text { font-size: 0.95rem; color: var(--text-main); margin-bottom: 20px; line-height: 1.4; text-align: left;}
+        .modal-text { font-size: 0.95rem; color: var(--text-main); margin-bottom: 20px; line-height: 1.4; text-align: left; white-space: pre-line; }
+        .modal-text .oee-modal-text, .guide-modal-text, .oee-modal-text { white-space: normal; }
         .btn-close-modal { background: var(--blue); color: var(--text-on-accent); padding: 12px 20px; font-size: 1rem; width: 100%; border-radius: 8px; border: none; font-weight: bold; text-transform: uppercase; cursor: pointer;}
         .btn-close-modal:active { transform: scale(0.96); }
 
@@ -520,58 +512,37 @@ body.export-mode .chart-title{
         }
         .oee-base-grid span { display: block; font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
         .oee-base-grid strong { display: block; font-size: 0.85rem; color: var(--text-main); margin-top: 2px; }
+        .oee-help-btn {
+            width: 100%;
+            background: rgba(0,123,255,.08);
+            color: var(--blue);
+            border: 1px dashed var(--blue);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 4px;
+            text-transform: none;
+        }
+        .oee-help-btn:active { transform: scale(0.98); }
         .oee-edit-row {
             display: flex;
             flex-direction: column;
-            font-size: 0.7rem;
-            color: var(--text-muted);
+            color: var(--text-main);
             margin: 8px 0 4px 0;
+        }
+        .oee-edit-row .oee-label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: none;
+            line-height: 1.3;
+            margin-bottom: 4px;
         }
         .oee-edit-row input {
             padding: 8px;
-            margin-top: 4px;
-            background: var(--input-bg);
-            color: var(--text-main);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-        .oee-edit-hint { font-size: 0.62rem; color: var(--text-muted); margin-top: 3px; }
-        .oee-cause-block { margin: 8px 0; }
-        .oee-cause-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; }
-        .oee-cause-list { display: flex; flex-direction: column; gap: 4px; }
-        .oee-cause-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.78rem;
-            cursor: pointer;
-        }
-        .oee-cause-item.on { background: rgba(0,123,255,.1); border-color: var(--blue); }
-        .oee-cause-item span { flex: 1; color: var(--text-main); font-weight: 600; }
-        .oee-cause-item em { font-size: 0.65rem; color: var(--text-muted); font-style: normal; }
-        .oee-cause-empty { font-size: 0.75rem; color: var(--text-muted); padding: 6px; text-align: center; }
-        .oee-input-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            margin: 6px 0;
-        }
-        .oee-input-grid label {
-            display: flex;
-            flex-direction: column;
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-weight: 700;
-        }
-        .oee-input-grid input {
-            padding: 8px 4px;
-            margin-top: 3px;
             background: var(--input-bg);
             color: var(--text-main);
             border: 1px solid var(--border);
@@ -579,15 +550,101 @@ body.export-mode .chart-title{
             font-size: 0.9rem;
             text-align: center;
         }
-        .oee-check {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.75rem;
+        .oee-help {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.4;
+            font-style: italic;
+            text-transform: none;
+            font-weight: 400;
+        }
+        .oee-cause-block { margin: 8px 0; }
+        .oee-cause-title {
+            font-size: 0.78rem;
             color: var(--text-main);
-            margin: 6px 0;
+            margin-bottom: 6px;
+            text-transform: none;
+        }
+        .oee-cause-title small { font-size: 0.65rem; color: var(--text-muted); font-weight: 400; }
+        .oee-cause-list { display: flex; flex-direction: column; gap: 4px; }
+        .oee-cause-item {
+            display: grid;
+            grid-template-columns: 22px 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8rem;
             cursor: pointer;
         }
+        .oee-cause-item input[type="checkbox"] { margin: 0; width: 18px; height: 18px; cursor: pointer; }
+        .oee-cause-item.on { background: rgba(0,123,255,.1); border-color: var(--blue); }
+        .oee-cause-name {
+            color: var(--text-main);
+            font-weight: 600;
+            text-align: left;
+            text-transform: none;
+        }
+        .oee-cause-info {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-align: right;
+            font-style: normal;
+            white-space: nowrap;
+        }
+        .oee-cause-empty {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 8px;
+            text-align: center;
+            font-style: italic;
+        }
+        .oee-input-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 6px 0;
+        }
+        .oee-input-grid label {
+            display: flex;
+            flex-direction: column;
+            font-weight: 400;
+            text-transform: none;
+        }
+        .oee-input-grid .oee-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+        .oee-input-grid input {
+            padding: 8px 4px;
+            background: var(--input-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+        .oee-input-grid .oee-help { font-size: 0.6rem; line-height: 1.3; margin-top: 3px; }
+        .oee-check {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: var(--text-main);
+            margin: 10px 0;
+            cursor: pointer;
+            text-transform: none;
+            line-height: 1.4;
+        }
+        .oee-check input { flex-shrink: 0; margin-top: 2px; width: 18px; height: 18px; }
+        .oee-check span { flex: 1; }
         .oee-result-grid {
             display: grid;
             grid-template-columns: 2fr 1fr 1fr 1fr;
@@ -842,9 +899,8 @@ body.export-mode .chart-title{
         .export-mode .btn-row, 
         .export-mode .fixed-bottom, 
         .export-mode .info-icon, 
-        .export-mode .btn-delete, 
+        .export-mode .btn-delete,
         .export-mode #actionButtons,
-        .export-mode .oee-action-box,
         .export-mode #lapQtyModeGroup,
         .export-mode .app-footer { 
             display: none !important; 
@@ -866,7 +922,6 @@ body.export-mode .chart-title{
         .export-mode .result-value { font-size: 12pt !important; color: #000 !important; }
         .export-mode .results-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 5px !important; }
         .export-mode .full-width { grid-column: span 4 !important; }
-        .export-mode .efficiency-box { grid-column: span 4 !important; }
 
         .export-mode .text-green { color: #28a745 !important; }
         .export-mode .text-red { color: #dc3545 !important; }
@@ -1083,7 +1138,6 @@ body.export-mode .hist-label{
 
     .results-grid { grid-template-columns: repeat(4, 1fr); }
     .results-grid .full-width { grid-column: span 4; }
-    .results-grid .oee-action-box { grid-column: span 3; }
 
     .live-timer { font-size: 3.4rem; }
     .card { padding: 16px; }
