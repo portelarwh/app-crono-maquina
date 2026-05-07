@@ -124,7 +124,8 @@
         .btn-stop { flex: 1; padding: 12px 2px; background-color: var(--orange); font-size: 0.9rem;}
         .btn-reset { flex: 1; padding: 12px 2px; background-color: var(--red); font-size: 0.9rem;}
 
-        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .results-grid .full-width { grid-column: 1 / -1; }
         .result-box {
             background: var(--surface);
             padding: 10px 8px; border-radius: 8px; text-align: center;
@@ -236,10 +237,48 @@ body.export-mode .chart-title{
             top: -14px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 0.65rem;
+            font-size: 0.78rem;
             line-height: 1;
-            color: var(--red);
+            color: #ffb92e;
+            text-shadow: 0 0 2px rgba(0,0,0,.6);
             pointer-events: none;
+        }
+        .paradas-cards-title { margin-top: 12px; }
+        .paradas-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        .parada-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 6px;
+            text-align: center;
+        }
+        .parada-card-cause {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+            margin-bottom: 3px;
+            line-height: 1.1;
+            min-height: 1.85em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .parada-card-time {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--red);
+        }
+        .parada-card-pct {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 2px;
         }
         .event-timeline-legend {
             display: flex;
