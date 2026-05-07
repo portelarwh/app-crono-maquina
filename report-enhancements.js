@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v4.0.9',
+      version: window.APP_VERSION || 'v4.0.10',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -95,6 +95,22 @@
     }
     if(picks.length) return base + ' Recomenda-se investigar os picos das amostras ' + picks.join(', ') + ' e classificar as causas das perdas para direcionar ações de melhoria.';
     return base + ' ' + action;
+  }
+
+
+
+  function oeeBlock(){
+    var o = data().oee;
+    if(!o || !isFinite(Number(o.oee))) return '';
+    var pct = function(v){ return isFinite(Number(v)) ? f(Number(v) * 100, 1) + '%' : '—'; };
+    return '<section class="panel diagnostic oeePanel"><h2>OEE salvo</h2><div class="diagGrid">'
+      + '<div><b>OEE</b><strong>'+esc(pct(o.oee))+'</strong></div>'
+      + '<div><b>Disponib.</b><strong>'+esc(pct(o.availability))+'</strong></div>'
+      + '<div><b>Performance</b><strong>'+esc(pct(o.performance))+'</strong></div>'
+      + '<div><b>Qualidade</b><strong>'+esc(pct(o.quality))+'</strong></div>'
+      + '<div><b>Qtd. real</b><strong>'+esc(f(o.actualQty,1))+' un</strong></div>'
+      + '<div><b>Esperado</b><strong>'+esc(f(o.expectedQty,1))+' un</strong></div></div>'
+      + '<p class="small"><b>Diagnóstico OEE:</b> '+esc(o.diagnosis || ('Principal perda: '+(o.mainLoss||'—')))+'</p></section>';
   }
 
   function impactBlock(){
@@ -182,6 +198,7 @@
       + '<div class="sectionLabel">Visão executiva</div>'
       + kpis(s)
       + impactBlock()
+      + oeeBlock()
       + '<main class="main"><section>'+chart(s)+hist(s)+'</section><aside>'+auxiliary(s)+'<div class="time"><small>Tempo total de medição</small><span>'+esc(($('totalTimer') && $('totalTimer').textContent) || '00:00')+'</span></div></aside></main>'
       + paretoBlock()
       + comparisonBlock()
