@@ -76,10 +76,10 @@
       .lap-cause-select-row{width:132px;font-size:.72rem;padding:4px;margin-left:4px;border-radius:6px;background:var(--card-bg);color:var(--text-main);border:1px solid var(--border)}
       .pareto-line{display:grid;grid-template-columns:92px 1fr 54px;gap:6px;align-items:center;font-size:.73rem;margin:4px 0}
       .pareto-track{height:9px;background:rgba(127,127,127,.18);border-radius:12px;overflow:hidden}.pareto-bar{height:100%;background:var(--blue)}
-      .study-actions,.compare-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin:6px 0}.compare-row{grid-template-columns:1fr 1fr auto}
-      .study-actions button,.compare-row button{background:var(--blue);color:#fff;padding:8px;border-radius:7px}
+      .study-actions,.load-row,.compare-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin:6px 0}
+      .study-actions button,.load-row button,.compare-row button{background:var(--blue);color:#fff;padding:8px;border-radius:7px}
       .compare-result{font-size:.82rem;line-height:1.4;color:var(--text-main);background:var(--card-bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-top:6px}
-      @media(max-width:560px){.advanced-grid,.compare-row{grid-template-columns:1fr}.lap-cause-select-row{width:100%;margin:6px 0 0 0}}
+      @media(max-width:560px){.advanced-grid,.load-row,.compare-row{grid-template-columns:1fr}.lap-cause-select-row{width:100%;margin:6px 0 0 0}}
     `;
     document.head.appendChild(style);
   }
@@ -163,7 +163,8 @@
         <section class="studies-panel" style="margin-top:8px">
           <h3 class="operix-panel-title">Estudos salvos e comparação</h3>
           <div class="study-actions"><input id="studyName" placeholder="Nome do estudo: Ex. Antes da melhoria"><button id="btnSaveStudy" type="button">Salvar estudo</button></div>
-          <div class="compare-row"><select id="studyBase"></select><select id="studyCompare"><option value="current">Medição atual</option></select><button id="btnCompareStudy" type="button">Comparar</button></div>
+          <div class="load-row"><select id="studyBase"></select><button id="btnLoadStudy" type="button">⬇ Carregar</button></div>
+          <div class="compare-row"><select id="studyCompare"><option value="current">Medição atual</option></select><button id="btnCompareStudy" type="button">⇄ Comparar</button></div>
           <div id="compareResult" class="compare-result">Nenhum comparativo selecionado.</div>
         </section>`;
       history.appendChild(panel);
@@ -224,12 +225,22 @@
   function undoLastLap(){ const buttons = Array.from(document.querySelectorAll('#historyListScreen [data-action="deleteEvent"]')); const last = buttons[buttons.length - 1]; if(last) last.click(); }
   function saveStudy(){ const data = getData(); if(!data || !data.laps.length){ alert('Registre ao menos uma amostra antes de salvar o estudo.'); return; } const name = $('studyName')?.value || `${data.form.equipName || 'Estudo'} - ${nowLabel()}`; const study = { id: `study_${Date.now()}`, name, savedAt: nowLabel(), data }; const list = getStudies(); list.unshift(study); setStudies(list.slice(0,30)); if($('studyName')) $('studyName').value = ''; renderStudyOptions(); alert('Estudo salvo com sucesso.'); }
   function findStudy(id){ return getStudies().find(study => study.id === id); }
+  function loadStudy(){
+    const id = $('studyBase')?.value;
+    const study = findStudy(id);
+    if(!study){ alert('Selecione um estudo salvo para carregar.'); return; }
+    if(!confirm(`Carregar o estudo "${study.name}"?\nA medição atual será substituída.`)) return;
+    if(typeof window.loadStudyIntoState === 'function'){
+      window.loadStudyIntoState(study);
+      setTimeout(updateAll, 200);
+    }
+  }
   function compareStudies(){ const output = $('compareResult'); if(!output) return; const baseStudy = findStudy($('studyBase')?.value); if(!baseStudy){ output.textContent = 'Selecione um estudo base.'; return; } const selected = $('studyCompare')?.value; const comp = selected === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(selected); if(!comp || !comp.data){ output.textContent = 'Selecione o estudo comparativo.'; return; } const a = baseStudy.data, b = comp.data, capGain = (b.stats?.cap || 0) - (a.stats?.cap || 0), cycleGain = (a.stats?.av || 0) - (b.stats?.av || 0), lossRed = (a.impact?.lossPerShift || 0) - (b.impact?.lossPerShift || 0); output.innerHTML = `<b>Comparativo:</b> ${escapeHtml(baseStudy.name)} × ${escapeHtml(comp.name || 'Medição atual')}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(b.form?.timeUnitLabel || 'un/h')} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno`; }
   function lockConfig(running){ ['analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours','tolerancePct'].forEach(id => { const el = $(id); if(el) el.disabled = !!running; }); }
   function updateAll(){ patchDataGetter(); injectFields(); injectCauseButtons(); injectUndo(); injectPanels(); const data = getData(); renderImpact(data); renderStandard(data); renderPareto(data); injectLapCauseSelectors(data); renderStudyOptions(); lockConfig(!!data?.running); const undo = $('btnUndoLap'); if(undo) undo.disabled = !(data?.laps?.length); }
 
   function bindEvents(){
-    document.addEventListener('click', event => { if(event.target?.id === 'btnUndoLap') undoLastLap(); if(event.target?.id === 'btnSaveStudy') saveStudy(); if(event.target?.id === 'btnCompareStudy') compareStudies(); if(event.target?.id === 'studyBase' || event.target?.id === 'studyCompare') return; setTimeout(updateAll, 80); });
+    document.addEventListener('click', event => { if(event.target?.id === 'btnUndoLap') undoLastLap(); if(event.target?.id === 'btnSaveStudy') saveStudy(); if(event.target?.id === 'btnLoadStudy') loadStudy(); if(event.target?.id === 'btnCompareStudy') compareStudies(); if(event.target?.id === 'studyBase' || event.target?.id === 'studyCompare') return; setTimeout(updateAll, 80); });
     document.addEventListener('input', event => { if(event.target && ['lineName','shiftName','productName','shiftHours','tolerancePct'].includes(event.target.id)) persistExtras(); setTimeout(updateAll, 80); });
     document.addEventListener('change', event => { if(event.target && ['lineName','shiftName','productName','shiftHours','tolerancePct'].includes(event.target.id)) persistExtras(); if(event.target?.id === 'studyBase' || event.target?.id === 'studyCompare') return; setTimeout(updateAll, 80); });
     setInterval(updateAll, 800);

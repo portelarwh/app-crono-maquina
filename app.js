@@ -126,6 +126,31 @@ function stopTimer(){
 }
 let confirmCb=null;function resetTimer(){if(state.events.length||totalMs()>0||state.running||state.mode!=='idle'){openConfirm('Zerar medição','Deseja zerar todos os tempos, amostras e histórico?',doReset);return}doReset()}
 function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,oee:null});if(els.lapObs)els.lapObs.value='';render();persist()}
+window.loadStudyIntoState=function(study){
+  const d=study.data;
+  if(!d||!Array.isArray(d.laps))return;
+  stopTick();
+  state.running=false;state.startedAt=null;state.mode='idle';
+  state.currentCycle=null;state.lastSegmentStartMs=null;state.activeDowntime=null;state.pendingCycle=null;
+  state.totalElapsedMs=Math.max(0,Number(d.totalElapsedMs)||0);
+  state.oee=d.oee||null;
+  state.events=d.laps.map(lap=>({
+    id:typeof lap.id==='string'&&lap.id?lap.id:id(),
+    type:lap.type==='downtime'?'downtime':'cycle',
+    cause:typeof lap.cause==='string'?lap.cause:'Normal',
+    durationMs:Math.max(0,Number(lap.durationMs)||0),
+    productiveMs:Number.isFinite(Number(lap.productiveMs))&&lap.productiveMs!==null?Math.max(0,Number(lap.productiveMs)):undefined,
+    qty:Number.isFinite(Number(lap.rawQty))&&lap.rawQty!==null?Number(lap.rawQty):null,
+    obs:typeof lap.obs==='string'?lap.obs:'',
+    startedAt:Number(lap.startedAt)||null,
+    endedAt:Number(lap.endedAt)||null
+  }));
+  const f=d.form||{};
+  ['equipName','analystName','analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode'].forEach(k=>{
+    if(els[k]&&f[k]!==undefined&&f[k]!==null)els[k].value=String(f[k]);
+  });
+  persist();render();
+};
 function tick(){stopTick();let last=0;const loop=t=>{if(!state.running)return;if(t-last>=100){renderTimersOnly();last=t}state.tickId=requestAnimationFrame(loop)};state.tickId=requestAnimationFrame(loop)}
 function stopTick(){if(state.tickId){cancelAnimationFrame(state.tickId);state.tickId=null}}
 function renderTimersOnly(){if(els.liveTimer)els.liveTimer.textContent=fmtClock(lapMs(),true);if(els.totalTimer)els.totalTimer.textContent=fmtClock(totalMs(),false);if(els.downtimeIndicator&&state.mode==='downtime_active'&&state.activeDowntime){els.downtimeIndicator.textContent=`⏸ ${state.activeDowntime.cause} · ${fmtClock(activeDowntimeDurationMs(),false)}`}}
