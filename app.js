@@ -50,7 +50,7 @@ function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0}
 function sd(a){if(a.length<2)return 0;const m=avg(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length)}
 function arrMin(a,d=0){return a.length?a.reduce((x,y)=>x<y?x:y,Infinity):d}
 function arrMax(a,d=0){return a.length?a.reduce((x,y)=>x>y?x:y,-Infinity):d}
-function stats(){const cyc=cycles();const sec=cyc.map(c=>(c.productiveMs||c.durationMs||0)/1000).filter(Number.isFinite);const totalSec=totalMs()/1000;const q=cyc.reduce((a,c)=>a+qty(c),0);const base=n(els.timeUnit,3600);const cap=totalSec>0?q/totalSec*base:0;const av=avg(sec),dev=sd(sec),target=n(els.target,0);return{sec,t:totalSec,q,cap,av,dev,min:arrMin(sec),max:arrMax(sec),stab:av>0?Math.max(0,100-dev/av*100):100,eff:target>0?cap/target*100:null}}
+function stats(){const cyc=cycles();const sec=cyc.map(c=>(c.productiveMs||c.durationMs||0)/1000).filter(Number.isFinite);const totalSec=totalMs()/1000;const cycSec=sec.reduce((a,b)=>a+b,0);const q=cyc.reduce((a,c)=>a+qty(c),0);const base=n(els.timeUnit,3600);const cap=cycSec>0?q/cycSec*base:0;const av=avg(sec),dev=sd(sec),target=n(els.target,0);return{sec,t:totalSec,q,cap,av,dev,min:arrMin(sec),max:arrMax(sec),stab:av>0?Math.max(0,100-dev/av*100):100,eff:target>0?cap/target*100:null}}
 function getCronoMachineData(){
   const s=stats();
   return{
