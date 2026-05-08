@@ -358,7 +358,7 @@ body.export-mode .chart-title{
             font-size: 0.95rem;
             font-weight: 700;
             border-radius: 10px;
-            background: var(--card-bg);
+            background: rgba(128,128,128,0.14);
             color: var(--text-main);
             border: 1px solid var(--border);
             box-shadow: var(--shadow-btn);
