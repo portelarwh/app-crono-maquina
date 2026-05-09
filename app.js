@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v4.5.0';
+const APP_VERSION='v4.6.0';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -434,7 +434,7 @@ function renderControls(){
 function row(e,i,print=false){
   const lid=escAttr(e.id);
   if(e.type==='downtime'){
-    return `<div class="history-row history-downtime"><span class="history-id"><svg class="downtime-warn-svg" width="16" height="15" viewBox="0 0 16 15" aria-label="Parada"><polygon points="8,1 15,14 1,14" fill="#FFD600" stroke="#cc9900" stroke-width="0.5"/><text x="8" y="13" text-anchor="middle" font-size="9" font-weight="900" fill="#000" font-family="sans-serif">!</text></svg></span><span class="history-time">${fmtS((e.durationMs||0)/1000)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
+    return `<div class="history-row history-downtime"><span class="history-id"></span><span class="history-time">${fmtS((e.durationMs||0)/1000)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
   }
   const qv=escAttr(e.qty??'');
   const idx=cycles().findIndex(c=>c.id===e.id)+1;
