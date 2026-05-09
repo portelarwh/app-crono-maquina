@@ -1,3 +1,3 @@
 'use strict';
 
-window.APP_VERSION = 'v4.3.0';
+window.APP_VERSION = 'v4.4.0';
