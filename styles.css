@@ -392,8 +392,8 @@ body.export-mode .chart-title{
         }
         html[data-theme="light"] .downtime-indicator { color: #b21f17; background: rgba(217,52,43,.08); }
         .history-row.history-downtime { background: rgba(217,52,43,.08); }
-        .history-row.history-downtime .history-id { color: #d9342b; font-weight: 700; }
-        html[data-theme="light"] .history-row.history-downtime .history-id { color: #b21f17; }
+        .history-row.history-downtime .history-id { color: inherit; }
+        .downtime-warn-svg { vertical-align: middle; display: inline-block; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;}
         .modal-content { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-card);}
