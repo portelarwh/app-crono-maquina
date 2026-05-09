@@ -9,11 +9,13 @@
   const CAUSES = [
     'Normal',
     'Microparada',
-    'Ajuste operador',
-    'Falha de máquina',
+    'Ajuste',
+    'Falha',
+    'Manutenção',
     'Espera',
-    'Setup',
-    'Ociosidade'
+    'Ociosidade',
+    'Externo',
+    'Setup'
   ];
 
   function $(id){ return document.getElementById(id); }
@@ -73,7 +75,7 @@
       .impact-grid strong,.mini-result strong{display:block;font-size:.92rem;color:var(--text-main);margin-top:3px}
       .impact-grid .bad{color:#ff5d6c}.impact-grid .good{color:#5bd47f}
       .btn-undo-lap{flex:1;padding:12px 2px;background:#6c757d;font-size:.82rem}
-      .lap-cause-select-row{width:132px;font-size:.72rem;padding:4px;margin-left:4px;border-radius:6px;background:var(--card-bg);color:var(--text-main);border:1px solid var(--border)}
+      .lap-cause-select-row{width:92px;font-size:.72rem;padding:4px;margin-left:4px;border-radius:6px;background:var(--card-bg);color:var(--text-main);border:1px solid var(--border)}
       .pareto-line{display:grid;grid-template-columns:92px 1fr 54px;gap:6px;align-items:center;font-size:.73rem;margin:4px 0}
       .pareto-track{height:9px;background:rgba(127,127,127,.18);border-radius:12px;overflow:hidden}.pareto-bar{height:100%;background:var(--blue)}
       .study-actions,.load-row,.compare-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin:6px 0}
@@ -105,12 +107,14 @@
 
   function injectCauseButtons(){
     const grid = $('lapCauseGrid');
-    if(!grid || grid.dataset.operixReady === 'true') return;
+    if(!grid) return;
     const abnormal = CAUSES.filter(cause => cause !== 'Normal');
+    const expected = abnormal.map(cause => escapeHtml(cause)).join('|');
+    if(grid.dataset.operixReady === expected) return;
     grid.innerHTML = abnormal.map(cause =>
       `<button type="button" class="btn-cause" data-action="downtime" data-cause="${escapeHtml(cause)}" disabled>${escapeHtml(cause)}</button>`
     ).join('');
-    grid.dataset.operixReady = 'true';
+    grid.dataset.operixReady = expected;
   }
 
   function injectUndo(){
@@ -179,7 +183,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v4.2.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v4.3.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
