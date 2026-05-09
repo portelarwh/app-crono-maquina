@@ -75,13 +75,15 @@
       .impact-grid strong,.mini-result strong{display:block;font-size:.92rem;color:var(--text-main);margin-top:3px}
       .impact-grid .bad{color:#ff5d6c}.impact-grid .good{color:#5bd47f}
       .btn-undo-lap{flex:1;padding:12px 2px;background:#6c757d;font-size:.82rem}
-      .lap-cause-select-row{width:80px;font-size:.72rem;padding:4px;margin-left:4px;border-radius:6px;background:var(--card-bg);color:var(--text-main);border:1px solid var(--border)}
+      .lap-cause-wrap{display:inline-flex;align-items:center;gap:3px;margin-left:4px}
+      .lap-cause-warn{display:none;align-items:center}
+      .lap-cause-select-row{width:70px;font-size:.72rem;padding:4px;border-radius:6px;background:var(--card-bg);color:var(--text-main);border:1px solid var(--border)}
       .pareto-line{display:grid;grid-template-columns:92px 1fr 54px;gap:6px;align-items:center;font-size:.73rem;margin:4px 0}
       .pareto-track{height:9px;background:rgba(127,127,127,.18);border-radius:12px;overflow:hidden}.pareto-bar{height:100%;background:var(--blue)}
       .study-actions,.load-row,.compare-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin:6px 0}
       .study-actions button,.load-row button,.compare-row button{background:var(--blue);color:#fff;padding:8px;border-radius:7px}
       .compare-result{font-size:.82rem;line-height:1.4;color:var(--text-main);background:var(--card-bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-top:6px}
-      @media(max-width:560px){.advanced-grid,.load-row,.compare-row{grid-template-columns:1fr}.lap-cause-select-row{width:100%;margin:6px 0 0 0}}
+      @media(max-width:560px){.advanced-grid,.load-row,.compare-row{grid-template-columns:1fr}.lap-cause-wrap{width:100%;margin:6px 0 0 0}.lap-cause-select-row{width:100%}}
     `;
     document.head.appendChild(style);
   }
@@ -183,7 +185,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v4.4.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v4.5.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
@@ -225,7 +227,44 @@
   function renderStandard(data){ const box = $('stdTimeBox'); if(!box) return; const s = data?.standardTime || {}; box.innerHTML = s.total ? `<strong>${formatNumber(s.standardSec,2)}s</strong><span>Base ${formatNumber(s.baseMean,2)}s + ${formatNumber(s.tolerancePct,1)}% | usadas ${s.used}/${s.total}</span>` : '<span>Sem amostras</span>'; }
   function renderPareto(data){ const box = $('paretoBox'); if(!box) return; const rows = (data?.pareto || []).slice(0,5); if(!rows.length){ box.innerHTML = 'Sem dados'; return; } box.innerHTML = rows.map((row, index) => `<div class="pareto-line"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatNumber(row.lossSec,1)}s</span></div>`).join(''); }
   function renderStudyOptions(){ const base = $('studyBase'), compare = $('studyCompare'); if(!base || !compare) return; if(document.activeElement === base || document.activeElement === compare) return; const baseVal = base.value; const compareVal = compare.value; const list = getStudies(); const options = list.map(study => `<option value="${study.id}">${escapeHtml(study.savedAt)} — ${escapeHtml(study.name)}</option>`).join(''); base.innerHTML = options || '<option value="">Nenhum estudo salvo</option>'; compare.innerHTML = '<option value="current">Medição atual</option>' + options; if(baseVal) base.value = baseVal; if(compareVal) compare.value = compareVal; }
-  function injectLapCauseSelectors(data){ const rows = Array.from(document.querySelectorAll('#historyListScreen .history-row')); const anomalies = getAnomalies(); rows.forEach((row, index) => { const lap = data?.laps?.[index]; if(!lap || row.querySelector('.lap-cause-select-row')) return; const select = document.createElement('select'); select.className = 'lap-cause-select-row'; select.dataset.lapId = lap.id; select.innerHTML = CAUSES.map(cause => `<option value="${escapeHtml(cause)}">${escapeHtml(cause)}</option>`).join(''); select.value = anomalies[lap.id] || lap.cause || 'Normal'; select.addEventListener('change', () => { const all = getAnomalies(); all[lap.id] = select.value; setAnomalies(all); updateAll(); }); row.appendChild(select); }); }
+  const WARN_SVG = '<svg width="14" height="13" viewBox="0 0 16 15"><polygon points="8,1 15,14 1,14" fill="#FFD600" stroke="#cc9900" stroke-width="0.5"/><text x="8" y="13" text-anchor="middle" font-size="9" font-weight="900" fill="#000" font-family="sans-serif">!</text></svg>';
+  function injectLapCauseSelectors(data){
+    const rows = Array.from(document.querySelectorAll('#historyListScreen .history-row'));
+    const anomalies = getAnomalies();
+    rows.forEach((row, index) => {
+      const lap = data?.laps?.[index];
+      if(!lap) return;
+      const existing = row.querySelector('.lap-cause-select-row');
+      const val = anomalies[lap.id] || lap.cause || 'Normal';
+      if(!existing) {
+        const wrap = document.createElement('span');
+        wrap.className = 'lap-cause-wrap';
+        const icon = document.createElement('span');
+        icon.className = 'lap-cause-warn';
+        icon.innerHTML = WARN_SVG;
+        icon.style.display = val !== 'Normal' ? 'inline-flex' : 'none';
+        const select = document.createElement('select');
+        select.className = 'lap-cause-select-row';
+        select.dataset.lapId = lap.id;
+        select.innerHTML = CAUSES.map(cause => `<option value="${escapeHtml(cause)}">${escapeHtml(cause)}</option>`).join('');
+        select.value = val;
+        select.addEventListener('change', () => {
+          const all = getAnomalies();
+          all[lap.id] = select.value;
+          setAnomalies(all);
+          icon.style.display = select.value !== 'Normal' ? 'inline-flex' : 'none';
+          updateAll();
+        });
+        wrap.appendChild(icon);
+        wrap.appendChild(select);
+        row.appendChild(wrap);
+      } else {
+        existing.value = val;
+        const icon = row.querySelector('.lap-cause-warn');
+        if(icon) icon.style.display = val !== 'Normal' ? 'inline-flex' : 'none';
+      }
+    });
+  }
   function undoLastLap(){ const buttons = Array.from(document.querySelectorAll('#historyListScreen [data-action="deleteEvent"]')); const last = buttons[buttons.length - 1]; if(last) last.click(); }
   function saveStudy(){ const data = getData(); if(!data || !data.laps.length){ alert('Registre ao menos uma amostra antes de salvar o estudo.'); return; } const name = $('studyName')?.value || `${data.form.equipName || 'Estudo'} - ${nowLabel()}`; const study = { id: `study_${Date.now()}`, name, savedAt: nowLabel(), data }; const list = getStudies(); list.unshift(study); setStudies(list.slice(0,30)); if($('studyName')) $('studyName').value = ''; renderStudyOptions(); alert('Estudo salvo com sucesso.'); }
   function findStudy(id){ return getStudies().find(study => study.id === id); }
