@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v4.8.1';
+const APP_VERSION='v4.9.0';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -269,6 +269,7 @@ function oeeBase(){
   const mttrMs=failureCount>0?totalRepairMs/failureCount:NaN;
   return{plannedRawMs,plannedDowntimeMs,effectivePlannedMs,allDowntimeMs,availabilityDowntimeMs,runMs,failureCount,totalRepairMs,mtbfMs,mttrMs,paradasByCause};
 }
+function updateOeeGauge(fgId,valId,value){const fg=$(fgId),vt=$(valId);if(!fg&&!vt)return;const AL=(Math.PI*40).toFixed(2);const v=Number(value),valid=Number.isFinite(v)&&v>=0;const pct=valid?Math.max(0,Math.min(1,v)):0;const dash=(pct*parseFloat(AL)).toFixed(2);const color=!valid?'#888':v>=0.75?'#1e9a44':v>=0.60?'#e09a00':'#df1f2d';if(fg){fg.setAttribute('stroke-dasharray',dash+' '+AL);fg.setAttribute('stroke',color);}if(vt){vt.textContent=valid?Math.round(v*100)+'%':'--';vt.setAttribute('fill',color);}}
 function renderOeeCauseCheckboxes(){
   const b=oeeBase();
   const cfg=oeeConfigGet();
@@ -333,6 +334,10 @@ function renderOeeCalc(){
   }
   const main=$('oeeMainResult');
   if(main){main.classList.remove('oee-good','oee-warn','oee-bad');const cls=oeeColorClass(oee);if(cls)main.classList.add(cls)}
+  updateOeeGauge('ogfgOee','ogvalOee',oee);
+  updateOeeGauge('ogfgD','ogvalD',availability);
+  updateOeeGauge('ogfgP','ogvalP',performance);
+  updateOeeGauge('ogfgQ','ogvalQ',quality);
   set('oeeMtbf',fmtMtMs(b.mtbfMs));
   set('oeeMttr',fmtMtMs(b.mttrMs));
   set('oeeFailureCount',b.failureCount);
@@ -395,7 +400,8 @@ function renderOeeSaved(){
   const mtbf=Number.isFinite(o.mtbfMs)?`MTBF ${fmtMtMs(o.mtbfMs)}`:'';
   const mttr=Number.isFinite(o.mttrMs)?`MTTR ${fmtMtMs(o.mttrMs)}`:'';
   const aux=[mtbf,mttr].filter(Boolean).join(' · ');
-  box.innerHTML=`<div class="oee-saved-card ${cls}"><div class="oee-saved-main"><span>OEE</span><strong>${oeePct(o.oee)}</strong></div><div class="oee-saved-sub">D ${oeePct(o.availability)} · P ${oeePct(o.performance)} · Q ${oeePct(o.quality)}${aux?' · '+escAttr(aux):''}</div><div class="oee-saved-actions"><button type="button" data-action="openOee">Ver / editar</button><button type="button" class="oee-saved-clear" data-action="clearOee" aria-label="Limpar OEE salvo">×</button></div></div>`;
+  const mbar=(lbl,val)=>{const p=Number.isFinite(Number(val))?Math.max(0,Math.min(100,Number(val)*100)):0;const clr=p>=75?'var(--green)':p>=60?'var(--yellow)':'var(--red)';return `<div class="oee-mini-bar"><span>${lbl}</span><div class="oee-mini-track"><div style="width:${p.toFixed(1)}%;background:${clr}"></div></div><b>${p.toFixed(1)}%</b></div>`;};
+  box.innerHTML=`<div class="oee-saved-card ${cls}"><div class="oee-saved-main"><span>OEE</span><strong>${oeePct(o.oee)}</strong></div><div class="oee-saved-gauges">${mbar('D',o.availability)}${mbar('P',o.performance)}${mbar('Q',o.quality)}${aux?`<div class="oee-saved-mtbf">${escAttr(aux)}</div>`:''}</div><div class="oee-saved-actions"><button type="button" data-action="openOee">Ver / editar</button><button type="button" class="oee-saved-clear" data-action="clearOee" aria-label="Limpar OEE salvo">×</button></div></div>`;
 }
 function openGuide(){if(els.guideModal)els.guideModal.style.display='flex'}
 function closeGuide(){if(els.guideModal)els.guideModal.style.display='none'}
