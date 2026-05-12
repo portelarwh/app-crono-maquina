@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v4.9.3';
+const APP_VERSION='v4.9.4';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -269,7 +269,6 @@ function oeeBase(){
   const mttrMs=failureCount>0?totalRepairMs/failureCount:NaN;
   return{plannedRawMs,plannedDowntimeMs,effectivePlannedMs,allDowntimeMs,availabilityDowntimeMs,runMs,failureCount,totalRepairMs,mtbfMs,mttrMs,paradasByCause};
 }
-function updateOeeGauge(fgId,valId,value){const fg=$(fgId),vt=$(valId);if(!fg&&!vt)return;const AL=(Math.PI*40).toFixed(2);const v=Number(value),valid=Number.isFinite(v)&&v>=0;const pct=valid?Math.max(0,Math.min(1,v)):0;const dash=(pct*parseFloat(AL)).toFixed(2);const color=!valid?'#888':v>=0.75?'#1e9a44':v>=0.60?'#e09a00':'#df1f2d';if(fg){fg.setAttribute('stroke-dasharray',dash+' '+AL);fg.setAttribute('stroke',color);}if(vt){vt.textContent=valid?Math.round(v*100)+'%':'--';vt.setAttribute('fill',color);}}
 function renderOeeCauseCheckboxes(){
   const b=oeeBase();
   const cfg=oeeConfigGet();
@@ -334,10 +333,6 @@ function renderOeeCalc(){
   }
   const main=$('oeeMainResult');
   if(main){main.classList.remove('oee-good','oee-warn','oee-bad');const cls=oeeColorClass(oee);if(cls)main.classList.add(cls)}
-  updateOeeGauge('ogfgOee','ogvalOee',oee);
-  updateOeeGauge('ogfgD','ogvalD',availability);
-  updateOeeGauge('ogfgP','ogvalP',performance);
-  updateOeeGauge('ogfgQ','ogvalQ',quality);
   set('oeeMtbf',fmtMtMs(b.mtbfMs));
   set('oeeMttr',fmtMtMs(b.mttrMs));
   set('oeeFailureCount',b.failureCount);

@@ -702,26 +702,6 @@ body.export-mode .chart-title{
             line-height: 1.4;
             margin-top: 8px;
         }
-        .oee-modal-gauges {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-            margin: 0 0 10px 0;
-        }
-        .oee-modal-gauge { text-align: center; }
-        .oee-gsv { width: 100%; max-width: 120px; display: block; margin: 0 auto; overflow: visible; }
-        .ogbg { fill: none; stroke: var(--border); stroke-width: 9; stroke-linecap: round; }
-        .ogfg {
-            fill: none;
-            stroke: #888;
-            stroke-width: 9;
-            stroke-linecap: round;
-            stroke-dasharray: 0 125.66;
-            transition: stroke-dasharray 0.5s ease, stroke 0.3s ease;
-        }
-        .ogval { font-size: 15px; font-weight: 900; fill: #888; font-family: inherit; }
-        .oglbl { font-size: 8px; fill: var(--text-muted); font-weight: 700; font-family: inherit; }
-
         /* Modal Guia */
         .guide-modal-content { max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 16px; }
         .guide-modal-text { text-align: left; margin-bottom: 12px; }
