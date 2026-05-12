@@ -1,17 +1,17 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v4.7.0';
+const CACHE_NAME = 'crono-maquina-v4.8.0';
 const ASSETS = [
   './',
-  './index.html?v=4.6.0',
-  './app.js?v=4.6.0',
-  './theme-init.js?v=4.6.0',
-  './pwa-ui.js?v=4.6.0',
-  './report-enhancements.js?v=4.6.0',
-  './whatsapp-share-fix.js?v=4.6.0',
-  './general-improvements.js?v=4.6.0',
-  './styles.css?v=4.6.0',
-  './manifest.json?v=4.6.0',
+  './index.html?v=4.8.0',
+  './app.js?v=4.8.0',
+  './theme-init.js?v=4.8.0',
+  './pwa-ui.js?v=4.8.0',
+  './report-enhancements.js?v=4.8.0',
+  './whatsapp-share-fix.js?v=4.8.0',
+  './general-improvements.js?v=4.8.0',
+  './styles.css?v=4.8.0',
+  './manifest.json?v=4.8.0',
   './assets/Icon-192.png',
   './assets/Icon-512.png'
 ];
@@ -31,6 +31,13 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  if (url.pathname.endsWith('version.json')) {
+    event.respondWith(fetch(event.request).catch(() => new Response('{}', {headers:{'Content-Type':'application/json'}})));
+    return;
+  }
+
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request).catch(() => caches.match('./index.html')));
     return;
