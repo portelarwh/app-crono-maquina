@@ -198,7 +198,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v4.9.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v4.9.1', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
@@ -285,7 +285,29 @@
   const PRESET_FORM_FIELDS = ['equipName','analystName','analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours','tolerancePct'];
   function collectPresetData(){ const d = {}; PRESET_FORM_FIELDS.forEach(id => { const el = $(id); if(el) d[id] = el.value; }); return d; }
   function renderPresetOptions(){ const sel = $('presetSelect'); if(!sel) return; const cur = sel.value; const list = getPresets(); sel.innerHTML = list.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('') || '<option value="">Nenhum preset salvo</option>'; if(cur) sel.value = cur; }
-  function savePreset(){ const name = $('presetName')?.value.trim(); if(!name){ alert('Informe um nome para o preset.'); return; } const data = collectPresetData(); const list = getPresets(); const existing = list.findIndex(p => p.name === name); const preset = { id: existing >= 0 ? list[existing].id : `preset_${Date.now()}`, name, savedAt: nowLabel(), data }; if(existing >= 0){ if(!confirm(`Substituir o preset "${name}"?`)) return; list[existing] = preset; } else { list.unshift(preset); } setPresets(list.slice(0,20)); if($('presetName')) $('presetName').value = ''; renderPresetOptions(); alert('Preset salvo com sucesso.'); }
+  function savePreset(){
+    const typed = $('presetName')?.value.trim();
+    const isAuto = !typed;
+    let name = typed || $('equipName')?.value.trim() || '';
+    if(!name){ alert('Informe um nome para o preset ou preencha o nome do equipamento na configuração.'); return; }
+    const pdata = collectPresetData();
+    const list = getPresets();
+    if(isAuto){
+      const base = name; let i = 2;
+      while(list.some(p => p.name === name)) name = base + ' v' + i++;
+    } else {
+      const ei = list.findIndex(p => p.name === name);
+      if(ei >= 0){
+        if(!confirm(`Substituir o preset "${name}"?`)) return;
+        list[ei] = { id: list[ei].id, name, savedAt: nowLabel(), data: pdata };
+        setPresets(list.slice(0,20)); if($('presetName')) $('presetName').value = '';
+        renderPresetOptions(); alert('Preset salvo com sucesso.'); return;
+      }
+    }
+    list.unshift({ id: `preset_${Date.now()}`, name, savedAt: nowLabel(), data: pdata });
+    setPresets(list.slice(0,20)); if($('presetName')) $('presetName').value = '';
+    renderPresetOptions(); alert(`Preset "${name}" salvo.`);
+  }
   function loadPreset(){ const id = $('presetSelect')?.value; const preset = getPresets().find(p => p.id === id); if(!preset){ alert('Selecione um preset para carregar.'); return; } const d = preset.data || {}; PRESET_FORM_FIELDS.forEach(key => { const el = $(key); if(el && d[key] !== undefined){ el.value = d[key]; el.dispatchEvent(new Event('change', {bubbles:true})); } }); persistExtras(); alert(`Preset "${preset.name}" carregado.`); }
   function injectPresetPanel(){ const form = $('configForm'); if(!form || $('presetPanel')) return; const panel = document.createElement('div'); panel.id = 'presetPanel'; panel.className = 'operix-mini-panel'; panel.innerHTML = `<div class="operix-panel-title">Presets de equipamento</div><div class="study-actions"><input id="presetName" placeholder="Nome do equipamento / configuração"><button id="btnSavePreset" type="button">Salvar</button></div><div class="load-row"><select id="presetSelect"></select><button id="btnLoadPreset" type="button">⬇ Carregar</button></div>`; form.appendChild(panel); renderPresetOptions(); }
   function loadStudy(){
