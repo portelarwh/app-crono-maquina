@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v4.9.1';
+const APP_VERSION='v4.9.2';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -480,9 +480,30 @@ function renderCharts(){
 }
 function setChartType(t){const ct=t?.dataset?.chartType;if(ct!=='bars'&&ct!=='line')return;state.chartType=ct;render();persist()}
 function renderPrint(){const s=stats(),mode=els.analysisMode.value==='interval'?'Produção por intervalo':'Tempo por ciclo';els.printDate.textContent=new Date().toLocaleDateString('pt-BR');els.printAnalyst.textContent=els.analystName.value||'—';els.printEquipName.textContent=els.equipName.value||'—';els.printAnalysisMode.textContent=mode;els.printUnits.textContent=els.units.value||'—';els.printTimeUnit.textContent=els.timeUnit.value==='3600'?'un/h':'un/min';els.printTakt.textContent=els.takt.value?`${els.takt.value}s`:'—';els.printTarget.textContent=els.target.value||'—';const cycCount=cycles().length;els.printExecutiveSummary.textContent=cycCount?`Foram coletados ${cycCount} ciclos, com tempo médio de ${s.av.toFixed(2)}s e capacidade estimada de ${s.cap.toFixed(1)} ${els.timeUnit.value==='3600'?'un/h':'un/min'}. Índice de estabilidade: ${s.stab.toFixed(1)}%.`:'Sem amostras registradas.'}
-function syncTargets(source){if(source==='takt'){const t=n(els.takt,0),u=n(els.units,1),base=n(els.timeUnit,3600);if(t>0)els.target.value=(u/t*base).toFixed(1)}else if(source==='target'){const tar=n(els.target,0),u=n(els.units,1),base=n(els.timeUnit,3600);if(tar>0)els.takt.value=(u/tar*base).toFixed(2)}render();persist()}
+function syncTargets(source){
+  const u=n(els.units,1)||1, base=n(els.timeUnit,3600);
+  if(source==='takt'){
+    const t=n(els.takt,0);
+    if(t>0) els.target.value=(u/t*base).toFixed(1);
+  } else if(source==='target'){
+    const tar=n(els.target,0);
+    if(tar>0) els.takt.value=(u/tar*base).toFixed(2);
+  } else if(source==='units'){
+    const t=n(els.takt,0),tar=n(els.target,0);
+    if(t>0) els.target.value=(u/t*base).toFixed(1);
+    else if(tar>0) els.takt.value=(u/tar*base).toFixed(2);
+  }
+  render();persist();
+}
 let prevTimeUnit='3600';
-function changeTimeUnit(){const tar=n(els.target,0);const cur=els.timeUnit.value;if(tar>0&&prevTimeUnit!==cur)els.target.value=(prevTimeUnit==='3600'?tar/60:tar*60).toFixed(2);prevTimeUnit=cur;syncTargets('target')}
+function changeTimeUnit(){
+  const tar=n(els.target,0), takt=n(els.takt,0), cur=els.timeUnit.value;
+  if(prevTimeUnit!==cur && tar>0)
+    els.target.value=(prevTimeUnit==='3600'?tar/60:tar*60).toFixed(2);
+  prevTimeUnit=cur;
+  if(n(els.target,0)===0 && takt>0) syncTargets('takt');
+  else syncTargets('target');
+}
 function changeAnalysisMode(){render();persist()}
 function closeQtyModal(ok){if(state.pendingCycle&&ok){const q=n(els.qtyModalInput,0);const pc=state.pendingCycle;state.pendingCycle=null;els.qtyModal.style.display='none';finalizeCycle({...pc,q});return}state.pendingCycle=null;els.qtyModal.style.display='none'}
 function openConfirm(title,text,cb){confirmCb=cb;els.confirmModalTitle.textContent=title;els.confirmModalText.textContent=text;els.confirmModal.style.display='flex'}function closeConfirmModal(ok){els.confirmModal.style.display='none';if(ok&&confirmCb)confirmCb();confirmCb=null}
