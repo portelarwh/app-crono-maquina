@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v4.7.0',
+      version: window.APP_VERSION || 'v4.8.0',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -186,6 +186,128 @@
   }
 
   function comparisonBlock(){ var c = data().comparison || {}; if(!c.active) return ''; return '<section class="panel comparisonPanel"><h2>Comparativo selecionado</h2><div>'+c.html+'</div></section>'; }
+
+  /* ── Comparison PDF ──────────────────────────────────────────── */
+  function stEx(s, dOverride){
+    var ds = (dOverride && dOverride.stats) || {}, form = (dOverride && dOverride.form) || {};
+    var vals = s.map(function(x){ return x.time; });
+    var sum = vals.reduce(function(a,b){ return a+b; },0);
+    var m = Number.isFinite(ds.av) ? ds.av : (vals.length ? sum/vals.length : 0);
+    var sd = Number.isFinite(ds.dev) ? ds.dev : 0;
+    return { n:s.length, mean:m, sd:sd,
+      min: Number.isFinite(ds.min)?ds.min:(vals.length?Math.min.apply(null,vals):0),
+      max: Number.isFinite(ds.max)?ds.max:(vals.length?Math.max.apply(null,vals):0),
+      lsc: m+3*sd, lic: Math.max(0,m-3*sd),
+      stab: Number.isFinite(ds.stab)?ds.stab:(m?Math.max(0,100-sd/m*100):100),
+      takt: Number(form.takt||0)||0,
+      eff: ds.eff==null?null:Number(ds.eff),
+      cap: Number.isFinite(ds.cap)?ds.cap:0 };
+  }
+  function chartEx(s, x, titleText, sharedMx){
+    if(!s.length) return '<section class="panel chartPanel control"><h2>'+esc(titleText||'')+'</h2><p style="padding:8px;font-size:9px">Sem amostras</p></section>';
+    var mx = sharedMx || Math.max.apply(null, s.map(function(a){ return a.time; }).concat([x.mean,x.lsc,x.takt,1]));
+    var step = s.length > 20 ? 5 : (s.length > 10 ? 2 : 1);
+    var grid = [0,25,50,75,100].map(function(v){ return '<div class="gridLine" style="bottom:'+v+'%"></div>'; }).join('');
+    var bars = s.map(function(a){
+      var h = Math.max(3,Math.min(100,a.time/mx*100));
+      var out = a.time > x.lsc || a.time < x.lic;
+      var col = out ? '#6b35a8' : (x.takt&&a.time>x.takt ? '#ef334a' : '#2da84e');
+      var lab = (a.idx===1||a.idx===s.length||a.idx%step===0) ? a.idx : '';
+      return '<div class="barWrap"><div class="bar" style="height:'+h+'%;background:'+col+'"></div><div class="xLabel">'+lab+'</div></div>';
+    }).join('');
+    var refs = [{c:'avg',v:x.mean,l:'Média '+fs(x.mean)},{c:'lsc',v:x.lsc,l:'LSC '+fs(x.lsc)},{c:'lic',v:x.lic,l:'LIC '+fs(x.lic)}];
+    if(x.takt) refs.push({c:'takt',v:x.takt,l:'Takt '+fs(x.takt)});
+    refs = refs.map(function(r){ return {c:r.c,v:r.v,l:r.l,b:Math.min(100,Math.max(0,r.v/mx*100)),labelB:0}; }).sort(function(a,b){ return b.b-a.b; });
+    refs.forEach(function(r,i){ if(i===0){r.labelB=r.b;return;} var prev=refs[i-1]; r.labelB=Math.min(r.b,prev.labelB-8); });
+    for(var i=refs.length-2;i>=0;i--){ if(refs[i].labelB<6) refs[i].labelB=6; }
+    var lines = refs.map(function(r){ return '<div class="refLine '+r.c+'" style="bottom:'+r.b+'%"></div>'; }).join('');
+    var tags = refs.map(function(r){ return '<div class="refTag '+r.c+'" style="bottom:'+r.labelB+'%">'+esc(r.l)+'</div>'; }).join('');
+    return '<section class="panel chartPanel control"><h2>'+esc(titleText||'Curva de Controle')+'</h2><div class="yLabel">Tempo (s)</div><div class="chartBox">'+grid+lines+'<div class="bars">'+bars+'</div><div class="refTags">'+tags+'</div></div><div class="legend"><span class="g"></span> dentro takt <span class="r"></span> acima takt <span class="p"></span> fora controle</div></section>';
+  }
+  var COMP_CSS = '.compKpi{padding:7px 9px;margin:6px 0}.compKpi h2,.compSum h2{font-size:13px;margin:0 0 6px}'
+    + '.ckt{width:100%;border-collapse:collapse;font-size:9.5px}'
+    + '.ckt th{background:#f3f6fa;font-weight:900;padding:5px 7px;border:1px solid #d5dce8;text-align:center}'
+    + '.ckt td{border:1px solid #d5dce8;padding:5px 7px;text-align:center}'
+    + '.ckt td:first-child{text-align:left}'
+    + '.ckt .cg{color:#1e9a44;font-weight:900}.ckt .cb{color:#df1f2d;font-weight:900}'
+    + '.chartDuo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}'
+    + '.compSum{padding:8px 10px;margin:6px 0;background:#f7faff;border:1px solid #d5dce8;border-radius:7px}'
+    + '.compSum p{font-size:10px;margin:4px 0;line-height:1.4}';
+  function compKpiTable(dA, nameA, dB, nameB){
+    var sA=dA.stats||{}, sB=dB.stats||{}, ul=(dA.form&&dA.form.timeUnitLabel)||'un/h', iA=dA.impact||{}, iB=dB.impact||{};
+    function crow(label,dA,dB,unit,lower){
+      var na=parseFloat(String(dA).replace(',','.'))||0, nb=parseFloat(String(dB).replace(',','.'))||0;
+      var d=nb-na, pct=na?d/Math.abs(na)*100:0, better=lower?d<0:d>0;
+      var cls=Math.abs(d)<0.001?'':(better?'cg':'cb'), sign=d>0?'+':'';
+      var dt=Math.abs(d)<0.001?'=':(sign+f(d,2)+(unit||'')+' ('+sign+f(pct,1)+'%)');
+      return '<tr><td><b>'+esc(label)+'</b></td><td>'+esc(String(dA))+'</td><td>'+esc(String(dB))+'</td><td class="'+cls+'">'+dt+'</td></tr>';
+    }
+    return '<section class="panel compKpi"><h2>Comparativo de desempenho</h2>'
+      +'<table class="ckt"><thead><tr><th>Indicador</th><th>'+esc(nameA)+'</th><th>'+esc(nameB)+'</th><th>Variação</th></tr></thead><tbody>'
+      +crow('Ciclo médio',f(sA.av,2)+'s',f(sB.av,2)+'s','s',true)
+      +crow('Capacidade',f(sA.cap,0),f(sB.cap,0),' '+ul,false)
+      +crow('Estabilidade',f(sA.stab,1)+'%',f(sB.stab,1)+'%','pp',false)
+      +crow('N° ciclos',String(sA.n||0),String(sB.n||0),'',false)
+      +(sA.eff!=null||sB.eff!=null ? crow('Eficiência',(sA.eff!=null?f(Number(sA.eff),1)+'%':'—'),(sB.eff!=null?f(Number(sB.eff),1)+'%':'—'),'%',false) : '')
+      +(iA.target ? crow('Perda/turno',f(iA.lossPerShift,0),f(iB.lossPerShift,0),' un',true) : '')
+      +'</tbody></table></section>';
+  }
+  function compExecSummary(dA, nameA, dB, nameB){
+    var sA=dA.stats||{}, sB=dB.stats||{}, ul=(dA.form&&dA.form.timeUnitLabel)||'un/h';
+    var avA=Number(sA.av)||0, avB=Number(sB.av)||0, capA=Number(sA.cap)||0, capB=Number(sB.cap)||0, stabA=Number(sA.stab)||0, stabB=Number(sB.stab)||0;
+    var iA=dA.impact||{}, iB=dB.impact||{}, parts=[];
+    if(avA>0&&avB>0){ var cg=avA-avB, cp=avA?Math.abs(cg)/avA*100:0; if(Math.abs(cg)>0.05) parts.push(cg>0?'O ciclo médio reduziu de '+fs(avA)+' para '+fs(avB)+', ganho de '+f(cg,2)+'s ('+f(cp,1)+'%).':'O ciclo médio aumentou de '+fs(avA)+' para '+fs(avB)+', variação de '+f(-cg,2)+'s ('+f(cp,1)+'%).'); }
+    if(capA>0&&capB>0){ var kg=capB-capA, kp=capA?Math.abs(kg)/capA*100:0; if(Math.abs(kg)>0.5) parts.push(kg>0?'Capacidade aumentou +'+f(kg,0)+' '+ul+' (+'+f(kp,1)+'%).':'Capacidade reduziu '+f(kg,0)+' '+ul+' (-'+f(kp,1)+'%).'); }
+    if(stabA>0){ var sg=stabB-stabA; if(Math.abs(sg)>1) parts.push(sg>0?'Estabilidade melhorou '+f(sg,1)+'pp ('+f(stabA,1)+'% → '+f(stabB,1)+'%).':'Estabilidade piorou '+f(-sg,1)+'pp ('+f(stabA,1)+'% → '+f(stabB,1)+'%).'); }
+    if(iA.target){ var lg=(iA.lossPerShift||0)-(iB.lossPerShift||0); if(Math.abs(lg)>0.5) parts.push(lg>0?'Redução de perda/turno de '+f(lg,0)+' un.':'Aumento de perda/turno de '+f(-lg,0)+' un.'); }
+    if(!parts.length) parts.push('Dados insuficientes para conclusão automática.');
+    return '<section class="panel compSum"><h2>Resumo executivo</h2>'
+      +'<p>'+parts.join(' ')+'</p>'
+      +'<p class="small"><b>'+esc(nameA)+'</b>: '+f(sA.n||0,0)+' ciclos · média '+f(avA,2)+'s · cap. '+f(capA,0)+' '+ul+' · estab. '+f(stabA,1)+'%</p>'
+      +'<p class="small"><b>'+esc(nameB)+'</b>: '+f(sB.n||0,0)+' ciclos · média '+f(avB,2)+'s · cap. '+f(capB,0)+' '+ul+' · estab. '+f(stabB,1)+'%</p>'
+      +'</section>';
+  }
+  function comparisonReport(doc, compData){
+    var nameA=compData.a.name||'Estudo A', nameB=compData.b.name||'Estudo B';
+    var dA=compData.a.data, dB=compData.b.data;
+    var lA=Array.isArray(dA.laps)?dA.laps:[], lB=Array.isArray(dB.laps)?dB.laps:[];
+    var sA=lA.filter(function(l){ return Number(l.durationSec)>0; }).map(function(l,i){ return {idx:Number(l.index)||i+1,time:Number(l.durationSec)||0}; });
+    var sB=lB.filter(function(l){ return Number(l.durationSec)>0; }).map(function(l,i){ return {idx:Number(l.index)||i+1,time:Number(l.durationSec)||0}; });
+    var xA=stEx(sA,dA), xB=stEx(sB,dB);
+    var sharedMx=Math.max.apply(null, sA.concat(sB).map(function(a){ return a.time; }).concat([xA.mean,xA.lsc,xB.mean,xB.lsc,xA.takt,xB.takt,1]));
+    var fA=dA.form||{};
+    var el=doc.createElement('div'); el.className='reportA4';
+    el.innerHTML=css(COMP_CSS)
+      +'<header class="top"><div class="title">Comparativo — '+esc(nameA)+' × '+esc(nameB)+'</div>'
+      +'<div class="subtitle">Análise comparativa de desempenho produtivo</div>'
+      +'<div class="metaLine"><b>Data:</b> '+new Date().toLocaleDateString('pt-BR')
+      +(fA.analystName?' | <b>Analista:</b> '+esc(fA.analystName):'')
+      +' | <b>Versão:</b> '+esc(window.APP_VERSION||'—')+'</div></header>'
+      +'<div class="sectionLabel">Indicadores comparativos</div>'
+      +compKpiTable(dA,nameA,dB,nameB)
+      +'<div class="sectionLabel">Curvas de desempenho — mesma escala</div>'
+      +'<div class="chartDuo">'+chartEx(sA,xA,nameA,sharedMx)+chartEx(sB,xB,nameB,sharedMx)+'</div>'
+      +compExecSummary(dA,nameA,dB,nameB)
+      +foot();
+    return el;
+  }
+  async function exportComparisonPDF(compData){
+    var r=btn('btnComparisonPDF','⏳...');
+    try{
+      if(!window.jspdf||!window.jspdf.jsPDF) throw new Error('jsPDF não carregado.');
+      var sb=sandbox();
+      var page=comparisonReport(sb.doc,compData);
+      sb.doc.body.appendChild(page);
+      await new Promise(function(ok){ setTimeout(ok,150); });
+      var canvas=await cap(page);
+      var PDF=window.jspdf.jsPDF, pdf=new PDF('p','mm','a4');
+      addCanvasPage(pdf,canvas);
+      sb.iframe.remove();
+      pdf.save('comparativo_'+slug(compData.a.name||'A')+'_'+slug(compData.b.name||'B')+'_'+stamp()+'.pdf');
+    }catch(e){ console.error(e); alert(e.message||'Erro ao gerar PDF comparativo.'); }
+    finally{ r(); }
+  }
+  window.generateComparisonPDF = exportComparisonPDF;
   function table(s,title){ var x = st(s), rows = s.map(function(a){ var over = x.takt > 0 && a.time > x.takt; return '<tr><td><b>'+a.idx+'</b></td><td class="'+(over?'overTakt':'')+'">'+f(a.time,2)+'</td><td>'+(a.qty!=null?esc(f(Number(a.qty),2)):'—')+'</td><td>'+esc(a.cause||'Normal')+'</td><td>'+esc(a.obs||'—')+'</td></tr>'; }).join(''); return '<section class="panel samples"><h3>'+esc(title||'Amostras coletadas')+'</h3><table><thead><tr><th>#</th><th>Tempo (s)</th><th>Qtd</th><th>Causa</th><th>Observação</th></tr></thead><tbody>'+rows+'</tbody></table><p>Valores acima do Takt Time em vermelho.</p></section>'; }
 
   function css(extra){

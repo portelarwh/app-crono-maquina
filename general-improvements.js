@@ -87,6 +87,16 @@
       .study-actions button,.load-row button,.compare-row button{background:var(--blue);color:#fff;padding:8px;border-radius:7px}
       .compare-result{font-size:.82rem;line-height:1.4;color:var(--text-main);background:var(--card-bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-top:6px}
       @media(max-width:560px){.advanced-grid,.load-row,.compare-row{grid-template-columns:1fr}.lap-cause-wrap{width:100%;margin:6px 0 0 0}.lap-cause-select-row{width:100%}}
+      .comp-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+      .btn-comp-action{flex:1;padding:7px 10px;border-radius:7px;font-size:.78rem;background:var(--surface);border:1px solid var(--border);color:var(--text-main);cursor:pointer}
+      .btn-comp-pdf{background:var(--blue);color:#fff;border-color:var(--blue)}
+      .export-choice-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px}
+      .export-choice-box{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:22px 18px;max-width:320px;width:100%;color:var(--text-main)}
+      .export-choice-title{font-size:.9rem;font-weight:800;margin:0 0 14px}
+      .export-choice-btn{display:block;width:100%;margin-bottom:8px;padding:13px;border-radius:8px;font-size:.85rem;cursor:pointer;text-align:left}
+      .export-choice-primary{background:var(--blue);color:#fff;border:none}
+      .export-choice-secondary{background:transparent;color:var(--text-main);border:1px solid var(--border)}
+      .export-choice-cancel{background:transparent;color:var(--text-muted);border:none;font-size:.8rem;padding:8px}
     `;
     document.head.appendChild(style);
   }
@@ -188,7 +198,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v4.7.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v4.8.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
@@ -288,12 +298,28 @@
       setTimeout(updateAll, 200);
     }
   }
-  function compareStudies(){ const output = $('compareResult'); if(!output) return; const baseStudy = findStudy($('studyBase')?.value); if(!baseStudy){ output.textContent = 'Selecione um estudo base.'; return; } const selected = $('studyCompare')?.value; const comp = selected === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(selected); if(!comp || !comp.data){ output.textContent = 'Selecione o estudo comparativo.'; return; } const a = baseStudy.data, b = comp.data, capGain = (b.stats?.cap || 0) - (a.stats?.cap || 0), cycleGain = (a.stats?.av || 0) - (b.stats?.av || 0), lossRed = (a.impact?.lossPerShift || 0) - (b.impact?.lossPerShift || 0); output.innerHTML = `<b>Comparativo:</b> ${escapeHtml(baseStudy.name)} × ${escapeHtml(comp.name || 'Medição atual')}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(b.form?.timeUnitLabel || 'un/h')} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno`; }
+  function compareStudies(){ const output = $('compareResult'); if(!output) return; const baseStudy = findStudy($('studyBase')?.value); if(!baseStudy){ output.textContent = 'Selecione um estudo base.'; return; } const selected = $('studyCompare')?.value; const comp = selected === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(selected); if(!comp || !comp.data){ output.textContent = 'Selecione o estudo comparativo.'; return; } const a = baseStudy.data, b = comp.data, capGain = (b.stats?.cap || 0) - (a.stats?.cap || 0), cycleGain = (a.stats?.av || 0) - (b.stats?.av || 0), lossRed = (a.impact?.lossPerShift || 0) - (b.impact?.lossPerShift || 0); const nameA = escapeHtml(baseStudy.name), nameB = escapeHtml(comp.name || 'Medição atual'); output.innerHTML = `<b>Comparativo:</b> ${nameA} × ${nameB}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(b.form?.timeUnitLabel || 'un/h')} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno<div class="comp-actions"><button id="btnCopyComparison" type="button" class="btn-comp-action">⎘ Copiar texto</button><button id="btnComparisonPDF" type="button" class="btn-comp-action btn-comp-pdf">📊 PDF Comparativo</button></div>`; }
+
+  window.hasActiveComparison = function(){ const r = $('compareResult'); return !!(r && r.textContent.trim() && !/Nenhum comparativo|Selecione/i.test(r.textContent)); };
+  window.getComparisonStudiesData = function(){ const baseId = $('studyBase')?.value; if(!baseId) return null; const baseStudy = findStudy(baseId); if(!baseStudy) return null; const sel = $('studyCompare')?.value; const comp = sel === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(sel); if(!comp?.data) return null; return { a: { name: baseStudy.name, data: baseStudy.data }, b: { name: comp.name || 'Comparativo', data: comp.data } }; };
+  window.showExportChoiceModal = function(onCurrent, onComparison){ if($('exportChoiceModal')) return; const ov = document.createElement('div'); ov.id = 'exportChoiceModal'; ov.className = 'export-choice-overlay'; ov.innerHTML = `<div class="export-choice-box"><p class="export-choice-title">O que deseja exportar?</p><button id="_ecmCurrent" class="export-choice-btn export-choice-primary">📄 Relatório do estudo atual</button><button id="_ecmComp" class="export-choice-btn export-choice-secondary">📊 PDF do comparativo (Antes × Depois)</button><button id="_ecmCancel" class="export-choice-btn export-choice-cancel">Cancelar</button></div>`; document.body.appendChild(ov); const close = () => ov.remove(); $('_ecmCurrent').onclick = () => { close(); onCurrent(); }; $('_ecmComp').onclick = () => { close(); onComparison(); }; $('_ecmCancel').onclick = close; ov.addEventListener('click', e => { if(e.target === ov) close(); }); };
   function lockConfig(running){ ['analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours','tolerancePct'].forEach(id => { const el = $(id); if(el) el.disabled = !!running; }); }
   function updateAll(){ patchDataGetter(); injectFields(); injectCauseButtons(); injectUndo(); injectPanels(); injectPresetPanel(); const data = getData(); renderImpact(data); renderStandard(data); renderPareto(data); injectLapCauseSelectors(data); renderStudyOptions(); renderPresetOptions(); lockConfig(!!data?.running); const undo = $('btnUndoLap'); if(undo) undo.disabled = !(data?.laps?.length); }
 
   function bindEvents(){
-    document.addEventListener('click', event => { if(event.target?.id === 'btnUndoLap') undoLastLap(); if(event.target?.id === 'btnSaveStudy') saveStudy(); if(event.target?.id === 'btnLoadStudy') loadStudy(); if(event.target?.id === 'btnCompareStudy') compareStudies(); if(event.target?.id === 'btnSavePreset') savePreset(); if(event.target?.id === 'btnLoadPreset') loadPreset(); if(event.target?.id === 'studyBase' || event.target?.id === 'studyCompare' || event.target?.id === 'presetSelect') return; setTimeout(updateAll, 80); });
+    document.addEventListener('click', event => {
+      const id = event.target?.id;
+      if(id === 'btnUndoLap') undoLastLap();
+      if(id === 'btnSaveStudy') saveStudy();
+      if(id === 'btnLoadStudy') loadStudy();
+      if(id === 'btnCompareStudy') compareStudies();
+      if(id === 'btnSavePreset') savePreset();
+      if(id === 'btnLoadPreset') loadPreset();
+      if(id === 'btnCopyComparison'){ const txt = ($('compareResult')?.innerText||'').replace(/⎘ Copiar texto|📊 PDF Comparativo/g,'').trim(); navigator.clipboard?.writeText(txt).catch(()=>{}); return; }
+      if(id === 'btnComparisonPDF'){ const cd = window.getComparisonStudiesData?.(); if(cd) window.generateComparisonPDF?.(cd); else alert('Selecione os estudos para comparar.'); return; }
+      if(id === 'studyBase' || id === 'studyCompare' || id === 'presetSelect') return;
+      setTimeout(updateAll, 80);
+    });
     document.addEventListener('input', event => { if(event.target && ['lineName','shiftName','productName','shiftHours','tolerancePct'].includes(event.target.id)) persistExtras(); setTimeout(updateAll, 80); });
     document.addEventListener('change', event => { if(event.target && ['lineName','shiftName','productName','shiftHours','tolerancePct'].includes(event.target.id)) persistExtras(); if(event.target?.id === 'studyBase' || event.target?.id === 'studyCompare') return; setTimeout(updateAll, 80); });
     setInterval(updateAll, 800);
