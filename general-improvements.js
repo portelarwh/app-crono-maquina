@@ -198,7 +198,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v4.8.0', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v4.8.1', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
@@ -298,7 +298,29 @@
       setTimeout(updateAll, 200);
     }
   }
-  function compareStudies(){ const output = $('compareResult'); if(!output) return; const baseStudy = findStudy($('studyBase')?.value); if(!baseStudy){ output.textContent = 'Selecione um estudo base.'; return; } const selected = $('studyCompare')?.value; const comp = selected === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(selected); if(!comp || !comp.data){ output.textContent = 'Selecione o estudo comparativo.'; return; } const a = baseStudy.data, b = comp.data, capGain = (b.stats?.cap || 0) - (a.stats?.cap || 0), cycleGain = (a.stats?.av || 0) - (b.stats?.av || 0), lossRed = (a.impact?.lossPerShift || 0) - (b.impact?.lossPerShift || 0); const nameA = escapeHtml(baseStudy.name), nameB = escapeHtml(comp.name || 'Medição atual'); output.innerHTML = `<b>Comparativo:</b> ${nameA} × ${nameB}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(b.form?.timeUnitLabel || 'un/h')} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno<div class="comp-actions"><button id="btnCopyComparison" type="button" class="btn-comp-action">⎘ Copiar texto</button><button id="btnComparisonPDF" type="button" class="btn-comp-action btn-comp-pdf">📊 PDF Comparativo</button></div>`; }
+  function compareStudies(){
+    const output = $('compareResult'); if(!output) return;
+    const baseStudy = findStudy($('studyBase')?.value);
+    if(!baseStudy){ output.textContent = 'Selecione um estudo base.'; return; }
+    const selected = $('studyCompare')?.value;
+    const comp = selected === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(selected);
+    if(!comp || !comp.data){ output.textContent = 'Selecione o estudo comparativo.'; return; }
+    const a = baseStudy.data, b = comp.data;
+    const capGain = (b.stats?.cap || 0) - (a.stats?.cap || 0);
+    const cycleGain = (a.stats?.av || 0) - (b.stats?.av || 0);
+    const lossRed = (a.impact?.lossPerShift || 0) - (b.impact?.lossPerShift || 0);
+    const nameA = baseStudy.name, nameB = comp.name || 'Medição atual';
+    const unitLbl = b.form?.timeUnitLabel || 'un/h';
+    const plainText = [
+      `Comparativo: ${nameA} × ${nameB}`,
+      `Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s`,
+      `Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${unitLbl} | ganho: ${formatNumber(capGain,1)}`,
+      `Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%`,
+      `Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno`
+    ].join('\n');
+    output.dataset.copyText = plainText;
+    output.innerHTML = `<b>Comparativo:</b> ${escapeHtml(nameA)} × ${escapeHtml(nameB)}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(unitLbl)} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno<div class="comp-actions"><button id="btnCopyComparison" type="button" class="btn-comp-action">⎘ Copiar texto</button><button id="btnComparisonPDF" type="button" class="btn-comp-action btn-comp-pdf">📊 PDF Comparativo</button></div>`;
+  }
 
   window.hasActiveComparison = function(){ const r = $('compareResult'); return !!(r && r.textContent.trim() && !/Nenhum comparativo|Selecione/i.test(r.textContent)); };
   window.getComparisonStudiesData = function(){ const baseId = $('studyBase')?.value; if(!baseId) return null; const baseStudy = findStudy(baseId); if(!baseStudy) return null; const sel = $('studyCompare')?.value; const comp = sel === 'current' ? { name: 'Medição atual', data: getData() } : findStudy(sel); if(!comp?.data) return null; return { a: { name: baseStudy.name, data: baseStudy.data }, b: { name: comp.name || 'Comparativo', data: comp.data } }; };
@@ -315,7 +337,7 @@
       if(id === 'btnCompareStudy') compareStudies();
       if(id === 'btnSavePreset') savePreset();
       if(id === 'btnLoadPreset') loadPreset();
-      if(id === 'btnCopyComparison'){ const txt = ($('compareResult')?.innerText||'').replace(/⎘ Copiar texto|📊 PDF Comparativo/g,'').trim(); navigator.clipboard?.writeText(txt).catch(()=>{}); return; }
+      if(id === 'btnCopyComparison'){ const txt = ($('compareResult')?.dataset.copyText || '').trim(); if(!txt) return; const done = () => { const b = event.target; if(!b) return; const o = b.textContent; b.textContent = '✓ Copiado'; setTimeout(() => { b.textContent = o; }, 1400); }; if(navigator.clipboard?.writeText){ navigator.clipboard.writeText(txt).then(done).catch(()=>{}); } else { const ta = document.createElement('textarea'); ta.value = txt; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); done(); }catch(e){} ta.remove(); } return; }
       if(id === 'btnComparisonPDF'){ const cd = window.getComparisonStudiesData?.(); if(cd) window.generateComparisonPDF?.(cd); else alert('Selecione os estudos para comparar.'); return; }
       if(id === 'studyBase' || id === 'studyCompare' || id === 'presetSelect') return;
       setTimeout(updateAll, 80);
