@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
-    <link rel="manifest" href="manifest.json?v=4.8.1">
+    <link rel="manifest" href="manifest.json?v=4.9.0">
     <meta name="theme-color" content="#0d1117">
     <title>Cronoanálise Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link rel="stylesheet" href="styles.css?v=4.8.1">
-    <script src="theme-init.js?v=4.8.1"></script>
+    <link rel="stylesheet" href="styles.css?v=4.9.0">
+    <script src="theme-init.js?v=4.9.0"></script>
 </head>
 <body>
 
@@ -351,6 +351,40 @@
 
             <details class="oee-section" open>
                 <summary>4. Resultado</summary>
+                <div class="oee-modal-gauges">
+                    <div class="oee-modal-gauge">
+                        <svg viewBox="0 0 100 66" class="oee-gsv">
+                            <path class="ogbg" d="M 10,52 A 40,40 0 0 0 90,52"/>
+                            <path class="ogfg" id="ogfgOee" d="M 10,52 A 40,40 0 0 0 90,52" stroke-dasharray="0 125.66"/>
+                            <text class="ogval" id="ogvalOee" x="50" y="50" text-anchor="middle">--</text>
+                            <text class="oglbl" x="50" y="63" text-anchor="middle">OEE</text>
+                        </svg>
+                    </div>
+                    <div class="oee-modal-gauge">
+                        <svg viewBox="0 0 100 66" class="oee-gsv">
+                            <path class="ogbg" d="M 10,52 A 40,40 0 0 0 90,52"/>
+                            <path class="ogfg" id="ogfgD" d="M 10,52 A 40,40 0 0 0 90,52" stroke-dasharray="0 125.66"/>
+                            <text class="ogval" id="ogvalD" x="50" y="50" text-anchor="middle">--</text>
+                            <text class="oglbl" x="50" y="63" text-anchor="middle">Disponib.</text>
+                        </svg>
+                    </div>
+                    <div class="oee-modal-gauge">
+                        <svg viewBox="0 0 100 66" class="oee-gsv">
+                            <path class="ogbg" d="M 10,52 A 40,40 0 0 0 90,52"/>
+                            <path class="ogfg" id="ogfgP" d="M 10,52 A 40,40 0 0 0 90,52" stroke-dasharray="0 125.66"/>
+                            <text class="ogval" id="ogvalP" x="50" y="50" text-anchor="middle">--</text>
+                            <text class="oglbl" x="50" y="63" text-anchor="middle">Performance</text>
+                        </svg>
+                    </div>
+                    <div class="oee-modal-gauge">
+                        <svg viewBox="0 0 100 66" class="oee-gsv">
+                            <path class="ogbg" d="M 10,52 A 40,40 0 0 0 90,52"/>
+                            <path class="ogfg" id="ogfgQ" d="M 10,52 A 40,40 0 0 0 90,52" stroke-dasharray="0 125.66"/>
+                            <text class="ogval" id="ogvalQ" x="50" y="50" text-anchor="middle">--</text>
+                            <text class="oglbl" x="50" y="63" text-anchor="middle">Qualidade</text>
+                        </svg>
+                    </div>
+                </div>
                 <div class="oee-result-grid">
                     <div class="oee-main-result" id="oeeMainResult"><span>OEE</span><strong id="oeeValue">--</strong></div>
                     <div class="oee-sub-result"><span>Disponibilidade</span><strong id="oeeAvailability">--</strong></div>
@@ -384,10 +418,10 @@
     <button id="btnLap" class="btn-lap" data-action="normal" disabled>⏱ NORMAL</button>
 </div>
 
-<script src="app.js?v=4.8.1" defer></script>
-<script src="general-improvements.js?v=4.8.1" defer></script>
-<script src="report-enhancements.js?v=4.8.1" defer></script>
-<script src="whatsapp-share-fix.js?v=4.8.1" defer></script>
-<script src="pwa-ui.js?v=4.8.1" defer></script>
+<script src="app.js?v=4.9.0" defer></script>
+<script src="general-improvements.js?v=4.9.0" defer></script>
+<script src="report-enhancements.js?v=4.9.0" defer></script>
+<script src="whatsapp-share-fix.js?v=4.9.0" defer></script>
+<script src="pwa-ui.js?v=4.9.0" defer></script>
 </body>
 </html>

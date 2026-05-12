@@ -474,6 +474,13 @@ body.export-mode .chart-title{
             text-transform: uppercase;
         }
         .oee-saved-actions .oee-saved-clear { color: var(--red); border-color: rgba(217,52,43,.3); }
+        .oee-saved-gauges { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .oee-mini-bar { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; min-width: 0; }
+        .oee-mini-bar span { width: 10px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; text-transform: uppercase; }
+        .oee-mini-bar b { width: 34px; text-align: right; font-weight: 900; flex-shrink: 0; color: var(--text-main); }
+        .oee-mini-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 40px; }
+        .oee-mini-track > div { height: 100%; border-radius: 3px; transition: width 0.4s ease; min-width: 2px; }
+        .oee-saved-mtbf { font-size: 0.58rem; color: var(--text-muted); line-height: 1.3; margin-top: 2px; }
 
         /* Modal OEE */
         .oee-modal-content { max-width: 480px; max-height: 90vh; overflow-y: auto; padding: 16px; }
@@ -695,6 +702,25 @@ body.export-mode .chart-title{
             line-height: 1.4;
             margin-top: 8px;
         }
+        .oee-modal-gauges {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin: 0 0 10px 0;
+        }
+        .oee-modal-gauge { text-align: center; }
+        .oee-gsv { width: 100%; max-width: 120px; display: block; margin: 0 auto; overflow: visible; }
+        .ogbg { fill: none; stroke: var(--border); stroke-width: 9; stroke-linecap: round; }
+        .ogfg {
+            fill: none;
+            stroke: #888;
+            stroke-width: 9;
+            stroke-linecap: round;
+            stroke-dasharray: 0 125.66;
+            transition: stroke-dasharray 0.5s ease, stroke 0.3s ease;
+        }
+        .ogval { font-size: 15px; font-weight: 900; fill: #888; font-family: inherit; }
+        .oglbl { font-size: 8px; fill: var(--text-muted); font-weight: 700; font-family: inherit; }
 
         /* Modal Guia */
         .guide-modal-content { max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 16px; }
