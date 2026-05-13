@@ -501,8 +501,8 @@ body.export-mode .chart-title{
             list-style: none;
         }
         .oee-section > summary::-webkit-details-marker { display: none; }
-        .oee-section > summary::before { content: '▸ '; color: var(--text-muted); }
-        .oee-section[open] > summary::before { content: '▾ '; }
+        .oee-section > summary::before { content: '\25B8 '; color: var(--text-muted); }
+        .oee-section[open] > summary::before { content: '\25BE '; }
         .oee-base-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -718,8 +718,8 @@ body.export-mode .chart-title{
             padding: 4px 0;
         }
         .guide-section > summary::-webkit-details-marker { display: none; }
-        .guide-section > summary::before { content: '▸ '; color: var(--text-muted); }
-        .guide-section[open] > summary::before { content: '▾ '; }
+        .guide-section > summary::before { content: '\25B8 '; color: var(--text-muted); }
+        .guide-section[open] > summary::before { content: '\25BE '; }
         .guide-flow {
             display: flex;
             gap: 4px;
@@ -855,7 +855,7 @@ body.export-mode .chart-title{
         .guide-section li { margin-bottom: 7px; }
         .guide-flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
         .guide-flow span { position: relative; display: flex; align-items: center; justify-content: center; min-height: 46px; padding: 8px; border-radius: 10px; background: color-mix(in srgb, var(--blue) 18%, var(--card-bg)); border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--border)); color: var(--text-main); font-size: .76rem; font-weight: 800; text-align: center; }
-        .guide-flow span:not(:last-child)::after { content: '›'; position: absolute; right: -8px; color: var(--blue); font-size: 1.4rem; z-index: 1; }
+        .guide-flow span:not(:last-child)::after { content: '\203A'; position: absolute; right: -8px; color: var(--blue); font-size: 1.4rem; z-index: 1; }
         .guide-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .guide-cards article, .guide-glossary div { padding: 10px; border-radius: 10px; background: var(--card-bg); border: 1px solid var(--border); }
         .guide-cards strong { display: block; color: var(--blue); margin-bottom: 4px; }
@@ -866,7 +866,7 @@ body.export-mode .chart-title{
         @media(max-width: 620px){
             .guide-modal-content { max-height: 88vh; padding: 16px; }
             .guide-flow, .guide-cards, .guide-glossary { grid-template-columns: 1fr; }
-            .guide-flow span:not(:last-child)::after { content: '↓'; right: 50%; bottom: -16px; transform: translateX(50%); font-size: 1rem; }
+            .guide-flow span:not(:last-child)::after { content: '\2193'; right: 50%; bottom: -16px; transform: translateX(50%); font-size: 1rem; }
             .guide-flow { gap: 12px; }
         }
 
@@ -1180,25 +1180,229 @@ body.export-mode .hist-label{
    LAYOUT RESPONSIVO — Desktop (≥ 1024px)
    ========================================================= */
 @media (min-width: 1024px) {
-    body { padding: 20px 32px; padding-bottom: 195px; }
-    .live-timer { font-size: 4rem; }
-    .chart-wrapper, .histogram-wrapper { height: 220px !important; }
-    .result-value { font-size: 1.5rem; }
-    .result-title { font-size: 0.7rem; }
-    .history-container { max-height: 280px; }
-    button { cursor: pointer; }
-    input:hover, select:hover { border-color: var(--blue); }
 
-    #exportContainer { width: 100%; max-width: 1180px; margin: 0 auto; }
+    /* --- Container geral --- */
+    body {
+        padding: 24px 36px;
+        padding-bottom: 88px; /* action dock compacto substitui o fixed-bottom alto */
+        max-width: 1440px;
+    }
+
+    /* --- Layout principal: 2 colunas sticky lado a lado --- */
+    #print-wrapper {
+        flex-direction: row;
+        gap: 20px;
+        align-items: flex-start;
+    }
+
+    .col-1 {
+        flex: 0 0 400px;
+        min-width: 0;
+        position: sticky;
+        top: 24px;
+        max-height: calc(100vh - 112px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+    }
+    .col-1::-webkit-scrollbar { width: 4px; }
+    .col-1::-webkit-scrollbar-track { background: transparent; }
+    .col-1::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .col-2 {
+        flex: 1 1 auto;
+        min-width: 0;
+        position: sticky;
+        top: 24px;
+        max-height: calc(100vh - 112px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+    }
+    .col-2::-webkit-scrollbar { width: 4px; }
+    .col-2::-webkit-scrollbar-track { background: transparent; }
+    .col-2::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* --- Cards --- */
+    .card { padding: 18px; }
+
+    /* --- Config grid: 4 colunas compactas --- */
+    .config-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .full-width { grid-column: span 4; }
+    .input-group:not(.full-width) { grid-column: span 2; }
+    #unitsGroup, #defaultLapQtyGroup, #lapQtyModeGroup,
+    .config-grid > .input-group:not(.full-width) { grid-column: span 1; }
+
+    /* --- Timer --- */
+    .live-timer { font-size: 4.5rem; }
+    .total-timer { font-size: 1.25rem; }
+
+    /* --- Stats: 3 colunas em col-1 de 400px --- */
+    .results-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .results-grid .full-width { grid-column: 1 / -1; }
+    .result-value { font-size: 1.55rem; }
+    .result-title { font-size: 0.68rem; }
+    .result-box { padding: 12px 10px; }
+
+    /* --- Botões de controle --- */
+    button { cursor: pointer; }
+    .btn-start:hover:not(:disabled),
+    .btn-stop:hover:not(:disabled),
+    .btn-reset:hover:not(:disabled) { filter: brightness(1.12); }
+    .btn-action:hover:not(:disabled) { filter: brightness(1.1); }
+    input:hover:not(:disabled),
+    select:hover:not(:disabled) { border-color: var(--blue); }
+
+    /* --- Gráficos mais altos --- */
+    .chart-wrapper, .histogram-wrapper { height: 260px !important; }
+
+    /* --- Histórico com mais linhas visíveis --- */
+    .history-container { max-height: 360px; }
+    .history-row { font-size: 0.93rem; }
+    #historyCard { margin-top: 0; }
+
+    /* --- App header --- */
+    .app-header {
+        top: 14px;
+        right: 22px;
+        padding: 6px 14px;
+        gap: 12px;
+    }
+    .app-version { font-size: 0.78rem; }
+    .theme-toggle-btn { width: 30px; height: 30px; font-size: 16px; }
+
+    /* --- Export container --- */
+    #exportContainer { width: 100%; max-width: 1440px; margin: 0 auto; }
+
+    /* --- Modais maiores em desktop --- */
+    .modal-content { max-width: 520px; }
+    .guide-modal-content {
+        max-width: 820px;
+        max-height: 82vh;
+        overflow-y: auto;
+        text-align: left;
+    }
+    .oee-modal-content {
+        max-width: 820px;
+        max-height: 88vh;
+        overflow-y: auto;
+        text-align: left;
+    }
+    .guide-modal-text,
+    .oee-modal-text { max-height: none; }
+
+    /* =========================================================
+       ACTION DOCK — substitui o fixed-bottom mobile
+       Em desktop: barra horizontal fixa 72px, tudo em linha
+       ========================================================= */
+    .fixed-bottom {
+        left: 0;
+        right: 0;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 10px 36px;
+        min-height: 72px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        background: var(--card-bg);
+        border-top: 1px solid var(--border);
+        /* remove gradiente mobile */
+        background-image: none;
+    }
+
+    /* Campo de observação visível e compacto */
+    .lap-obs-input {
+        display: block !important;
+        width: 180px !important;
+        flex-shrink: 0;
+        margin-bottom: 0 !important;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+    }
+
+    .lap-meta-row {
+        display: contents; /* "desaparece" como container, filho flutua no flex pai */
+    }
+
+    /* Indicador de parada: inline, sem ocupar linha inteira */
+    .downtime-indicator {
+        width: auto;
+        flex-shrink: 0;
+        padding: 8px 14px;
+        font-size: 0.8rem;
+        margin-bottom: 0;
+        white-space: nowrap;
+        border-radius: 8px;
+    }
+
+    /* Grid de causas: linha horizontal centralizada */
+    .lap-cause-grid {
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 0;
+        justify-content: center;
+        grid-template-columns: none; /* cancela o grid mobile */
+    }
+
+    /* Botões de causa: compactos e inline */
+    .btn-cause {
+        padding: 9px 14px;
+        font-size: 0.75rem;
+        border-radius: 8px;
+        flex: 0 0 auto;
+        white-space: nowrap;
+        box-shadow: none;
+        line-height: 1.2;
+    }
+    .btn-cause:hover:not(:disabled):not(.active) {
+        border-color: var(--blue);
+        background: color-mix(in srgb, var(--blue) 12%, transparent);
+    }
+
+    /* Botão NORMAL: compacto, largura fixa, sem box-shadow alto */
+    .btn-lap {
+        width: auto;
+        flex-shrink: 0;
+        padding: 12px 28px;
+        font-size: 1.15rem;
+        max-width: none;
+        margin: 0;
+        box-shadow: none;
+        border-radius: 8px;
+    }
+    .btn-lap:active:not(:disabled) { transform: scale(0.97); }
+}
+
+/* =========================================================
+   LAYOUT RESPONSIVO — Desktop largo (≥ 1280px)
+   ========================================================= */
+@media (min-width: 1280px) {
+    body { padding-left: 48px; padding-right: 48px; }
+    .fixed-bottom { padding-left: 48px; padding-right: 48px; }
+    .col-1 { flex: 0 0 430px; }
+    .live-timer { font-size: 5rem; }
+    .chart-wrapper, .histogram-wrapper { height: 290px !important; }
+    .result-value { font-size: 1.65rem; }
 }
 
 /* =========================================================
    LAYOUT RESPONSIVO — Desktop amplo (≥ 1440px)
    ========================================================= */
 @media (min-width: 1440px) {
-    body { max-width: 1320px; }
-    .fixed-bottom { max-width: 1320px; }
-    #exportContainer { max-width: 1320px; }
+    body { max-width: 1600px; padding-left: 56px; padding-right: 56px; }
+    .fixed-bottom { max-width: 1600px; padding-left: 56px; padding-right: 56px; }
+    #exportContainer { max-width: 1600px; }
+    .col-1 { flex: 0 0 460px; }
+    .chart-wrapper, .histogram-wrapper { height: 320px !important; }
+    .history-container { max-height: 420px; }
+    .live-timer { font-size: 5.5rem; }
 }
 
 /* =========================================================
