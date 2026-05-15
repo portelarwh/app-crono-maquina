@@ -1556,6 +1556,39 @@ body.export-mode .hist-label{
 .sensor-cfg-btn:hover:not(:disabled) { background: var(--blue); color: #fff; }
 .sensor-cfg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* seletor de modo: ⚡ flash | ▶ motion | ◐ color */
+.sensor-mode-ctrl {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    background: var(--input-bg);
+}
+.sensor-mode-btn {
+    width: 22px;
+    height: 20px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    transition: background 0.12s, color 0.12s;
+}
+.sensor-mode-btn:hover { background: var(--blue); color: #fff; }
+.sensor-mode-btn.active { background: var(--green); color: #fff; }
+
+/* barra colorida no modo cor (data-zone via JS) */
+.sensor-bar-fill[data-zone="red"]   { background: #e74c3c; }
+.sensor-bar-fill[data-zone="green"] { background: var(--green); }
+
 /* sensibilidade: 5 bolinhas — preenchimento acumulativo */
 .sensor-sens-ctrl {
     display: flex;
