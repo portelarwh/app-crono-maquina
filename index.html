@@ -381,13 +381,43 @@
     </div>
     <div id="downtimeIndicator" class="downtime-indicator" style="display:none" aria-live="polite"></div>
     <div class="lap-cause-grid" id="lapCauseGrid" aria-label="Classificação do ciclo"></div>
-    <button id="btnLap" class="btn-lap" data-action="normal" disabled>⏱ NORMAL</button>
+
+    <!-- Sensor luminoso: indicador de brilho + configuração (visível quando ativo) -->
+    <div id="sensorIndicator" class="sensor-indicator" style="display:none" aria-live="polite" aria-label="Sensor luminoso ativo">
+        <span class="sensor-dot" aria-hidden="true"></span>
+        <div class="sensor-bar-track" aria-hidden="true" title="Nível de brilho captado">
+            <div id="sensorBarFill" class="sensor-bar-fill"></div>
+        </div>
+        <span class="sensor-count-wrap" title="Flashes detectados / total para disparar">
+            <span id="sensorFlashCount" class="sensor-count">0</span><span class="sensor-count-sep">/</span><span id="sensorFpl" class="sensor-count">1</span>
+        </span>
+        <div class="sensor-fpl-ctrl" aria-label="Flashes por lap">
+            <button id="btnFplMinus" class="sensor-cfg-btn" type="button" aria-label="Diminuir flashes por lap">−</button>
+            <span class="sensor-fpl-label">flash/lap</span>
+            <button id="btnFplPlus"  class="sensor-cfg-btn" type="button" aria-label="Aumentar flashes por lap">+</button>
+        </div>
+        <div class="sensor-sens-ctrl" role="group" aria-label="Sensibilidade do sensor">
+            <button id="btnSensLow"  class="sensor-sens-btn" type="button" title="Sensibilidade baixa (ambiente muito claro)">●</button>
+            <button id="btnSensMid"  class="sensor-sens-btn active" type="button" title="Sensibilidade média">●</button>
+            <button id="btnSensHigh" class="sensor-sens-btn" type="button" title="Sensibilidade alta (LED fraco ou distante)">●</button>
+        </div>
+    </div>
+
+    <!-- Linha de ação: botão sensor + botão NORMAL -->
+    <div class="lap-action-row">
+        <button id="btnSensor" class="btn-sensor" type="button"
+                aria-label="Ativar sensor luminoso (câmera traseira)"
+                aria-pressed="false"
+                title="Ativar sensor luminoso (câmera traseira)">📷</button>
+        <button id="btnLap" class="btn-lap" data-action="normal" disabled>⏱ NORMAL</button>
+    </div>
 </div>
 
-<script src="app.js?v=4.9.4" defer></script>
-<script src="general-improvements.js?v=4.9.4" defer></script>
-<script src="report-enhancements.js?v=4.9.4" defer></script>
-<script src="whatsapp-share-fix.js?v=4.9.4" defer></script>
-<script src="pwa-ui.js?v=4.9.4" defer></script>
+<script src="app.js?v=4.9.5" defer></script>
+<script src="general-improvements.js?v=4.9.5" defer></script>
+<script src="report-enhancements.js?v=4.9.5" defer></script>
+<script src="whatsapp-share-fix.js?v=4.9.5" defer></script>
+<script src="pwa-ui.js?v=4.9.5" defer></script>
+<script src="light-trigger.js?v=4.9.5" defer></script>
 </body>
 </html>

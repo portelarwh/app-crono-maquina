@@ -1406,6 +1406,195 @@ body.export-mode .hist-label{
 }
 
 /* =========================================================
+   SENSOR LUMINOSO — botão, indicador e configuração
+   ========================================================= */
+
+/* --- lap-action-row: envolve botão sensor + botão lap --- */
+.lap-action-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.lap-action-row .btn-lap {
+    flex: 1;
+    width: auto;
+    max-width: none;
+    margin: 0;
+}
+
+/* --- Botão 📷 --- */
+.btn-sensor {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-sensor.sensor-active {
+    background: rgba(40, 167, 69, 0.15);
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.22);
+}
+.btn-sensor:hover:not(:disabled) { border-color: var(--blue); }
+
+/* --- Indicador: barra brilho + contador + config --- */
+.sensor-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    border-radius: 20px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    transition: background 0.1s ease;
+}
+.sensor-indicator.sensor-flash {
+    background: rgba(40, 167, 69, 0.45);
+    border-color: var(--green);
+}
+
+/* ponto pulsante */
+.sensor-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+    animation: sensorPulse 1.4s ease-in-out infinite;
+}
+.sensor-indicator.sensor-flash .sensor-dot {
+    background: #fff;
+    animation: none;
+}
+@keyframes sensorPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.35; transform: scale(0.65); }
+}
+
+/* barra de nível de brilho */
+.sensor-bar-track {
+    width: 44px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.sensor-bar-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.06s linear;
+}
+
+/* contador de flashes  0/3 */
+.sensor-count-wrap {
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+.sensor-count-sep { opacity: 0.5; }
+
+/* controle de flashes por lap */
+.sensor-fpl-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px 4px;
+    background: var(--input-bg);
+}
+.sensor-fpl-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 0 2px;
+}
+.sensor-cfg-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: var(--border);
+    border: none;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: background 0.1s;
+}
+.sensor-cfg-btn:hover:not(:disabled) { background: var(--blue); color: #fff; }
+.sensor-cfg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* sensibilidade: 3 bolinhas Low / Mid / High */
+.sensor-sens-ctrl {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+}
+.sensor-sens-btn {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.5rem;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, border-color 0.1s;
+    flex-shrink: 0;
+}
+.sensor-sens-btn:hover { border-color: var(--blue); }
+.sensor-sens-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
+
+/* mobile: indicador acima da lap-action-row */
+@media (max-width: 1023px) {
+    .sensor-indicator { margin-bottom: 4px; }
+    .btn-sensor { width: 44px; height: 44px; font-size: 1.1rem; }
+}
+
+/* desktop: lap-action-row desaparece, filhos fluem no dock horizontal */
+@media (min-width: 1024px) {
+    .lap-action-row { display: contents; }
+    .sensor-indicator { flex-wrap: nowrap; }
+}
+
+/* export-mode: ocultar tudo do sensor */
+body.export-mode .btn-sensor,
+body.export-mode .sensor-indicator { display: none !important; }
+
+/* =========================================================
    ACESSIBILIDADE — reduce motion
    ========================================================= */
 @media (prefers-reduced-motion: reduce) {
