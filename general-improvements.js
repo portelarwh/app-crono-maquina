@@ -239,7 +239,21 @@
   function renderImpact(data){ const i = data?.impact || {}; if($('valCapacityGap')) $('valCapacityGap').textContent = i.target ? `${formatNumber(i.gap,1)} ${i.unitLabel} (${formatNumber(i.gapPct,1)}%)` : '--'; if($('valLossHour')) $('valLossHour').textContent = i.target ? `${formatNumber(i.lossPerHour,0)} un/h` : '--'; if($('valLossShift')) $('valLossShift').textContent = i.target ? `${formatNumber(i.lossPerShift,0)} un/turno` : '--'; }
   function renderStandard(data){ const box = $('stdTimeBox'); if(!box) return; const s = data?.standardTime || {}; box.innerHTML = s.total ? `<strong>${formatNumber(s.standardSec,2)}s</strong><span>Base ${formatNumber(s.baseMean,2)}s + ${formatNumber(s.tolerancePct,1)}% | usadas ${s.used}/${s.total}</span>` : '<span>Sem amostras</span>'; }
   function renderPareto(data){ const box = $('paretoBox'); if(!box) return; const rows = (data?.pareto || []).slice(0,5); if(!rows.length){ box.innerHTML = 'Sem dados'; return; } box.innerHTML = rows.map((row, index) => `<div class="pareto-line"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatNumber(row.lossSec,1)}s</span></div>`).join(''); }
-  function renderStudyOptions(){ const base = $('studyBase'), compare = $('studyCompare'); if(!base || !compare) return; if(document.activeElement === base || document.activeElement === compare) return; const baseVal = base.value; const compareVal = compare.value; const list = getStudies(); const options = list.map(study => `<option value="${study.id}">${escapeHtml(study.savedAt)} — ${escapeHtml(study.name)}</option>`).join(''); base.innerHTML = options || '<option value="">Nenhum estudo salvo</option>'; compare.innerHTML = '<option value="current">Medição atual</option>' + options; if(baseVal) base.value = baseVal; if(compareVal) compare.value = compareVal; }
+  function renderStudyOptions(){
+    const base = $('studyBase'), compare = $('studyCompare');
+    if(!base || !compare) return;
+    const list = getStudies();
+    const options = list.map(study => `<option value="${study.id}">${escapeHtml(study.savedAt)} — ${escapeHtml(study.name)}</option>`).join('');
+    const baseNew    = options || '<option value="">Nenhum estudo salvo</option>';
+    const compareNew = '<option value="current">Medição atual</option>' + options;
+    // só reescreve o DOM se o conteúdo mudou — evita piscar o dropdown nativo
+    if(base.innerHTML !== baseNew){
+      const v = base.value; base.innerHTML = baseNew; if(v) base.value = v;
+    }
+    if(compare.innerHTML !== compareNew){
+      const v = compare.value; compare.innerHTML = compareNew; if(v) compare.value = v;
+    }
+  }
   const WARN_SVG = '<svg width="14" height="13" viewBox="0 0 16 15"><polygon points="8,1 15,14 1,14" fill="#FFD600" stroke="#cc9900" stroke-width="0.5"/><text x="8" y="13" text-anchor="middle" font-size="9" font-weight="900" fill="#000" font-family="sans-serif">!</text></svg>';
   function injectLapCauseSelectors(data){
     const rows = Array.from(document.querySelectorAll('#historyListScreen .history-row'));
@@ -284,7 +298,14 @@
 
   const PRESET_FORM_FIELDS = ['equipName','analystName','analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours','tolerancePct'];
   function collectPresetData(){ const d = {}; PRESET_FORM_FIELDS.forEach(id => { const el = $(id); if(el) d[id] = el.value; }); return d; }
-  function renderPresetOptions(){ const sel = $('presetSelect'); if(!sel) return; const cur = sel.value; const list = getPresets(); sel.innerHTML = list.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('') || '<option value="">Nenhum preset salvo</option>'; if(cur) sel.value = cur; }
+  function renderPresetOptions(){
+    const sel = $('presetSelect');
+    if(!sel) return;
+    const list = getPresets();
+    const newHtml = list.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('') || '<option value="">Nenhum preset salvo</option>';
+    if(sel.innerHTML === newHtml) return; // sem mudança → sem toque no DOM
+    const cur = sel.value; sel.innerHTML = newHtml; if(cur) sel.value = cur;
+  }
   function savePreset(){
     const typed = $('presetName')?.value.trim();
     const isAuto = !typed;

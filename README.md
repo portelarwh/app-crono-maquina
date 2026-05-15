@@ -48,4 +48,4 @@ python3 -m http.server 8000
 
 ## Status
 
-🚀 v3.0.6 — em produção
+🚀 v5.0.0 — em produção
