@@ -1458,10 +1458,13 @@ body.export-mode .hist-label{
     padding: 5px 9px;
     background: rgba(40, 167, 69, 0.1);
     border: 1px solid rgba(40, 167, 69, 0.3);
-    border-radius: 20px;
+    border-radius: 12px;
     flex-shrink: 0;
     flex-wrap: wrap;
-    row-gap: 4px;
+    row-gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
     transition: background 0.1s ease;
 }
 .sensor-indicator.sensor-flash {
@@ -1561,13 +1564,14 @@ body.export-mode .hist-label{
     display: flex;
     gap: 2px;
     align-items: center;
+    flex: 1;
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 2px;
     background: var(--input-bg);
 }
 .sensor-mode-btn {
-    width: 22px;
+    flex: 1;
     height: 20px;
     border-radius: 6px;
     border: none;
@@ -1594,6 +1598,8 @@ body.export-mode .hist-label{
     display: flex;
     gap: 3px;
     align-items: center;
+    width: 100%;
+    justify-content: center;
 }
 .sensor-sens-btn {
     width: 11px;
@@ -1626,7 +1632,9 @@ body.export-mode .hist-label{
 /* desktop: lap-action-row desaparece, filhos fluem no dock horizontal */
 @media (min-width: 1024px) {
     .lap-action-row { display: contents; }
-    .sensor-indicator { flex-wrap: nowrap; }
+    .sensor-indicator { flex-wrap: nowrap; width: auto; }
+    .sensor-mode-ctrl { flex: 1; }
+    .sensor-sens-ctrl { width: auto; justify-content: flex-start; }
 }
 
 /* export-mode: ocultar tudo do sensor */
