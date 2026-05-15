@@ -8,12 +8,21 @@
 
     // ---------- configuração (persistida em localStorage) ----------
     const STORAGE_KEY = 'lightTriggerCfg';
-    const CFG_DEFAULT = { flashesPerLap: 1, threshold: 22, cooldownMs: 1100 };
+    // threshold por nível 1–5 (delta de luminância 0–255)
+    const SENS_THRESHOLDS = [40, 28, 18, 10, 5];
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 3, cooldownMs: 1100 };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
         cfg = Object.assign(cfg, saved);
+        // migração: versões antigas guardavam threshold direto
+        if (!cfg.sensLevel && cfg.threshold) {
+            const idx = SENS_THRESHOLDS.reduce((best, t, i) =>
+                Math.abs(t - cfg.threshold) < Math.abs(SENS_THRESHOLDS[best] - cfg.threshold) ? i : best, 0);
+            cfg.sensLevel = idx + 1;
+            delete cfg.threshold;
+        }
     } catch (_) {}
 
     function saveCfg() {
@@ -37,7 +46,7 @@
     // ---------- elementos DOM ----------
     let btnSensor, sensorIndicator, sensorBarFill;
     let sensorCountEl, sensorFplEl, btnFplMinus, btnFplPlus;
-    let sensLowBtn, sensMidBtn, sensHighBtn;
+    let sensBtns = []; // 5 botões de sensibilidade
     let btnLap;
 
     // ---------- análise de luminância média (luma perceptual) ----------
@@ -76,7 +85,8 @@
             sensorBarFill.style.width = Math.min(100, (lum / 255) * 100).toFixed(1) + '%';
         }
 
-        if (delta >= cfg.threshold && !onCooldown) {
+        const threshold = SENS_THRESHOLDS[(cfg.sensLevel || 3) - 1];
+        if (delta >= threshold && !onCooldown) {
             onCooldown = true;
             flashCount++;
             updateCountDisplay();
@@ -173,11 +183,14 @@
         btnFplPlus.disabled  = cfg.flashesPerLap >= 10;
     }
 
-    function applySensButtons() {
-        [sensLowBtn, sensMidBtn, sensHighBtn].forEach(b => b?.classList.remove('active'));
-        if      (cfg.threshold >= 30 && sensLowBtn) sensLowBtn.classList.add('active');
-        else if (cfg.threshold >= 18 && sensMidBtn) sensMidBtn.classList.add('active');
-        else if (sensHighBtn)                        sensHighBtn.classList.add('active');
+    // preenche dots 1..sensLevel (acumulativo)
+    function applySensButtons(previewLevel) {
+        const level = previewLevel ?? cfg.sensLevel ?? 3;
+        sensBtns.forEach((btn, i) => {
+            const dotLevel = i + 1;
+            btn.classList.toggle('active', dotLevel <= cfg.sensLevel && previewLevel === undefined);
+            btn.classList.toggle('hover-preview', previewLevel !== undefined && dotLevel <= level);
+        });
     }
 
     // ---------- inicialização ----------
@@ -189,9 +202,7 @@
         sensorFplEl     = document.getElementById('sensorFpl');
         btnFplMinus     = document.getElementById('btnFplMinus');
         btnFplPlus      = document.getElementById('btnFplPlus');
-        sensLowBtn      = document.getElementById('btnSensLow');
-        sensMidBtn      = document.getElementById('btnSensMid');
-        sensHighBtn     = document.getElementById('btnSensHigh');
+        sensBtns        = Array.from(document.querySelectorAll('.sensor-sens-btn'));
         btnLap          = document.getElementById('btnLap');
 
         if (!btnSensor) return;
@@ -212,10 +223,24 @@
             saveCfg(); updateCountDisplay(); applyFplButtons();
         });
 
-        // sensibilidade: Baixa (thresh 32) / Média (22) / Alta (12)
-        sensLowBtn?.addEventListener('click',  () => { cfg.threshold = 32; saveCfg(); applySensButtons(); });
-        sensMidBtn?.addEventListener('click',  () => { cfg.threshold = 22; saveCfg(); applySensButtons(); });
-        sensHighBtn?.addEventListener('click', () => { cfg.threshold = 12; saveCfg(); applySensButtons(); });
+        // sensibilidade: 5 níveis com preenchimento acumulativo
+        sensBtns.forEach(btn => {
+            const level = parseInt(btn.dataset.sens, 10);
+            btn.addEventListener('click', () => {
+                cfg.sensLevel = level;
+                saveCfg();
+                applySensButtons();
+            });
+            btn.addEventListener('mouseenter', () => applySensButtons(level));
+            btn.addEventListener('mouseleave', () => applySensButtons());
+            // touch: preview no touchstart, confirma no touchend
+            btn.addEventListener('touchstart', () => applySensButtons(level), { passive: true });
+            btn.addEventListener('touchend',   () => {
+                cfg.sensLevel = level;
+                saveCfg();
+                applySensButtons();
+            }, { passive: true });
+        });
 
         // para ao zerar o cronômetro
         document.addEventListener('click', e => {

@@ -396,10 +396,12 @@
             <span class="sensor-fpl-label">flash/lap</span>
             <button id="btnFplPlus"  class="sensor-cfg-btn" type="button" aria-label="Aumentar flashes por lap">+</button>
         </div>
-        <div class="sensor-sens-ctrl" role="group" aria-label="Sensibilidade do sensor">
-            <button id="btnSensLow"  class="sensor-sens-btn" type="button" title="Sensibilidade baixa (ambiente muito claro)">●</button>
-            <button id="btnSensMid"  class="sensor-sens-btn active" type="button" title="Sensibilidade média">●</button>
-            <button id="btnSensHigh" class="sensor-sens-btn" type="button" title="Sensibilidade alta (LED fraco ou distante)">●</button>
+        <div class="sensor-sens-ctrl" role="group" aria-label="Sensibilidade do sensor (1 = menor, 5 = maior)">
+            <button class="sensor-sens-btn" data-sens="1" type="button" title="Nível 1 — flash forte / ambiente escuro" aria-label="Sensibilidade 1">●</button>
+            <button class="sensor-sens-btn" data-sens="2" type="button" title="Nível 2 — LED brilhante" aria-label="Sensibilidade 2">●</button>
+            <button class="sensor-sens-btn active" data-sens="3" type="button" title="Nível 3 — padrão" aria-label="Sensibilidade 3 (padrão)">●</button>
+            <button class="sensor-sens-btn" data-sens="4" type="button" title="Nível 4 — LED fraco ou distante" aria-label="Sensibilidade 4">●</button>
+            <button class="sensor-sens-btn" data-sens="5" type="button" title="Nível 5 — mudança sutil de luz" aria-label="Sensibilidade 5">●</button>
         </div>
     </div>
 

@@ -1556,30 +1556,33 @@ body.export-mode .hist-label{
 .sensor-cfg-btn:hover:not(:disabled) { background: var(--blue); color: #fff; }
 .sensor-cfg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* sensibilidade: 3 bolinhas Low / Mid / High */
+/* sensibilidade: 5 bolinhas — preenchimento acumulativo */
 .sensor-sens-ctrl {
     display: flex;
     gap: 3px;
     align-items: center;
 }
 .sensor-sens-btn {
-    width: 14px;
-    height: 14px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
-    border: 1px solid var(--border);
+    border: 1.5px solid var(--border);
     background: transparent;
-    color: var(--text-muted);
-    font-size: 0.5rem;
     cursor: pointer;
     padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.1s, border-color 0.1s;
     flex-shrink: 0;
+    font-size: 0;        /* oculta o ● do HTML, forma vem do border-radius */
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+    color: transparent;
 }
-.sensor-sens-btn:hover { border-color: var(--blue); }
-.sensor-sens-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
+.sensor-sens-btn:hover { border-color: var(--blue); transform: scale(1.15); }
+/* dot ativo e todos abaixo dele ficam preenchidos */
+.sensor-sens-btn.active {
+    background: var(--green);
+    border-color: var(--green);
+}
+/* ao passar o mouse em qualquer dot, ilumina todos os anteriores via JS */
+.sensor-sens-btn.hover-preview { background: color-mix(in srgb, var(--blue) 50%, transparent); border-color: var(--blue); }
 
 /* mobile: indicador acima da lap-action-row */
 @media (max-width: 1023px) {
