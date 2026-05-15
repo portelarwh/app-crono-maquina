@@ -87,7 +87,7 @@ function registerServiceWorker(){
     location.reload();
   });
 
-  navigator.serviceWorker.register('sw.js?v=4.9.4',{updateViaCache:'none'})
+  navigator.serviceWorker.register('sw.js?v=5.0.0',{updateViaCache:'none'})
     .then(reg=>{
       if(reg.installing) watch(reg.installing);
       reg.addEventListener('updatefound',()=>watch(reg.installing));
