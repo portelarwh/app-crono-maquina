@@ -1415,11 +1415,14 @@ body.export-mode .hist-label{
     gap: 8px;
     align-items: center;
 }
-.lap-action-row .btn-lap {
-    flex: 1;
-    width: auto;
-    max-width: none;
-    margin: 0;
+/* mobile only: btn-lap ocupa espaço restante no flex row */
+@media (max-width: 1023px) {
+    .lap-action-row .btn-lap {
+        flex: 1;
+        width: auto;
+        max-width: none;
+        margin: 0;
+    }
 }
 
 /* --- Botão 📷 --- */
