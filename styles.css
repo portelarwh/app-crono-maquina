@@ -1196,7 +1196,7 @@ body.export-mode .hist-label{
     }
 
     .col-1 {
-        flex: 0 0 400px;
+        flex: 0 0 440px;
         min-width: 0;
         position: sticky;
         top: 24px;
@@ -1239,11 +1239,11 @@ body.export-mode .hist-label{
     .live-timer { font-size: 4.5rem; }
     .total-timer { font-size: 1.25rem; }
 
-    /* --- Stats: 3 colunas em col-1 de 400px --- */
+    /* --- Stats: 3 colunas em col-1 de 440px --- */
     .results-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .results-grid .full-width { grid-column: 1 / -1; }
     .result-value { font-size: 1.55rem; }
-    .result-title { font-size: 0.68rem; }
+    .result-title { font-size: 0.62rem; }
     .result-box { padding: 12px 10px; }
 
     /* --- Botões de controle --- */
@@ -1262,6 +1262,19 @@ body.export-mode .hist-label{
     .history-container { max-height: 360px; }
     .history-row { font-size: 0.93rem; }
     #historyCard { margin-top: 0; }
+
+    /* --- Histórico: grid com colunas explícitas — sem espaço morto no centro --- */
+    .history-row {
+        display: grid;
+        grid-template-columns: 36px 70px 1fr auto;
+        column-gap: 8px;
+    }
+    .history-time { flex: none; text-align: left; }
+    .lap-cause-select-row { min-width: 120px; }
+
+    /* --- Inputs de texto livre: alinhados à esquerda no desktop --- */
+    #equipName, #analystName, #lineName, #shiftName, #productName,
+    #studyName, #presetName, #lapObs { text-align: left; padding-left: 10px; }
 
     /* --- App header --- */
     .app-header {
@@ -1386,7 +1399,7 @@ body.export-mode .hist-label{
 @media (min-width: 1280px) {
     body { padding-left: 48px; padding-right: 48px; }
     .fixed-bottom { padding-left: 48px; padding-right: 48px; }
-    .col-1 { flex: 0 0 430px; }
+    .col-1 { flex: 0 0 480px; }
     .live-timer { font-size: 5rem; }
     .chart-wrapper, .histogram-wrapper { height: 290px !important; }
     .result-value { font-size: 1.65rem; }
@@ -1399,7 +1412,7 @@ body.export-mode .hist-label{
     body { max-width: 1600px; padding-left: 56px; padding-right: 56px; }
     .fixed-bottom { max-width: 1600px; padding-left: 56px; padding-right: 56px; }
     #exportContainer { max-width: 1600px; }
-    .col-1 { flex: 0 0 460px; }
+    .col-1 { flex: 0 0 520px; }
     .chart-wrapper, .histogram-wrapper { height: 320px !important; }
     .history-container { max-height: 420px; }
     .live-timer { font-size: 5.5rem; }

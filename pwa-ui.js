@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'v5.0.2';
+var APP_VERSION = 'v5.0.3';
 window.APP_VERSION = APP_VERSION;
 
 let refreshing = false;
@@ -87,7 +87,7 @@ function registerServiceWorker(){
     location.reload();
   });
 
-  navigator.serviceWorker.register('sw.js?v=5.0.2',{updateViaCache:'none'})
+  navigator.serviceWorker.register('sw.js?v=5.0.3',{updateViaCache:'none'})
     .then(reg=>{
       if(reg.installing) watch(reg.installing);
       reg.addEventListener('updatefound',()=>watch(reg.installing));

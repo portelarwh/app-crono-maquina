@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.0.2',
+      version: window.APP_VERSION || 'v5.0.3',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
