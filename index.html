@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
-    <link rel="manifest" href="manifest.json?v=5.0.3">
+    <link rel="manifest" href="manifest.json?v=5.0.4">
     <meta name="theme-color" content="#0d1117">
     <title>Cronoanálise Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link rel="stylesheet" href="styles.css?v=5.0.3">
-    <script src="theme-init.js?v=5.0.3"></script>
+    <link rel="stylesheet" href="styles.css?v=5.0.4">
+    <script src="theme-init.js?v=5.0.4"></script>
 </head>
 <body>
 
@@ -234,68 +234,314 @@
 
 <div class="modal-overlay" id="guideModal" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
     <div class="modal-content guide-modal-content">
-        <div class="modal-title" id="guideModalTitle">📘 Guia rápido — Cronoanálise Máquina</div>
+        <div class="modal-title" id="guideModalTitle">📘 Guia completo — Cronoanálise Pro</div>
         <div class="modal-text guide-modal-text">
+
+            <!-- 1. FLUXO DE USO -->
             <details class="guide-section" open>
-                <summary>Fluxo básico</summary>
+                <summary>⚡ Fluxo de uso</summary>
                 <div class="guide-flow">
-                    <span>1. Configurar</span>
-                    <span>2. Iniciar</span>
-                    <span>3. Registrar</span>
-                    <span>4. Analisar</span>
-                    <span>5. Exportar</span>
+                    <span>1. Configurar<em>Equipamento, analista, modo de análise e metas</em></span>
+                    <span>2. Iniciar<em>Pressione Iniciar para começar a contagem</em></span>
+                    <span>3. Registrar<em>NORMAL a cada ciclo · Causa a cada parada</em></span>
+                    <span>4. Analisar<em>Gráficos, Pareto, OEE, Tempo Padrão</em></span>
+                    <span>5. Exportar<em>CSV, PDF, PNG ou WhatsApp</em></span>
                 </div>
+                <p class="guide-note">💡 O cronômetro total corre continuamente, mas apenas os ciclos registrados com NORMAL entram nas estatísticas e nos gráficos.</p>
             </details>
 
+            <!-- 2. CONFIGURAÇÃO -->
             <details class="guide-section">
-                <summary>Como o app funciona</summary>
-                <ol>
-                    <li><strong>Configure o estudo:</strong> equipamento/operação, analista, tipo de análise, peças por ciclo, takt ou meta.</li>
-                    <li><strong>Inicie o cronômetro</strong> e a cada ciclo produtivo toque em <strong>NORMAL</strong>.</li>
-                    <li><strong>Quando a máquina parar</strong>, toque na causa correspondente. O ciclo atual <em>não fecha</em>; o tempo produtivo congela e o app marca a parada.</li>
-                    <li><strong>Para retomar</strong>, toque em <strong>RETOMAR</strong> (o botão NORMAL muda de label) ou no mesmo botão da parada (toggle).</li>
-                    <li><strong>Acompanhe</strong> capacidade, ciclo médio, estabilidade, gráficos, paradas por causa e <strong>OEE</strong>.</li>
-                    <li><strong>Finalize:</strong> CSV, PNG, PDF ou WhatsApp.</li>
-                </ol>
-            </details>
-
-            <details class="guide-section">
-                <summary>Como preencher</summary>
+                <summary>⚙️ Configuração do estudo</summary>
                 <div class="guide-cards">
-                    <article><strong>Tipo de análise</strong><span><b>Tempo por ciclo</b> mede cada ciclo. <b>Produção por intervalo</b> mede uma janela e pede a quantidade.</span></article>
-                    <article><strong>Peças/ciclo</strong><span>Quantidade boa esperada por ciclo. Ex.: molde 2 cavidades = 2 peças.</span></article>
-                    <article><strong>Takt Time</strong><span>Tempo máximo por peça para atender a demanda.</span></article>
-                    <article><strong>Meta</strong><span>Produção esperada em un/h ou un/min.</span></article>
-                    <article><strong>Paradas</strong><span>Toque na causa: Microparada, Ajuste operador, Falha de máquina, Espera, Setup, Ociosidade.</span></article>
-                    <article><strong>Qtd. por lap</strong><span>No modo intervalo, quantidade produzida no período.</span></article>
+                    <article>
+                        <strong>Equipamento / Operação</strong>
+                        <span>Identifica o que está sendo medido. Aparece em todos os relatórios e exportações. Ex.: <em>Torno CNC Romi, Montagem Kit A</em>.</span>
+                    </article>
+                    <article>
+                        <strong>Analista Responsável</strong>
+                        <span>Nome de quem conduz o estudo. Garante rastreabilidade nos relatórios e nos estudos salvos.</span>
+                    </article>
+                    <article>
+                        <strong>Tipo de análise</strong>
+                        <span><b>Tempo por ciclo</b> — cada toque em NORMAL fecha um ciclo e registra seu tempo exato.<br><b>Produção por intervalo</b> — mede uma janela de tempo e pede a quantidade produzida no período.</span>
+                    </article>
+                    <article>
+                        <strong>Peças / Ciclo</strong>
+                        <span>Quantidade de peças boas geradas por acionamento de NORMAL. Afeta diretamente o cálculo de capacidade.</span>
+                        <span class="guide-tip">💡 Molde de 2 cavidades = 2. Linha com 4 saídas simultâneas = 4.</span>
+                    </article>
+                    <article>
+                        <strong>Takt Time (s)</strong>
+                        <span>Tempo disponível por peça para atender a demanda do cliente. Exibido como linha de referência na curva de controle.</span>
+                        <span class="guide-tip">💡 Fórmula: Takt = Tempo disponível no turno ÷ demanda. Ex.: 27.000s ÷ 900 un = 30s.</span>
+                    </article>
+                    <article>
+                        <strong>Meta (un/h ou un/min)</strong>
+                        <span>Produção esperada para o período. Base para cálculo de Eficiência (%) e velocidade nominal no OEE.</span>
+                    </article>
+                    <article>
+                        <strong>Linha / Turno / Produto</strong>
+                        <span>Dados de contexto que enriquecem relatórios e facilitam o arquivamento e comparação de estudos.</span>
+                    </article>
+                    <article>
+                        <strong>Horas / Turno</strong>
+                        <span>Duração do turno usada para projetar a perda estimada por turno no painel de Gap de Capacidade.</span>
+                    </article>
+                    <article>
+                        <strong>Tolerância para Tempo Padrão (%)</strong>
+                        <span>Margem adicionada sobre o ciclo médio filtrado para calcular o Tempo Padrão Sugerido. Padrão: 10%.</span>
+                        <span class="guide-tip">💡 Use tolerâncias maiores em processos manuais com variabilidade natural elevada (fadiga, destreza).</span>
+                    </article>
+                    <article>
+                        <strong>Presets de Equipamento</strong>
+                        <span>Salva toda a configuração do formulário para reutilizar em estudos futuros. Crie um preset por equipamento ou célula.</span>
+                        <span class="guide-tip">💡 Carregue o preset antes de iniciar e ajuste apenas o que mudou. Economiza tempo no setup.</span>
+                    </article>
                 </div>
             </details>
 
+            <!-- 3. DURANTE A MEDIÇÃO -->
             <details class="guide-section">
-                <summary>Estados do app</summary>
-                <ul class="guide-states">
-                    <li><b>Parado (idle):</b> antes de iniciar ou após Pausar/Zerar.</li>
-                    <li><b>Produção normal:</b> cronômetro rodando, ciclo produtivo em andamento. Toque em NORMAL fecha o ciclo.</li>
-                    <li><b>Parada ativa:</b> uma causa foi acionada. Tempo do ciclo congela, contador de parada anda. Toque em RETOMAR (ou na mesma causa) volta para normal.</li>
-                </ul>
-                <p class="guide-note">⚠ Trocar de parada (ex.: Microparada → Setup) sem retomar é permitido — fecha a primeira e abre a segunda.</p>
+                <summary>⏱ Durante a medição</summary>
+                <div class="guide-cards">
+                    <article>
+                        <strong>▶ INICIAR</strong>
+                        <span>Inicia o cronômetro total. Configure tudo antes de pressionar — o tempo de medição começa a contar imediatamente.</span>
+                    </article>
+                    <article>
+                        <strong>⏱ NORMAL (lap)</strong>
+                        <span>Pressione ao término de cada ciclo produtivo. Fecha o ciclo atual, salva o tempo e abre o próximo imediatamente.</span>
+                    </article>
+                    <article>
+                        <strong>Causas de parada</strong>
+                        <span>Toque na causa quando a operação parar. O ciclo produtivo congela; o contador de parada começa a rodar.</span>
+                    </article>
+                    <article>
+                        <strong>↩ RETOMAR</strong>
+                        <span>Aparece no lugar de NORMAL durante uma parada ativa. Encerra a parada e retoma a produção.</span>
+                        <span class="guide-tip">💡 Pode-se trocar de causa sem retomar — o app fecha a causa atual e abre a nova automaticamente.</span>
+                    </article>
+                    <article>
+                        <strong>⏸ PAUSAR / ⏹ ZERAR</strong>
+                        <span>Pausar suspende o cronômetro sem perder dados. Zerar apaga tudo e reinicia o estudo do zero.</span>
+                    </article>
+                    <article>
+                        <strong>↩ DESFAZER</strong>
+                        <span>Remove o último evento (ciclo ou parada). Use para corrigir toques acidentais imediatamente após o erro.</span>
+                    </article>
+                </div>
+                <p class="guide-label">Categorias de parada disponíveis</p>
+                <div class="guide-cause-chips">
+                    <span class="guide-chip">⚡ Microparada<em>Breve interrupção, normalmente &lt; 5 min</em></span>
+                    <span class="guide-chip">🔧 Setup<em>Troca de produto, ferramenta ou ajuste</em></span>
+                    <span class="guide-chip">🛑 Falha de máquina<em>Quebra ou manutenção corretiva</em></span>
+                    <span class="guide-chip">⏳ Espera<em>Falta de material ou lote anterior</em></span>
+                    <span class="guide-chip">☕ Ociosidade<em>Operador ausente ou aguardando instrução</em></span>
+                    <span class="guide-chip">📝 Outros<em>Causas não listadas acima</em></span>
+                </div>
+                <p class="guide-note">⚠ Paradas não entram nas estatísticas de ciclo, mas são contabilizadas no OEE e no Pareto de perdas.</p>
             </details>
 
+            <!-- 4. INDICADORES -->
             <details class="guide-section">
-                <summary>Glossário rápido</summary>
+                <summary>📊 Indicadores e métricas</summary>
+                <div class="guide-stats">
+                    <div class="guide-stat-item">
+                        <b>Amostras (N)</b>
+                        <span>Número de ciclos produtivos registrados. Precisão estatística cresce com N — busque ≥ 20 amostras antes de concluir.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Capacidade (un/h)</b>
+                        <span>Produção estimada com base no ritmo atual, incluindo paradas. Reflete o desempenho real observado no chão de fábrica.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Último ciclo</b>
+                        <span>Duração da amostra mais recente. Útil para detectar variações imediatas no processo em tempo real.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Ciclo médio</b>
+                        <span>Média aritmética de todas as amostras. Base para o cálculo de capacidade e do Tempo Padrão Sugerido.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Mínimo / Máximo</b>
+                        <span>Extremos do conjunto de ciclos. A diferença (range) indica a amplitude do processo. Valores extremos podem sinalizar anomalias.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Desvio padrão</b>
+                        <span>Dispersão dos ciclos em torno da média. Desvio baixo = processo consistente. Desvio alto = variabilidade elevada.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Índice de estabilidade</b>
+                        <span>Derivado do coeficiente de variação. ≥ 85%: Alta estabilidade · 70–84%: Moderada · 50–69%: Alta variabilidade · &lt; 50%: Processo instável.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Eficiência (%)</b>
+                        <span>Capacidade medida ÷ meta × 100. Exige meta configurada. ≥ 100% indica que a capacidade observada supera a meta definida.</span>
+                    </div>
+                </div>
+                <p class="guide-note">💡 Gap de Capacidade: diferença entre capacidade medida e meta. Perda/h e Perda/turno projetam o impacto acumulado da lacuna.</p>
+            </details>
+
+            <!-- 5. GRÁFICOS -->
+            <details class="guide-section">
+                <summary>📈 Gráficos e análises</summary>
+                <div class="guide-cards">
+                    <article>
+                        <strong>Curva de controle de ciclos</strong>
+                        <span>Ciclos em ordem cronológica. Linha pontilhada = média; linha sólida = Takt Time. Barras acima do Takt indicam risco de não atender a demanda.</span>
+                        <span class="guide-tip">💡 Alterne entre Barras e Linha para identificar tendências de aceleração ou desaceleração ao longo do tempo.</span>
+                    </article>
+                    <article>
+                        <strong>Histograma (distribuição)</strong>
+                        <span>Ciclos agrupados por faixa de tempo. Curva simétrica = processo estável. Dois picos (bimodal) = dois comportamentos distintos — investigue.</span>
+                    </article>
+                    <article>
+                        <strong>Etapas dos ciclos</strong>
+                        <span>Linha do tempo de cada ciclo: verde = tempo produtivo, vermelho = parada. Mostra onde o tempo é gasto dentro de cada amostra.</span>
+                    </article>
+                    <article>
+                        <strong>Pareto de perdas</strong>
+                        <span>Causas de parada ordenadas por tempo total perdido. Identifique as 2 ou 3 causas que concentram ~80% das perdas para priorizar ações. <button type="button" class="guide-cta" data-action="closeGuide">→ Ver no app</button></span>
+                    </article>
+                    <article>
+                        <strong>Paradas por causa (cards)</strong>
+                        <span>Resumo por categoria: tempo total, percentual e número de ocorrências. Visão rápida do impacto de cada tipo de parada no período medido.</span>
+                    </article>
+                    <article>
+                        <strong>Tempo Padrão Sugerido</strong>
+                        <span>Calculado com os ciclos filtrados (excluindo outliers) + tolerância configurada. Ponto de partida para definição do tempo padrão da operação.</span>
+                    </article>
+                </div>
+            </details>
+
+            <!-- 6. SENSOR DE CÂMERA -->
+            <details class="guide-section">
+                <summary>📷 Sensor de câmera — lap automático</summary>
+                <p class="guide-section-intro">A câmera traseira do dispositivo detecta eventos e aciona o lap automaticamente — sem tocar na tela durante a medição.</p>
+                <div class="guide-cards">
+                    <article>
+                        <strong>⚡ Modo Flash</strong>
+                        <span>Detecta picos de luminância: LED, estroboscópio, sensor fotoelétrico. Ideal para equipamentos com sinal luminoso de fim de ciclo.</span>
+                    </article>
+                    <article>
+                        <strong>▶ Modo Movimento</strong>
+                        <span>Detecta mudança de cena: peça passando pela câmera, visor numérico mudando de dígito. Aponte para o ponto de passagem da peça ou para o contador do equipamento.</span>
+                    </article>
+                    <article>
+                        <strong>◐ Modo Cor</strong>
+                        <span>Detecta alternância de zona de cor (verde ↔ vermelho). Ideal para indicadores luminosos de CLP, sinalizadores de processo e semáforos industriais.</span>
+                    </article>
+                    <article>
+                        <strong>Sensibilidade (1–5)</strong>
+                        <span>Ajusta o limiar de detecção. Nível 1 = somente sinais intensos. Nível 5 = qualquer variação sutil. Comece no 3 e ajuste.</span>
+                        <span class="guide-tip">💡 Em ambientes com iluminação variável, use sensibilidade menor (1–2) para evitar falsos positivos.</span>
+                    </article>
+                    <article>
+                        <strong>Eventos por lap (1–10)</strong>
+                        <span>Quantos eventos disparam 1 lap. Se o equipamento pisca 3 vezes por peça, configure como 3 para registrar 1 lap a cada 3 flashes.</span>
+                    </article>
+                    <article>
+                        <strong>Como usar</strong>
+                        <span>1. Fixe o celular apontando para o sensor/LED/passagem da peça.<br>2. Ative o sensor (📷) e aguarde a barra de nível estabilizar.<br>3. Pressione Iniciar — laps registrados automaticamente.</span>
+                    </article>
+                </div>
+            </details>
+
+            <!-- 7. PRESETS, ESTUDOS E EXPORTAÇÃO -->
+            <details class="guide-section">
+                <summary>💾 Presets, estudos e exportação</summary>
+                <div class="guide-cards">
+                    <article>
+                        <strong>Presets de equipamento</strong>
+                        <span>Salva toda a configuração do formulário. Crie um preset por célula ou equipamento e carregue antes de cada estudo para não repetir o preenchimento.</span>
+                    </article>
+                    <article>
+                        <strong>Salvar estudo</strong>
+                        <span>Armazena a medição atual (configuração + ciclos + análises) no dispositivo. Permite comparar estudos antes e depois de melhorias implementadas.</span>
+                    </article>
+                    <article>
+                        <strong>Comparar estudos</strong>
+                        <span>Exibe lado a lado os indicadores de dois estudos salvos. Ideal para validar ganhos de melhoria ou comparar turnos e operadores.</span>
+                    </article>
+                    <article>
+                        <strong>⬇ CSV</strong>
+                        <span>Planilha com todos os dados brutos. Compatível com Excel e Google Sheets para análises complementares e histórico.</span>
+                    </article>
+                    <article>
+                        <strong>📷 PNG / 📄 PDF</strong>
+                        <span>PNG: captura visual de alta resolução para apresentações. PDF: relatório completo formatado para impressão e reuniões de melhoria.</span>
+                    </article>
+                    <article>
+                        <strong>💬 WhatsApp</strong>
+                        <span>Prepara os dados principais em mensagem formatada e abre o WhatsApp diretamente. Compartilhamento rápido com lideranças e equipe.</span>
+                    </article>
+                </div>
+                <p class="guide-note">ℹ️ Todos os dados ficam salvos localmente no navegador (localStorage). Não são enviados a servidores. Limpar o cache do navegador apaga os dados salvos.</p>
+            </details>
+
+            <!-- 8. OEE -->
+            <details class="guide-section">
+                <summary>🏭 OEE — Efetividade Global do Equipamento</summary>
+                <p class="guide-section-intro">OEE = Disponibilidade × Performance × Qualidade. Uma única métrica que resume o quão bem o equipamento está sendo utilizado em relação ao seu potencial máximo.</p>
+                <div class="guide-stats">
+                    <div class="guide-stat-item">
+                        <b>Disponibilidade</b>
+                        <span>Tempo produtivo ÷ tempo planejado. Reduzida por paradas não planejadas. Configure quais causas contam como indisponibilidade no painel do OEE.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Performance</b>
+                        <span>Velocidade real ÷ velocidade nominal. Reduzida quando o ciclo está mais lento que o ideal. Use a Meta ou o Takt como referência de velocidade nominal.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>Qualidade</b>
+                        <span>Peças boas ÷ total produzido. Informe refugo e retrabalho para calcular com precisão. Refugo penaliza mais que retrabalho.</span>
+                    </div>
+                    <div class="guide-stat-item">
+                        <b>MTBF / MTTR</b>
+                        <span>Tempo médio entre falhas e tempo médio de reparo. Configure quais causas são "falha" para obter esses indicadores de manutenção. <button type="button" class="guide-cta" data-action="openOee">→ Calcular OEE</button></span>
+                    </div>
+                </div>
+                <p class="guide-note">💡 Referência de classe mundial: OEE ≥ 85% · Disponibilidade ≥ 90% · Performance ≥ 95% · Qualidade ≥ 99,9%. Ajuste as faixas conforme o contexto do processo.</p>
+            </details>
+
+            <!-- 9. BOAS PRÁTICAS -->
+            <details class="guide-section">
+                <summary>💡 Boas práticas e dicas</summary>
+                <ul class="guide-practices">
+                    <li><b>Observe antes de medir.</b><span>Assista 2 ou 3 ciclos completos antes de iniciar. Defina claramente onde o ciclo começa e termina para garantir consistência nas leituras.</span></li>
+                    <li><b>Defina um ponto de referência fixo.</b><span>Inicie e encerre sempre no mesmo evento (ex.: quando a porta da máquina fecha, quando a peça é retirada). Inconsistência no critério de lap gera variabilidade artificial nos dados.</span></li>
+                    <li><b>Colete pelo menos 20 amostras.</b><span>Com N &lt; 10, o ciclo médio e o desvio padrão têm baixa confiabilidade estatística. Para processos com alta variabilidade, busque N ≥ 30.</span></li>
+                    <li><b>Registre todas as paradas, inclusive as curtas.</b><span>Microparadas de 1–2 minutos são invisíveis individualmente, mas somadas podem representar 15–20% do turno. O Pareto só é preciso quando todas as paradas são registradas.</span></li>
+                    <li><b>Meça em condições normais de operação.</b><span>Evite dias atípicos (lote pequeno, operador novo, início de turno com setup incompleto). O objetivo é capturar o processo no seu estado habitual e representativo.</span></li>
+                    <li><b>Use o sensor de câmera para processos rápidos.</b><span>Em ciclos &lt; 5s, o sensor automático é mais confiável que o toque manual. Fixe o celular em um suporte e aponte para o LED ou sensor do equipamento.</span></li>
+                    <li><b>Salve o estudo antes de zerar.</b><span>Use "Salvar Estudo" ao finalizar uma medição. Você poderá comparar com estudos futuros para rastrear evoluções do processo ao longo do tempo.</span></li>
+                    <li><b>Analise o histograma antes de concluir.</b><span>Distribuição bimodal (dois picos) indica dois comportamentos distintos — avalie se há diferença entre tipos de peça, operadores ou condições de turno.</span></li>
+                    <li><b>Ajuste a tolerância do Tempo Padrão conforme o processo.</b><span>10% é o padrão para operações mecânicas. Para operações manuais com fadiga, considere 15–20%. Para processos altamente automatizados, 5–8% pode ser suficiente.</span></li>
+                    <li><b>Use o PDF como evidência formal.</b><span>O relatório em PDF contém dados, gráficos e análises em formato profissional. Apresente-o em reuniões de melhoria contínua e como evidência de baseline antes de intervenções.</span></li>
+                </ul>
+            </details>
+
+            <!-- 10. GLOSSÁRIO -->
+            <details class="guide-section">
+                <summary>📖 Glossário</summary>
                 <dl class="guide-glossary">
-                    <div><dt>Ciclo</dt><dd>Uma repetição completa da operação medida.</dd></div>
-                    <div><dt>Tempo produtivo</dt><dd>Parte do ciclo em que a máquina estava produzindo (exclui paradas internas).</dd></div>
-                    <div><dt>Capacidade</dt><dd>Produção estimada com base no tempo medido (inclui paradas — reflete o real).</dd></div>
-                    <div><dt>Eficiência</dt><dd>Capacidade medida ÷ meta.</dd></div>
-                    <div><dt>Estabilidade</dt><dd>Quanto menor o desvio entre ciclos, maior a estabilidade.</dd></div>
-                    <div><dt>Pareto</dt><dd>Ranking das causas que mais geraram perda de tempo. <button type="button" class="guide-cta" data-action="closeGuide">→ Ver no app</button></dd></div>
-                    <div><dt>Etapas dos ciclos</dt><dd>Cada segmento (produtivo/parada) como uma barra. Ex.: Normal→Microparada→Normal vira 3 barras.</dd></div>
-                    <div><dt>OEE</dt><dd>Disponibilidade × Performance × Qualidade. <button type="button" class="guide-cta" data-action="openOee">→ Calcular agora</button></dd></div>
-                    <div><dt>MTBF</dt><dd>Tempo médio entre falhas (Tempo rodando ÷ nº de falhas).</dd></div>
-                    <div><dt>MTTR</dt><dd>Tempo médio para reparar uma falha.</dd></div>
+                    <div><dt>Ciclo</dt><dd>Repetição completa da operação — do ponto de referência inicial ao mesmo ponto na próxima repetição.</dd></div>
+                    <div><dt>Tempo produtivo</dt><dd>Parcela do ciclo em que a máquina efetivamente produzia, excluindo paradas internas.</dd></div>
+                    <div><dt>Capacidade</dt><dd>Produção estimada com base no ritmo medido, incluindo paradas. Reflete o desempenho real, não o ideal.</dd></div>
+                    <div><dt>Takt Time</dt><dd>Tempo disponível por peça para atender a demanda. Fórmula: tempo disponível ÷ demanda do cliente.</dd></div>
+                    <div><dt>Desvio padrão</dt><dd>Medida de dispersão dos ciclos em torno da média. Processos robustos têm desvio baixo em relação ao ciclo médio.</dd></div>
+                    <div><dt>Estabilidade</dt><dd>Indicador derivado do coeficiente de variação. Quanto menor a variação percentual, maior a estabilidade do processo.</dd></div>
+                    <div><dt>Eficiência</dt><dd>Capacidade medida ÷ meta × 100. Acima de 100% significa que o processo supera a meta configurada.</dd></div>
+                    <div><dt>Pareto</dt><dd>Princípio 80/20 aplicado às perdas: geralmente 20% das causas concentram 80% do tempo perdido.</dd></div>
+                    <div><dt>OEE</dt><dd>Overall Equipment Effectiveness: Disponibilidade × Performance × Qualidade. Métrica consolidada de efetividade produtiva.</dd></div>
+                    <div><dt>MTBF</dt><dd>Mean Time Between Failures — Tempo médio entre duas falhas consecutivas. Fórmula: tempo rodando ÷ nº de falhas.</dd></div>
+                    <div><dt>MTTR</dt><dd>Mean Time To Repair — Tempo médio para reparar uma falha. Fórmula: tempo total de falha ÷ nº de ocorrências.</dd></div>
+                    <div><dt>Tempo Padrão</dt><dd>Tempo de referência da operação: ciclo médio filtrado + tolerância (%). Ponto de partida para definição de padrões produtivos.</dd></div>
+                    <div><dt>Outlier</dt><dd>Ciclo com tempo muito fora da média, causado por evento atípico. O app identifica e pode excluí-los do cálculo do Tempo Padrão.</dd></div>
                 </dl>
             </details>
+
         </div>
         <button class="btn-close-modal" data-action="closeGuide">Entendi</button>
     </div>
@@ -420,11 +666,11 @@
     </div>
 </div>
 
-<script src="app.js?v=5.0.3" defer></script>
-<script src="general-improvements.js?v=5.0.3" defer></script>
-<script src="report-enhancements.js?v=5.0.3" defer></script>
-<script src="whatsapp-share-fix.js?v=5.0.3" defer></script>
-<script src="pwa-ui.js?v=5.0.3" defer></script>
-<script src="light-trigger.js?v=5.0.3" defer></script>
+<script src="app.js?v=5.0.4" defer></script>
+<script src="general-improvements.js?v=5.0.4" defer></script>
+<script src="report-enhancements.js?v=5.0.4" defer></script>
+<script src="whatsapp-share-fix.js?v=5.0.4" defer></script>
+<script src="pwa-ui.js?v=5.0.4" defer></script>
+<script src="light-trigger.js?v=5.0.4" defer></script>
 </body>
 </html>

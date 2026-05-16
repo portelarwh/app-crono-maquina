@@ -779,6 +779,126 @@ body.export-mode .chart-title{
             text-decoration: underline;
         }
 
+        /* Guide: subtítulos nos steps do fluxo */
+        .guide-flow span em {
+            display: block;
+            font-size: 0.58rem;
+            font-weight: 400;
+            font-style: normal;
+            opacity: 0.7;
+            margin-top: 3px;
+            line-height: 1.3;
+        }
+
+        /* Guide: parágrafo introdutório de seção */
+        .guide-section-intro {
+            font-size: 0.8rem;
+            color: var(--text-main);
+            margin: 4px 0 8px;
+            line-height: 1.45;
+        }
+
+        /* Guide: caixa de dica verde dentro de cards */
+        .guide-tip {
+            display: block;
+            margin-top: 6px;
+            font-size: 0.69rem;
+            color: var(--green);
+            border-left: 2px solid var(--green);
+            padding-left: 6px;
+            line-height: 1.35;
+        }
+
+        /* Guide: label de categoria */
+        .guide-label {
+            font-size: 0.66rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 10px 0 5px;
+        }
+
+        /* Guide: chips de causas de parada */
+        .guide-cause-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+        .guide-chip {
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 9px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .guide-chip em {
+            font-style: normal;
+            font-weight: 400;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        /* Guide: grid de indicadores estatísticos */
+        .guide-stats {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 5px;
+            margin: 6px 0;
+        }
+        .guide-stat-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .guide-stat-item b {
+            display: block;
+            color: var(--blue);
+            font-size: 0.74rem;
+            margin-bottom: 2px;
+        }
+        .guide-stat-item span {
+            display: block;
+            font-size: 0.71rem;
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+
+        /* Guide: lista de boas práticas */
+        .guide-practices {
+            list-style: none;
+            padding: 0;
+            margin: 6px 0;
+            display: grid;
+            gap: 5px;
+        }
+        .guide-practices li {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--blue);
+            border-radius: 8px;
+            padding: 9px 12px;
+        }
+        .guide-practices li b {
+            display: block;
+            color: var(--text-main);
+            font-size: 0.79rem;
+            margin-bottom: 2px;
+        }
+        .guide-practices li span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.71rem;
+            line-height: 1.4;
+        }
+
         /* Botão GUIA no rodapé */
         .footer-guide-row {
             display: flex;
@@ -863,9 +983,12 @@ body.export-mode .chart-title{
         .guide-glossary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 0; }
         .guide-glossary dt { color: var(--blue); font-weight: 800; margin-bottom: 3px; }
         .guide-glossary dd { margin: 0; color: var(--text-main); font-size: .86rem; line-height: 1.35; }
+        .guide-stats { grid-template-columns: repeat(2, 1fr); gap: 7px; }
+        .guide-practices { grid-template-columns: repeat(2, 1fr); gap: 6px; }
         @media(max-width: 620px){
             .guide-modal-content { max-height: 88vh; padding: 16px; }
-            .guide-flow, .guide-cards, .guide-glossary { grid-template-columns: 1fr; }
+            .guide-flow, .guide-cards, .guide-glossary,
+            .guide-stats, .guide-practices { grid-template-columns: 1fr; }
             .guide-flow span:not(:last-child)::after { content: '\2193'; right: 50%; bottom: -16px; transform: translateX(50%); font-size: 1rem; }
             .guide-flow { gap: 12px; }
         }
