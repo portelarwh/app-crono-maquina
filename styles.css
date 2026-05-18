@@ -1741,27 +1741,6 @@ body.export-mode .hist-label{
     width: 100%;
     justify-content: center;
 }
-.sensor-sens-btn {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    border: 1.5px solid var(--border);
-    background: transparent;
-    cursor: pointer;
-    padding: 0;
-    flex-shrink: 0;
-    font-size: 0;        /* oculta o ● do HTML, forma vem do border-radius */
-    transition: background 0.12s, border-color 0.12s, transform 0.1s;
-    color: transparent;
-}
-.sensor-sens-btn:hover { border-color: var(--blue); transform: scale(1.15); }
-/* dot ativo e todos abaixo dele ficam preenchidos */
-.sensor-sens-btn.active {
-    background: var(--green);
-    border-color: var(--green);
-}
-/* ao passar o mouse em qualquer dot, ilumina todos os anteriores via JS */
-.sensor-sens-btn.hover-preview { background: color-mix(in srgb, var(--blue) 50%, transparent); border-color: var(--blue); }
 
 /* mobile: indicador acima da lap-action-row */
 @media (max-width: 1023px) {

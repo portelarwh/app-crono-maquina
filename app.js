@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.8';
+const APP_VERSION='v5.1.10';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -427,7 +427,7 @@ function renderControls(){
   if(sensorOn&&!state.running){
     els.btnLap.disabled=false;
     els.btnLap.textContent='▶ INICIAR';
-    els.btnLap.dataset.action='sensorStart';
+    els.btnLap.dataset.action='start';
   }else if(sensorOn&&state.running){
     els.btnLap.disabled=true;
     els.btnLap.textContent='⏱ AUTO';
@@ -616,4 +616,5 @@ function bind(){
 function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render();dismissSplash()}try{init()}catch(e){console.error('[Crono] Falha na inicialização:',e);dismissSplash();}
 window.getCronoMachineData=getCronoMachineData;
 window.renderAppControls=renderControls;
+window.recordLapFromSensor=recordNormal;
 })();

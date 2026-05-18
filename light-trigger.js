@@ -10,12 +10,12 @@
     const STORAGE_KEY = 'lightTriggerCfg';
 
     // Limiares por nível 1–5 para cada modo
-    const SENS_FLASH  = [40, 28, 18, 10, 5];              // delta de luminância (0–255)
-    const SENS_MOTION = [0.20, 0.12, 0.06, 0.03, 0.015]; // fração de pixels alterados (0–1)
-    const SENS_COLOR  = [60, 40, 24, 12, 6];              // gap R−G ou G−R para classificar zona
+    const SENS_FLASH  = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];                          // delta de luminância (0–255)
+    const SENS_MOTION = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005]; // fração de pixels alterados (0–1)
+    const SENS_COLOR  = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];                         // gap R−G ou G−R para classificar zona
 
     const MODES = ['flash', 'motion', 'color'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 3, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -27,6 +27,10 @@
                 Math.abs(t - cfg.threshold) < Math.abs(SENS_FLASH[best] - cfg.threshold) ? i : best, 0);
             cfg.sensLevel = idx + 1;
             delete cfg.threshold;
+        }
+        // migração: escala 1-5 → 1-10 (multiplica por 2, subtract 1)
+        if (cfg.sensLevel >= 1 && cfg.sensLevel <= 5 && Number.isInteger(cfg.sensLevel)) {
+            cfg.sensLevel = cfg.sensLevel * 2 - 1;
         }
         if (!MODES.includes(cfg.mode)) cfg.mode = 'flash';
     } catch (_) {}
@@ -74,7 +78,7 @@
     let btnSensor, sensorIndicator, sensorBarFill;
     let sensorCountEl, sensorFplEl, sensorFplLabel;
     let btnFplMinus, btnFplPlus;
-    let sensBtns = [];
+    let btnSensMinus, btnSensPlus, sensorSensLabel;
     let modeBtns = [];
     let btnLap, btnStart;
     let btnAutoStart, btnDiscardFirst, armedLabel;
@@ -173,7 +177,7 @@
         if (flashCount >= cfg.flashesPerLap) {
             flashCount = 0;
             updateCountDisplay();
-            if (btnLap && !btnLap.disabled) btnLap.click();
+            if (typeof window.recordLapFromSensor === 'function') window.recordLapFromSensor();
         }
     }
 
@@ -615,14 +619,11 @@
         btnFplPlus.disabled  = cfg.flashesPerLap >= 10;
     }
 
-    // preenche dots 1..sensLevel (acumulativo)
-    function applySensButtons(previewLevel) {
-        const level = previewLevel ?? cfg.sensLevel ?? 3;
-        sensBtns.forEach((btn, i) => {
-            const dotLevel = i + 1;
-            btn.classList.toggle('active', dotLevel <= cfg.sensLevel && previewLevel === undefined);
-            btn.classList.toggle('hover-preview', previewLevel !== undefined && dotLevel <= level);
-        });
+    function applySensButtons() {
+        const lvl = cfg.sensLevel ?? 5;
+        if (sensorSensLabel) sensorSensLabel.textContent = 'sens ' + lvl;
+        if (btnSensMinus) btnSensMinus.disabled = lvl <= 1;
+        if (btnSensPlus)  btnSensPlus.disabled  = lvl >= 10;
     }
 
     function applyModeButtons() {
@@ -653,7 +654,9 @@
         sensorFplLabel  = document.getElementById('sensorFplLabel');
         btnFplMinus     = document.getElementById('btnFplMinus');
         btnFplPlus      = document.getElementById('btnFplPlus');
-        sensBtns        = Array.from(document.querySelectorAll('.sensor-sens-btn'));
+        btnSensMinus    = document.getElementById('btnSensMinus');
+        btnSensPlus     = document.getElementById('btnSensPlus');
+        sensorSensLabel = document.getElementById('sensorSensLabel');
         modeBtns        = Array.from(document.querySelectorAll('.sensor-mode-btn'));
         btnLap          = document.getElementById('btnLap');
         btnStart        = document.getElementById('btnStart');
@@ -679,14 +682,14 @@
             saveCfg(); updateCountDisplay(); applyFplButtons();
         });
 
-        // sensibilidade: 5 níveis com preenchimento acumulativo
-        sensBtns.forEach(btn => {
-            const level = parseInt(btn.dataset.sens, 10);
-            btn.addEventListener('click', () => { cfg.sensLevel = level; saveCfg(); applySensButtons(); });
-            btn.addEventListener('mouseenter', () => applySensButtons(level));
-            btn.addEventListener('mouseleave', () => applySensButtons());
-            btn.addEventListener('touchstart', () => applySensButtons(level), { passive: true });
-            btn.addEventListener('touchend',   () => { cfg.sensLevel = level; saveCfg(); applySensButtons(); }, { passive: true });
+        // sensibilidade: 10 níveis com +/-
+        btnSensMinus?.addEventListener('click', () => {
+            cfg.sensLevel = Math.max(1, (cfg.sensLevel ?? 5) - 1);
+            saveCfg(); applySensButtons();
+        });
+        btnSensPlus?.addEventListener('click', () => {
+            cfg.sensLevel = Math.min(10, (cfg.sensLevel ?? 5) + 1);
+            saveCfg(); applySensButtons();
         });
 
         // modo de detecção
