@@ -1709,7 +1709,7 @@ body.export-mode .hist-label{
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 2px;
-    background: var(--input-bg);
+    background: var(--card-bg);
 }
 .sensor-mode-btn {
     flex: 1;
