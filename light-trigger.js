@@ -605,6 +605,7 @@
         if (sensorIndicator) {
             sensorIndicator.style.display = active ? 'flex' : 'none';
         }
+        if (typeof window.renderAppControls === 'function') window.renderAppControls();
     }
 
     // ---------- controles de configuração ----------

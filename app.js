@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.5';
+const APP_VERSION='v5.1.7';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -421,10 +421,22 @@ function renderMode(){const interval=els.analysisMode.value==='interval';els.def
 function renderStats(){const s=stats(),cyc=cycles(),last=cyc.at(-1);els.valSamples.textContent=cyc.length;els.valHourlyCap.textContent=s.cap?s.cap.toFixed(1):'0';els.valLastCycle.textContent=last?fmtS((last.productiveMs||last.durationMs||0)/1000):'0.00s';els.valAvgCycle.textContent=fmtS(s.av);els.valMinCycle.textContent=fmtS(s.min);els.valMaxCycle.textContent=fmtS(s.max);els.valStdDev.textContent=fmtS(s.dev);els.valEstabilidade.textContent=`${s.stab.toFixed(1)}%`;els.valEfficiency.textContent=s.eff===null?'--':`${s.eff.toFixed(1)}%`}
 function renderControls(){
   const has=state.events.length>0;
+  const sensorOn=!!document.getElementById('btnSensor')?.classList.contains('sensor-active');
   els.btnStart.disabled=state.running;
   els.btnStop.disabled=!state.running;
-  els.btnLap.disabled=!state.running;
-  if(els.btnLap)els.btnLap.textContent=state.mode==='downtime_active'?'↩ RETOMAR':'⏱ NORMAL';
+  if(sensorOn&&!state.running){
+    els.btnLap.disabled=false;
+    els.btnLap.textContent='▶ INICIAR';
+    els.btnLap.dataset.action='start';
+  }else if(sensorOn&&state.running){
+    els.btnLap.disabled=true;
+    els.btnLap.textContent='⏱ AUTO';
+    els.btnLap.dataset.action='normal';
+  }else{
+    els.btnLap.disabled=!state.running;
+    if(els.btnLap)els.btnLap.textContent=state.mode==='downtime_active'?'↩ RETOMAR':'⏱ NORMAL';
+    els.btnLap.dataset.action='normal';
+  }
   document.querySelectorAll('.btn-cause').forEach(b=>{
     b.disabled=!state.running;
     const isActive=state.mode==='downtime_active'&&state.activeDowntime&&b.dataset.cause===state.activeDowntime.cause;
@@ -603,4 +615,5 @@ function bind(){
 }
 function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render();dismissSplash()}try{init()}catch(e){console.error('[Crono] Falha na inicialização:',e);dismissSplash();}
 window.getCronoMachineData=getCronoMachineData;
+window.renderAppControls=renderControls;
 })();
