@@ -1596,7 +1596,7 @@ body.export-mode .hist-label{
     align-items: center;
     gap: 6px;
     padding: 5px 9px;
-    background: rgba(40, 167, 69, 0.1);
+    background: color-mix(in srgb, var(--green) 12%, var(--card-bg));
     border: 1px solid rgba(40, 167, 69, 0.3);
     border-radius: 12px;
     flex-shrink: 0;
@@ -1608,7 +1608,7 @@ body.export-mode .hist-label{
     transition: background 0.1s ease;
 }
 .sensor-indicator.sensor-flash {
-    background: rgba(40, 167, 69, 0.45);
+    background: color-mix(in srgb, var(--green) 45%, var(--card-bg));
     border-color: var(--green);
 }
 
