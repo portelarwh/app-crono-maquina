@@ -177,7 +177,7 @@
         if (flashCount >= cfg.flashesPerLap) {
             flashCount = 0;
             updateCountDisplay();
-            if (btnLap && !btnLap.disabled) btnLap.click();
+            if (typeof window.recordLapFromSensor === 'function') window.recordLapFromSensor();
         }
     }
 
