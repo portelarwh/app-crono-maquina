@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'v5.0.5';
+var APP_VERSION = 'v5.0.6';
 window.APP_VERSION = APP_VERSION;
 
 let refreshing = false;
@@ -87,7 +87,7 @@ function registerServiceWorker(){
     location.reload();
   });
 
-  navigator.serviceWorker.register('sw.js?v=5.0.5',{updateViaCache:'none'})
+  navigator.serviceWorker.register('sw.js?v=5.0.6',{updateViaCache:'none'})
     .then(reg=>{
       if(reg.installing) watch(reg.installing);
       reg.addEventListener('updatefound',()=>watch(reg.installing));
@@ -107,3 +107,19 @@ async function bootstrap(){
 }
 
 document.addEventListener('DOMContentLoaded', bootstrap);
+
+// --- Screen Wake Lock: mantém tela acesa enquanto o app estiver aberto ---
+(function () {
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try { await navigator.wakeLock.request('screen'); } catch (_) {}
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', requestWakeLock);
+  } else {
+    requestWakeLock();
+  }
+})();
