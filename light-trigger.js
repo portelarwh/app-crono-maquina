@@ -1,5 +1,5 @@
 /* =========================================================
-   LIGHT TRIGGER v2.0 — 3 modos de detecção via câmera
+   LIGHT TRIGGER v2.1 — câmera + auto-start + descartar 1ª
    • flash  — pico de luminância (LED, estroboscópio)
    • motion — diferença entre frames (peça passando, visor)
    • color  — alternância de zona de cor (verde ↔ vermelho)
@@ -15,7 +15,7 @@
     const SENS_COLOR  = [60, 40, 24, 12, 6];              // gap R−G ou G−R para classificar zona
 
     const MODES = ['flash', 'motion', 'color'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 3, cooldownMs: 1100, mode: 'flash' };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 3, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -39,17 +39,20 @@
     const SAMPLE_W = 16;
     const SAMPLE_H = 16;
 
-    let stream     = null;
-    let video      = null;
-    let cvs        = null;
-    let ctx        = null;
-    let rafId      = null;
-    let prevLum    = -1;
-    let prevPixels = null;  // motion mode: frame anterior
-    let prevZone   = null;  // color mode: zona anterior ('red'|'green')
-    let onCooldown = false;
-    let isActive   = false;
-    let flashCount = 0;
+    let stream      = null;
+    let video       = null;
+    let cvs         = null;
+    let ctx         = null;
+    let rafId       = null;
+    let prevLum     = -1;
+    let prevPixels  = null;  // motion mode: frame anterior
+    let prevZone    = null;  // color mode: zona anterior ('red'|'green')
+    let onCooldown  = false;
+    let isActive    = false;
+    let flashCount  = 0;
+    let isArmed     = false;   // aguardando 1º evento para iniciar o cronômetro (autoStart)
+    let discardNext = false;   // próxima detecção descartada sem registrar lap (discardFirst)
+    let fromSensor  = false;   // clique programático em btnStart originado pelo sensor
 
     // ---------- elementos DOM ----------
     let btnSensor, sensorIndicator, sensorBarFill;
@@ -57,7 +60,8 @@
     let btnFplMinus, btnFplPlus;
     let sensBtns = [];
     let modeBtns = [];
-    let btnLap;
+    let btnLap, btnStart;
+    let btnAutoStart, btnDiscardFirst, armedLabel;
 
     // ---------- análise de luminância média (luma perceptual) ----------
     function avgLuminance(d) {
@@ -101,8 +105,49 @@
         sensorCountEl.style.color = pct > 0 ? 'var(--yellow)' : 'var(--text-muted)';
     }
 
+    // ---------- atualiza UI de armado ----------
+    function updateArmedUI() {
+        if (!sensorIndicator) return;
+        sensorIndicator.classList.toggle('sensor-armed', isArmed);
+        if (armedLabel) armedLabel.style.display = isArmed ? 'inline' : 'none';
+    }
+
+    // ---------- aplica estado dos botões de opção ----------
+    function applyOptionButtons() {
+        if (btnAutoStart)    btnAutoStart.classList.toggle('active', cfg.autoStart);
+        if (btnDiscardFirst) btnDiscardFirst.classList.toggle('active', cfg.discardFirst);
+    }
+
     // ---------- dispara evento detectado ----------
     function triggerEvent() {
+        // modo armado: primeiro evento inicia o cronômetro em vez de registrar lap
+        if (isArmed) {
+            isArmed = false;
+            prevLum = -1; prevPixels = null; prevZone = null; flashCount = 0;
+            updateArmedUI();
+            updateCountDisplay();
+            if (btnStart && !btnStart.disabled) {
+                if (cfg.discardFirst) discardNext = true;
+                fromSensor = true;
+                btnStart.click();
+                fromSensor = false;
+            }
+            return;
+        }
+
+        // primeiro lap após iniciar: descartar se configurado
+        if (discardNext) {
+            discardNext = false;
+            flashCount  = 0;
+            updateCountDisplay();
+            if (sensorIndicator) {
+                sensorIndicator.classList.add('sensor-flash');
+                setTimeout(() => sensorIndicator.classList.remove('sensor-flash'), 220);
+            }
+            return;
+        }
+
+        // contagem normal
         flashCount++;
         updateCountDisplay();
         if (sensorIndicator) {
@@ -198,11 +243,13 @@
             cvs.height = SAMPLE_H;
             ctx        = cvs.getContext('2d', { willReadFrequently: true });
 
-            isActive   = true;
-            prevLum    = -1;
-            prevPixels = null;
-            prevZone   = null;
-            flashCount = 0;
+            isActive    = true;
+            isArmed     = false;
+            discardNext = false;
+            prevLum     = -1;
+            prevPixels  = null;
+            prevZone    = null;
+            flashCount  = 0;
             updateCountDisplay();
             analyseFrame();
             updateUI(true);
@@ -217,15 +264,18 @@
 
     // ---------- parar câmera ----------
     function stopSensor() {
-        isActive   = false;
-        flashCount = 0;
-        prevPixels = null;
-        prevZone   = null;
+        isActive    = false;
+        isArmed     = false;
+        discardNext = false;
+        flashCount  = 0;
+        prevPixels  = null;
+        prevZone    = null;
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         video = cvs = ctx = null;
         prevLum = -1;
         updateUI(false);
+        updateArmedUI();
         if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
         updateCountDisplay();
     }
@@ -281,17 +331,21 @@
 
     // ---------- inicialização ----------
     function init() {
-        btnSensor      = document.getElementById('btnSensor');
-        sensorIndicator= document.getElementById('sensorIndicator');
-        sensorBarFill  = document.getElementById('sensorBarFill');
-        sensorCountEl  = document.getElementById('sensorFlashCount');
-        sensorFplEl    = document.getElementById('sensorFpl');
-        sensorFplLabel = document.getElementById('sensorFplLabel');
-        btnFplMinus    = document.getElementById('btnFplMinus');
-        btnFplPlus     = document.getElementById('btnFplPlus');
-        sensBtns       = Array.from(document.querySelectorAll('.sensor-sens-btn'));
-        modeBtns       = Array.from(document.querySelectorAll('.sensor-mode-btn'));
-        btnLap         = document.getElementById('btnLap');
+        btnSensor       = document.getElementById('btnSensor');
+        sensorIndicator = document.getElementById('sensorIndicator');
+        sensorBarFill   = document.getElementById('sensorBarFill');
+        sensorCountEl   = document.getElementById('sensorFlashCount');
+        sensorFplEl     = document.getElementById('sensorFpl');
+        sensorFplLabel  = document.getElementById('sensorFplLabel');
+        btnFplMinus     = document.getElementById('btnFplMinus');
+        btnFplPlus      = document.getElementById('btnFplPlus');
+        sensBtns        = Array.from(document.querySelectorAll('.sensor-sens-btn'));
+        modeBtns        = Array.from(document.querySelectorAll('.sensor-mode-btn'));
+        btnLap          = document.getElementById('btnLap');
+        btnStart        = document.getElementById('btnStart');
+        btnAutoStart    = document.getElementById('btnAutoStart');
+        btnDiscardFirst = document.getElementById('btnDiscardFirst');
+        armedLabel      = document.getElementById('sensorArmedLabel');
 
         if (!btnSensor) return;
 
@@ -326,15 +380,41 @@
             btn.addEventListener('click', () => { cfg.mode = btn.dataset.mode; saveCfg(); applyModeButtons(); });
         });
 
-        // para ao zerar o cronômetro
+        // opções de acionamento
+        btnAutoStart?.addEventListener('click', () => {
+            cfg.autoStart = !cfg.autoStart;
+            saveCfg();
+            applyOptionButtons();
+        });
+        btnDiscardFirst?.addEventListener('click', () => {
+            cfg.discardFirst = !cfg.discardFirst;
+            saveCfg();
+            applyOptionButtons();
+        });
+
+        // intercepta ações de sistema (capture phase)
         document.addEventListener('click', e => {
             const action = e.target?.closest('[data-action]')?.dataset?.action;
+
             if (action === 'reset' && isActive) stopSensor();
+
+            if (action === 'start' && !fromSensor && isActive) {
+                if (cfg.autoStart && !isArmed) {
+                    // bloqueia o clique e arma o sensor — timer só inicia no 1º evento
+                    e.stopPropagation();
+                    isArmed = true;
+                    updateArmedUI();
+                } else if (!cfg.autoStart && cfg.discardFirst) {
+                    // timer inicia normalmente, mas 1ª detecção será descartada
+                    discardNext = true;
+                }
+            }
         }, true);
 
         applyFplButtons();
         applySensButtons();
         applyModeButtons();
+        applyOptionButtons();
         updateCountDisplay();
     }
 

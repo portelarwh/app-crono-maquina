@@ -1771,6 +1771,56 @@ body.export-mode .hist-label{
     .sensor-indicator { flex-wrap: nowrap; width: auto; }
     .sensor-mode-ctrl { flex: 1; }
     .sensor-sens-ctrl { width: auto; justify-content: flex-start; }
+    .sensor-options-ctrl { width: auto; flex-wrap: nowrap; }
+}
+
+/* opções de acionamento: Auto-start + Descartar 1ª */
+.sensor-options-ctrl {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.sensor-opt-btn {
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.sensor-opt-btn:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+.sensor-opt-btn.active { background: rgba(40, 167, 69, 0.18); color: var(--green); border-color: var(--green); }
+
+/* label piscante exibido quando o sensor está armado aguardando 1º evento */
+.sensor-armed-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--yellow);
+    white-space: nowrap;
+    animation: armedBlink 0.85s ease-in-out infinite;
+}
+@keyframes armedBlink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.25; }
+}
+
+/* estado armado: indicador muda para amarelo */
+.sensor-indicator.sensor-armed {
+    background: rgba(255, 193, 7, 0.10);
+    border-color: rgba(255, 193, 7, 0.45);
+}
+.sensor-indicator.sensor-armed .sensor-dot {
+    background: var(--yellow);
 }
 
 /* export-mode: ocultar tudo do sensor */
