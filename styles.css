@@ -1386,17 +1386,16 @@ body.export-mode .hist-label{
     .history-row { font-size: 0.93rem; }
     #historyCard { margin-top: 0; }
 
-    /* --- Histórico: flex com colunas fixas; × sempre à direita --- */
+    /* --- Histórico: grid com colunas explícitas; × sempre à direita --- */
     .history-row {
-        display: flex;
+        display: grid;
+        grid-template-columns: 36px 70px 1fr auto;
+        column-gap: 8px;
         align-items: center;
-        gap: 6px;
     }
-    .history-id { flex: 0 0 36px; }
-    .history-time { flex: 0 0 70px; text-align: left; }
-    .lap-cause-wrap { flex: 1; justify-content: flex-start; margin-left: 4px; }
-    .btn-delete { margin-left: auto; flex: none; }
-    .lap-cause-select-row { min-width: 110px; width: auto; }
+    .history-time { text-align: left; flex: none; }
+    .lap-cause-wrap { justify-content: flex-start; }
+    .lap-cause-select-row { min-width: 120px; width: auto; }
 
     /* --- Inputs de texto livre: alinhados à esquerda no desktop --- */
     #equipName, #analystName, #lineName, #shiftName, #productName,
@@ -1526,7 +1525,7 @@ body.export-mode .hist-label{
     body { padding-left: 48px; padding-right: 48px; }
     .fixed-bottom { padding-left: 48px; padding-right: 48px; }
     .app-header { right: 48px; }
-    .col-1 { flex: 0 0 460px; }
+    .col-1 { flex: 0 0 480px; }
     .live-timer { font-size: 5rem; }
     .chart-wrapper, .histogram-wrapper { height: 290px !important; }
     .result-value { font-size: 1.65rem; }
@@ -1540,7 +1539,7 @@ body.export-mode .hist-label{
     .fixed-bottom { max-width: 1600px; padding-left: 56px; padding-right: 56px; }
     #exportContainer { max-width: 1600px; }
     .app-header { right: 56px; }
-    .col-1 { flex: 0 0 500px; }
+    .col-1 { flex: 0 0 520px; }
     .chart-wrapper, .histogram-wrapper { height: 320px !important; }
     .history-container { max-height: 420px; }
     .live-timer { font-size: 5.5rem; }
