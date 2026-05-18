@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.0.8';
+const APP_VERSION='v5.0.9';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -447,7 +447,9 @@ function renderCharts(){
   const s=stats(),sec=s.sec,takt=n(els.takt,0),cyc=cycles();
   const cont=els.chartContainer;
   if(!sec.length){if(cont)cont.innerHTML='';els.histogramContainer.innerHTML='';return}
-  const max=Math.max(arrMax(sec),takt||0,1);
+  const arrMaxVal=arrMax(sec);
+  const taktCapped=takt>0?Math.min(takt,arrMaxVal*1.5):0;
+  const max=Math.max(arrMaxVal,taktCapped)*1.15||1;
   const chartType=state.chartType==='line'?'line':'bars';
   const dt=sec.map((v,i)=>{const c=cyc[i];return c&&Number.isFinite(c.productiveMs)&&c.durationMs>c.productiveMs+500?c.durationMs-c.productiveMs:0});
   const prevW=cont.scrollWidth,prevL=cont.scrollLeft;
