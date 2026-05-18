@@ -64,9 +64,11 @@
     let torchSupported = false;
 
     // região de interesse (ROI) — valores normalizados 0–1
-    let roi         = { x: 0, y: 0, w: 1, h: 1 };
-    let roiDragging = false;
-    let roiStart    = null;
+    let roi       = { x: 0, y: 0, w: 1, h: 1 };
+    let roiMode   = 'idle';   // 'idle'|'drawing'|'moving'|'resize-tl'|'resize-tr'|'resize-bl'|'resize-br'
+    let roiStart  = null;     // { x, y } ponto de toque normalizado
+    let roiAnchor = null;     // canto oposto fixo durante resize
+    let roiSnap   = null;     // snapshot do roi no momento do toque (move)
 
     // ---------- elementos DOM ----------
     let btnSensor, sensorIndicator, sensorBarFill;
@@ -238,10 +240,32 @@
 
     // ---------- lanterna ----------
     // ---------- ROI — overlay e drag ----------
+    const HANDLE_R  = 10; // raio de hit-test em px (touch-friendly)
+    const HANDLE_SZ = 9;  // tamanho visual da alça em px
+    const CURSORS   = { 'idle':'crosshair', 'drawing':'crosshair', 'moving':'move',
+                        'resize-tl':'nwse-resize', 'resize-br':'nwse-resize',
+                        'resize-tr':'nesw-resize', 'resize-bl':'nesw-resize' };
+
+    function roiHitTest(nx, ny, W, H) {
+        const full = roi.x === 0 && roi.y === 0 && roi.w === 1 && roi.h === 1;
+        if (full) return 'drawing';
+        const hx = HANDLE_R / W, hy = HANDLE_R / H;
+        const corners = [
+            ['resize-tl', roi.x,          roi.y         ],
+            ['resize-tr', roi.x + roi.w,  roi.y         ],
+            ['resize-bl', roi.x,          roi.y + roi.h ],
+            ['resize-br', roi.x + roi.w,  roi.y + roi.h ],
+        ];
+        for (const [name, cx, cy] of corners) {
+            if (Math.abs(nx - cx) < hx && Math.abs(ny - cy) < hy) return name;
+        }
+        if (nx > roi.x && nx < roi.x + roi.w && ny > roi.y && ny < roi.y + roi.h) return 'moving';
+        return 'drawing';
+    }
+
     function drawRoiOverlay() {
         const oc = document.getElementById('ltRoiOverlay');
         if (!oc) return;
-        // sincroniza tamanho do canvas com o tamanho real em pixels
         if (oc.width !== oc.offsetWidth || oc.height !== oc.offsetHeight) {
             oc.width  = oc.offsetWidth  || 1;
             oc.height = oc.offsetHeight || 1;
@@ -250,30 +274,46 @@
         const cx = oc.getContext('2d');
         cx.clearRect(0, 0, W, H);
         const full = roi.x === 0 && roi.y === 0 && roi.w === 1 && roi.h === 1;
+
         if (!full) {
+            // sombra fora do alvo
             cx.fillStyle = 'rgba(0,0,0,0.52)';
             cx.fillRect(0, 0, W, H);
-            cx.clearRect(roi.x * W, roi.y * H, roi.w * W, roi.h * H);
+            cx.clearRect(roi.x*W, roi.y*H, roi.w*W, roi.h*H);
         }
-        cx.strokeStyle = full ? 'rgba(0,229,255,0.25)' : '#00e5ff';
+
+        // borda do ROI
+        cx.strokeStyle = full ? 'rgba(0,229,255,0.22)' : '#00e5ff';
         cx.lineWidth   = 2;
-        cx.strokeRect(roi.x * W + 1, roi.y * H + 1, roi.w * W - 2, roi.h * H - 2);
-        // alças nos cantos
+        cx.strokeRect(roi.x*W + 1, roi.y*H + 1, roi.w*W - 2, roi.h*H - 2);
+
         if (!full) {
+            // alças dos cantos
+            const hs = HANDLE_SZ;
             cx.fillStyle = '#00e5ff';
-            const hs = 7;
-            [ [roi.x*W, roi.y*H], [roi.x*W + roi.w*W, roi.y*H],
-              [roi.x*W, roi.y*H + roi.h*H], [roi.x*W + roi.w*W, roi.y*H + roi.h*H] ]
-            .forEach(([cx2, cy2]) => cx.fillRect(cx2 - hs/2, cy2 - hs/2, hs, hs));
+            cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 3;
+            [ [roi.x*W,          roi.y*H         ],
+              [roi.x*W + roi.w*W, roi.y*H         ],
+              [roi.x*W,           roi.y*H + roi.h*H],
+              [roi.x*W + roi.w*W, roi.y*H + roi.h*H] ]
+            .forEach(([px, py]) => cx.fillRect(px - hs/2, py - hs/2, hs, hs));
+            cx.shadowBlur = 0;
+
+            // indicador de modo dentro do alvo (ícone de mover)
+            cx.fillStyle = 'rgba(0,229,255,0.35)';
+            cx.font = `${Math.max(10, Math.min(16, roi.w*W*0.25))}px sans-serif`;
+            cx.textAlign = 'center'; cx.textBaseline = 'middle';
+            cx.fillText('✥', (roi.x + roi.w/2)*W, (roi.y + roi.h/2)*H);
         }
-        // rótulo de instrução se quadro completo
+
+        // instrução no quadro completo
         if (full) {
-            cx.fillStyle = 'rgba(255,255,255,0.55)';
+            cx.fillStyle = 'rgba(255,255,255,0.52)';
             cx.font = 'bold 9px sans-serif';
-            cx.textAlign = 'center';
-            cx.fillText('arraste para definir alvo', W / 2, H - 6);
+            cx.textAlign = 'center'; cx.textBaseline = 'alphabetic';
+            cx.fillText('arraste para definir alvo', W/2, H - 6);
         }
-        // atualiza botão reset
+
         const btn = document.getElementById('btnLtRoiReset');
         if (btn) btn.style.display = full ? 'none' : '';
     }
@@ -283,30 +323,65 @@
             const r = overlayCanvas.getBoundingClientRect();
             const p = e.touches ? e.touches[0] : e;
             return {
-                x: Math.max(0, Math.min(1, (p.clientX - r.left)  / r.width)),
-                y: Math.max(0, Math.min(1, (p.clientY - r.top)   / r.height))
+                x: Math.max(0, Math.min(1, (p.clientX - r.left) / r.width)),
+                y: Math.max(0, Math.min(1, (p.clientY - r.top)  / r.height))
             };
         }
+        function setCursor(mode) {
+            overlayCanvas.style.cursor = CURSORS[mode] || 'crosshair';
+        }
+
+        overlayCanvas.addEventListener('pointermove', e => {
+            if (roiMode === 'idle') {
+                setCursor(roiHitTest(pos(e).x, pos(e).y, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight));
+                return;
+            }
+            const cur = pos(e);
+            if (roiMode === 'drawing') {
+                roi.x = Math.min(roiStart.x, cur.x);
+                roi.y = Math.min(roiStart.y, cur.y);
+                roi.w = Math.abs(cur.x - roiStart.x);
+                roi.h = Math.abs(cur.y - roiStart.y);
+            } else if (roiMode === 'moving') {
+                const dx = cur.x - roiStart.x, dy = cur.y - roiStart.y;
+                roi.x = Math.max(0, Math.min(1 - roiSnap.w, roiSnap.x + dx));
+                roi.y = Math.max(0, Math.min(1 - roiSnap.h, roiSnap.y + dy));
+                roi.w = roiSnap.w; roi.h = roiSnap.h;
+            } else if (roiMode.startsWith('resize-')) {
+                const x1 = Math.max(0, Math.min(roiAnchor.x, cur.x));
+                const y1 = Math.max(0, Math.min(roiAnchor.y, cur.y));
+                const x2 = Math.min(1, Math.max(roiAnchor.x, cur.x));
+                const y2 = Math.min(1, Math.max(roiAnchor.y, cur.y));
+                roi.x = x1; roi.y = y1; roi.w = x2 - x1; roi.h = y2 - y1;
+            }
+            drawRoiOverlay();
+        });
+
         overlayCanvas.addEventListener('pointerdown', e => {
             e.preventDefault();
-            roiStart    = pos(e);
-            roiDragging = true;
+            const p = pos(e);
+            const hit = roiHitTest(p.x, p.y, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight);
+            roiMode  = hit;
+            roiStart = p;
+            if (hit === 'moving') {
+                roiSnap = { ...roi };
+            } else if (hit.startsWith('resize-')) {
+                const ox = { tl: roi.x+roi.w, tr: roi.x, bl: roi.x+roi.w, br: roi.x };
+                const oy = { tl: roi.y+roi.h, tr: roi.y+roi.h, bl: roi.y, br: roi.y };
+                const k  = hit.slice(7); // 'tl' | 'tr' | 'bl' | 'br'
+                roiAnchor = { x: ox[k], y: oy[k] };
+            }
+            setCursor(hit);
             overlayCanvas.setPointerCapture(e.pointerId);
         });
-        overlayCanvas.addEventListener('pointermove', e => {
-            if (!roiDragging || !roiStart) return;
-            const cur = pos(e);
-            roi.x = Math.min(roiStart.x, cur.x);
-            roi.y = Math.min(roiStart.y, cur.y);
-            roi.w = Math.abs(cur.x - roiStart.x);
-            roi.h = Math.abs(cur.y - roiStart.y);
-            drawRoiOverlay();
-        });
+
         overlayCanvas.addEventListener('pointerup', () => {
-            roiDragging = false;
-            if (roi.w < 0.06 || roi.h < 0.06) roi = { x: 0, y: 0, w: 1, h: 1 };
-            roiStart = null;
+            if (roiMode === 'drawing' && (roi.w < 0.06 || roi.h < 0.06)) {
+                roi = { x: 0, y: 0, w: 1, h: 1 };
+            }
+            roiMode = 'idle'; roiStart = null; roiAnchor = null; roiSnap = null;
             drawRoiOverlay();
+            setCursor(roiHitTest(0.5, 0.5, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight));
         });
     }
 
@@ -352,7 +427,7 @@
           .lt-vfeed{flex:1;background:#000;border-radius:6px;overflow:hidden;aspect-ratio:4/3;min-width:0;position:relative}
           .lt-vfeed video{width:100%;height:100%;object-fit:cover;display:block}
           .lt-vfeed-label{position:absolute;bottom:4px;left:5px;font-size:.52rem;color:rgba(255,255,255,.7);font-weight:700;text-transform:uppercase;pointer-events:none}
-          .lt-roi-overlay{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;display:block}
+          .lt-roi-overlay{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;display:block;user-select:none}
           .lt-roi-reset{position:absolute;top:4px;right:4px;background:rgba(0,229,255,.18);border:1px solid #00e5ff;border-radius:4px;color:#00e5ff;font-size:.58rem;font-weight:700;padding:2px 6px;cursor:pointer;line-height:1.4;display:none}
           .lt-vsample{width:72px;flex:none}
           .lt-vsample-canvas{width:72px;height:72px;border-radius:6px;border:1px solid var(--border);display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
@@ -447,7 +522,7 @@
         if (!previewOpen) return;
         const dest = document.getElementById('ltSampleCanvas');
         if (dest && cvs) { const dCtx = dest.getContext('2d'); if (dCtx) dCtx.drawImage(cvs, 0, 0); }
-        if (!roiDragging) drawRoiOverlay();
+        if (roiMode === 'idle') drawRoiOverlay();
     }
 
     // ---------- iniciar câmera ----------
@@ -509,7 +584,7 @@
         hidePreview();                                          // apaga lanterna antes de parar a track
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         torchOn = false; torchSupported = false;
-        roi = { x: 0, y: 0, w: 1, h: 1 }; roiDragging = false; roiStart = null;
+        roi = { x: 0, y: 0, w: 1, h: 1 }; roiMode = 'idle'; roiStart = null; roiAnchor = null; roiSnap = null;
         video = cvs = ctx = null;
         prevLum = -1;
         updateUI(false);
