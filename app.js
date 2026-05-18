@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.7';
+const APP_VERSION='v5.1.8';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -427,7 +427,7 @@ function renderControls(){
   if(sensorOn&&!state.running){
     els.btnLap.disabled=false;
     els.btnLap.textContent='▶ INICIAR';
-    els.btnLap.dataset.action='start';
+    els.btnLap.dataset.action='sensorStart';
   }else if(sensorOn&&state.running){
     els.btnLap.disabled=true;
     els.btnLap.textContent='⏱ AUTO';
@@ -559,7 +559,7 @@ function load(){
   }catch(e){localStorage.removeItem(STORAGE_KEY)}
 }
 function handleExportWithModal(type){const active=window.hasActiveComparison?.();const doExport=()=>{if(type==='pdf')window.generateRealPDF?.();else if(type==='png')window.generatePNG?.();else shareWhatsApp();};const doComp=()=>{const cd=window.getComparisonStudiesData?.();if(cd)window.generateComparisonPDF?.(cd);else doExport();};if(active&&window.showExportChoiceModal){window.showExportChoiceModal(doExport,doComp);}else{doExport();}}
-const ACTIONS={start:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>handleExportWithModal('png'),exportPdf:()=>handleExportWithModal('pdf'),shareWhatsapp:()=>handleExportWithModal('wa'),openGuide:openGuide,closeGuide:closeGuide,openOee:openOee,closeOee:closeOee,saveOee:saveOee,clearOee:clearOee,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId)};
+const ACTIONS={start:startTimer,sensorStart:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>handleExportWithModal('png'),exportPdf:()=>handleExportWithModal('pdf'),shareWhatsapp:()=>handleExportWithModal('wa'),openGuide:openGuide,closeGuide:closeGuide,openOee:openOee,closeOee:closeOee,saveOee:saveOee,clearOee:clearOee,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId)};
 const debounce=(fn,ms)=>{let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms)}};
 const renderDeb=debounce(render,80);
 const persistDeb=debounce(persist,250);
