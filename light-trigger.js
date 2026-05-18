@@ -59,6 +59,10 @@
     let previewWrap  = null;
     let previewOpen  = true;
 
+    // lanterna
+    let torchOn        = false;
+    let torchSupported = false;
+
     // ---------- elementos DOM ----------
     let btnSensor, sensorIndicator, sensorBarFill;
     let sensorCountEl, sensorFplEl, sensorFplLabel;
@@ -222,6 +226,30 @@
         updatePreviewCanvas();
     }
 
+    // ---------- lanterna ----------
+    async function setTorch(on) {
+        if (!stream) return;
+        const track = stream.getVideoTracks()[0];
+        if (!track) return;
+        try {
+            await track.applyConstraints({ advanced: [{ torch: on }] });
+            torchOn = on;
+            const btn = document.getElementById('btnLtTorch');
+            if (btn) {
+                btn.classList.toggle('lt-torch-on', on);
+                btn.title = on ? 'Desligar lanterna' : 'Ligar lanterna';
+                btn.textContent = on ? '🔦 acesa' : '🔦 apagada';
+            }
+        } catch (_) {}
+    }
+
+    function checkTorchSupport() {
+        if (!stream) return false;
+        const track = stream.getVideoTracks()[0];
+        const caps  = track?.getCapabilities?.() ?? {};
+        return caps.torch === true;
+    }
+
     // ---------- preview ao vivo ----------
     function injectPreviewStyles() {
         if (document.getElementById('lt-preview-style')) return;
@@ -234,6 +262,8 @@
           .lt-preview-dot{width:6px;height:6px;border-radius:50%;background:#e74c3c;animation:lt-blink 1s infinite}
           @keyframes lt-blink{0%,100%{opacity:1}50%{opacity:.3}}
           .lt-preview-toggle{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-size:.75rem;padding:2px 7px;cursor:pointer;line-height:1.4}
+          .lt-torch-btn{background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-size:.75rem;padding:2px 7px;cursor:pointer;line-height:1.4;transition:background .15s,color .15s}
+          .lt-torch-btn.lt-torch-on{background:#f39c12;border-color:#e67e22;color:#fff}
           .lt-preview-body{display:flex;gap:8px;align-items:flex-start}
           .lt-preview-body.lt-collapsed{display:none}
           .lt-vfeed{flex:1;background:#000;border-radius:6px;overflow:hidden;aspect-ratio:4/3;min-width:0;position:relative}
@@ -250,11 +280,18 @@
         injectPreviewStyles();
         hidePreview();
 
+        torchSupported = checkTorchSupport();
+        torchOn        = false;
+
         previewVideo           = document.createElement('video');
         previewVideo.srcObject = liveStream;
         previewVideo.playsInline = true;
         previewVideo.muted     = true;
         previewVideo.autoplay  = true;
+
+        const torchBtn = torchSupported
+            ? `<button class="lt-torch-btn" id="btnLtTorch" type="button" title="Ligar lanterna">🔦 apagada</button>`
+            : '';
 
         previewWrap = document.createElement('div');
         previewWrap.className = 'lt-preview';
@@ -263,7 +300,10 @@
             <span class="lt-preview-title">
               <span class="lt-preview-dot"></span>Câmera ao vivo
             </span>
-            <button class="lt-preview-toggle" id="btnLtPreviewToggle" type="button">${previewOpen ? '▲ ocultar' : '▼ mostrar'}</button>
+            <span style="display:flex;gap:5px;align-items:center">
+              ${torchBtn}
+              <button class="lt-preview-toggle" id="btnLtPreviewToggle" type="button">${previewOpen ? '▲ ocultar' : '▼ mostrar'}</button>
+            </span>
           </div>
           <div class="lt-preview-body${previewOpen ? '' : ' lt-collapsed'}" id="ltPreviewBody">
             <div class="lt-vfeed" id="ltVfeed">
@@ -293,9 +333,12 @@
             if (body) body.classList.toggle('lt-collapsed', !previewOpen);
             if (btn)  btn.textContent = previewOpen ? '▲ ocultar' : '▼ mostrar';
         });
+
+        document.getElementById('btnLtTorch')?.addEventListener('click', () => setTorch(!torchOn));
     }
 
     function hidePreview() {
+        if (torchOn) setTorch(false);
         if (previewVideo) { previewVideo.srcObject = null; previewVideo = null; }
         if (previewWrap)  { previewWrap.remove(); previewWrap = null; }
     }
@@ -365,10 +408,11 @@
         prevPixels  = null;
         prevZone    = null;
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
+        hidePreview();                                          // apaga lanterna antes de parar a track
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        torchOn = false; torchSupported = false;
         video = cvs = ctx = null;
         prevLum = -1;
-        hidePreview();
         updateUI(false);
         updateArmedUI();
         if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
