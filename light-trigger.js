@@ -54,6 +54,11 @@
     let discardNext = false;   // próxima detecção descartada sem registrar lap (discardFirst)
     let fromSensor  = false;   // clique programático em btnStart originado pelo sensor
 
+    // preview ao vivo
+    let previewVideo = null;
+    let previewWrap  = null;
+    let previewOpen  = true;
+
     // ---------- elementos DOM ----------
     let btnSensor, sensorIndicator, sensorBarFill;
     let sensorCountEl, sensorFplEl, sensorFplLabel;
@@ -214,6 +219,94 @@
 
         prevLum    = lum;
         prevPixels = new Uint8ClampedArray(d);
+        updatePreviewCanvas();
+    }
+
+    // ---------- preview ao vivo ----------
+    function injectPreviewStyles() {
+        if (document.getElementById('lt-preview-style')) return;
+        const s = document.createElement('style');
+        s.id = 'lt-preview-style';
+        s.textContent = `
+          .lt-preview{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:8px;box-shadow:var(--shadow-card)}
+          .lt-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+          .lt-preview-title{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);display:flex;align-items:center;gap:5px}
+          .lt-preview-dot{width:6px;height:6px;border-radius:50%;background:#e74c3c;animation:lt-blink 1s infinite}
+          @keyframes lt-blink{0%,100%{opacity:1}50%{opacity:.3}}
+          .lt-preview-toggle{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-size:.75rem;padding:2px 7px;cursor:pointer;line-height:1.4}
+          .lt-preview-body{display:flex;gap:8px;align-items:flex-start}
+          .lt-preview-body.lt-collapsed{display:none}
+          .lt-vfeed{flex:1;background:#000;border-radius:6px;overflow:hidden;aspect-ratio:4/3;min-width:0;position:relative}
+          .lt-vfeed video{width:100%;height:100%;object-fit:cover;display:block}
+          .lt-vfeed-label{position:absolute;bottom:4px;left:5px;font-size:.52rem;color:rgba(255,255,255,.7);font-weight:700;text-transform:uppercase;pointer-events:none}
+          .lt-vsample{width:72px;flex:none}
+          .lt-vsample-canvas{width:72px;height:72px;border-radius:6px;border:1px solid var(--border);display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
+          .lt-vsample-label{font-size:.52rem;color:var(--text-muted);text-align:center;margin-top:3px;font-weight:700;text-transform:uppercase}
+        `;
+        document.head.appendChild(s);
+    }
+
+    function showPreview(liveStream) {
+        injectPreviewStyles();
+        hidePreview();
+
+        previewVideo           = document.createElement('video');
+        previewVideo.srcObject = liveStream;
+        previewVideo.playsInline = true;
+        previewVideo.muted     = true;
+        previewVideo.autoplay  = true;
+
+        previewWrap = document.createElement('div');
+        previewWrap.className = 'lt-preview';
+        previewWrap.innerHTML = `
+          <div class="lt-preview-head">
+            <span class="lt-preview-title">
+              <span class="lt-preview-dot"></span>Câmera ao vivo
+            </span>
+            <button class="lt-preview-toggle" id="btnLtPreviewToggle" type="button">${previewOpen ? '▲ ocultar' : '▼ mostrar'}</button>
+          </div>
+          <div class="lt-preview-body${previewOpen ? '' : ' lt-collapsed'}" id="ltPreviewBody">
+            <div class="lt-vfeed" id="ltVfeed">
+              <span class="lt-vfeed-label">vídeo</span>
+            </div>
+            <div class="lt-vsample">
+              <canvas class="lt-vsample-canvas" id="ltSampleCanvas" width="16" height="16"></canvas>
+              <div class="lt-vsample-label">sensor 16×16</div>
+            </div>
+          </div>
+        `;
+
+        const anchor = sensorIndicator || btnSensor;
+        if (anchor && anchor.parentNode) {
+            anchor.parentNode.insertBefore(previewWrap, anchor.nextSibling);
+        }
+
+        document.getElementById('ltVfeed').insertBefore(
+            previewVideo,
+            document.querySelector('.lt-vfeed-label')
+        );
+
+        document.getElementById('btnLtPreviewToggle')?.addEventListener('click', () => {
+            previewOpen = !previewOpen;
+            const body = document.getElementById('ltPreviewBody');
+            const btn  = document.getElementById('btnLtPreviewToggle');
+            if (body) body.classList.toggle('lt-collapsed', !previewOpen);
+            if (btn)  btn.textContent = previewOpen ? '▲ ocultar' : '▼ mostrar';
+        });
+    }
+
+    function hidePreview() {
+        if (previewVideo) { previewVideo.srcObject = null; previewVideo = null; }
+        if (previewWrap)  { previewWrap.remove(); previewWrap = null; }
+    }
+
+    // copia o canvas de análise para o canvas de preview a cada frame
+    function updatePreviewCanvas() {
+        if (!previewOpen) return;
+        const dest = document.getElementById('ltSampleCanvas');
+        if (!dest || !cvs) return;
+        const dCtx = dest.getContext('2d');
+        if (dCtx) dCtx.drawImage(cvs, 0, 0);
     }
 
     // ---------- iniciar câmera ----------
@@ -253,6 +346,7 @@
             updateCountDisplay();
             analyseFrame();
             updateUI(true);
+            showPreview(stream);
 
         } catch (err) {
             const msg = err.name === 'NotAllowedError'
@@ -274,6 +368,7 @@
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         video = cvs = ctx = null;
         prevLum = -1;
+        hidePreview();
         updateUI(false);
         updateArmedUI();
         if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
