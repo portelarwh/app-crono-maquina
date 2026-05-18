@@ -1,20 +1,22 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v5.0.6';
+const CACHE_NAME = 'crono-maquina-v5.0.7';
 const ASSETS = [
   './',
-  './index.html?v=5.0.6',
-  './app.js?v=5.0.6',
-  './theme-init.js?v=5.0.6',
-  './pwa-ui.js?v=5.0.6',
-  './report-enhancements.js?v=5.0.6',
-  './whatsapp-share-fix.js?v=5.0.6',
-  './general-improvements.js?v=5.0.6',
-  './light-trigger.js?v=5.0.6',
-  './styles.css?v=5.0.6',
-  './manifest.json?v=5.0.6',
+  './index.html?v=5.0.7',
+  './app.js?v=5.0.7',
+  './theme-init.js?v=5.0.7',
+  './pwa-ui.js?v=5.0.7',
+  './report-enhancements.js?v=5.0.7',
+  './whatsapp-share-fix.js?v=5.0.7',
+  './general-improvements.js?v=5.0.7',
+  './light-trigger.js?v=5.0.7',
+  './styles.css?v=5.0.7',
+  './manifest.json?v=5.0.7',
   './assets/Icon-192.png',
-  './assets/Icon-512.png'
+  './assets/Icon-512.png',
+  './assets/lib/html2canvas.min.js',
+  './assets/lib/jspdf.umd.min.js'
 ];
 
 self.addEventListener('install', (event) => {
