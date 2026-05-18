@@ -68,7 +68,9 @@
     const style = document.createElement('style');
     style.id = 'operix-improvements-style';
     style.textContent = `
-      .extra-config-grid{border-top:1px solid var(--border);padding-top:8px;margin-top:4px}
+      .extra-config-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;border-top:1px solid var(--border);padding-top:8px;margin-top:4px}
+      .extra-config-grid .full-width{grid-column:span 2}
+      @media(min-width:768px){.extra-config-grid{grid-template-columns:1fr 1fr 1.5fr 0.6fr}.extra-config-grid .full-width{grid-column:span 4}}
       .operix-mini-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 8px;margin-top:8px;color:var(--text-main)}
       .operix-panel-title{font-size:.68rem;color:var(--text-muted);font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:7px;text-align:center}
       .impact-grid,.advanced-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
@@ -105,14 +107,13 @@
     const grid = document.querySelector('#configForm .config-grid');
     if(!grid || $('lineName')) return;
     const block = document.createElement('div');
-    block.className = 'config-grid extra-config-grid full-width';
-    block.style.gridColumn = 'span 2';
+    block.className = 'extra-config-grid full-width';
     block.innerHTML = `
       <div class="input-group"><label>Linha</label><input id="lineName" type="text" placeholder="Ex: Linha 1"></div>
       <div class="input-group"><label>Turno</label><input id="shiftName" type="text" placeholder="Ex: 1º turno"></div>
       <div class="input-group"><label>Produto</label><input id="productName" type="text" placeholder="Ex: Produto / código"></div>
-      <div class="input-group"><label>Horas/turno</label><input id="shiftHours" type="number" value="8" min="0.1" step="0.1" inputmode="decimal"></div>
-      <div class="input-group full-width"><label>Tolerância para tempo padrão (%)</label><input id="tolerancePct" type="number" value="10" min="0" step="0.5" inputmode="decimal"></div>
+      <div class="input-group extra-shift-hours"><label>Horas/turno</label><input id="shiftHours" type="number" value="8" min="0.1" step="0.1" inputmode="decimal"></div>
+      <div class="input-group extra-tolerance full-width"><label>Tolerância para tempo padrão (%)</label><input id="tolerancePct" type="number" value="10" min="0" step="0.5" inputmode="decimal"></div>
     `;
     grid.appendChild(block);
     const stored = getStoredExtras();
@@ -198,7 +199,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v5.0.7', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v5.0.8', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
