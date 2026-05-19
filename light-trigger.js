@@ -69,6 +69,10 @@
     let torchOn        = false;
     let torchSupported = false;
 
+    // foco
+    let focusLocked    = false;
+    let focusSupported = false;
+
     // ROI — modo retângulo
     let roi       = { x: 0, y: 0, w: 1, h: 1 };
     let roiMode   = 'idle';   // 'idle'|'drawing'|'moving'|'resize-tl'|'resize-tr'|'resize-bl'|'resize-br'
@@ -604,6 +608,36 @@
         return caps.torch === true;
     }
 
+    function checkFocusSupport() {
+        if (!stream) return false;
+        const track = stream.getVideoTracks()[0];
+        const caps  = track?.getCapabilities?.() ?? {};
+        return Array.isArray(caps.focusMode) && caps.focusMode.includes('manual');
+    }
+
+    async function setFocusLock(lock) {
+        if (!stream) return;
+        const track = stream.getVideoTracks()[0];
+        if (!track) return;
+        try {
+            if (lock) {
+                const dist = track.getSettings?.().focusDistance;
+                const adv  = { focusMode: 'manual' };
+                if (Number.isFinite(dist)) adv.focusDistance = dist;
+                await track.applyConstraints({ advanced: [adv] });
+            } else {
+                await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            }
+            focusLocked = lock;
+            const btn = document.getElementById('btnLtFocus');
+            if (btn) {
+                btn.classList.toggle('lt-focus-on', lock);
+                btn.title       = lock ? 'Desbloquear foco' : 'Travar foco (evita reajuste ao passar objeto)';
+                btn.textContent = lock ? '🔒 foco' : '🔓 foco';
+            }
+        } catch (_) {}
+    }
+
     // ---------- preview ao vivo ----------
     function injectPreviewStyles() {
         if (document.getElementById('lt-preview-style')) return;
@@ -618,6 +652,7 @@
           .lt-preview-toggle{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-size:.75rem;padding:2px 7px;cursor:pointer;line-height:1.4}
           .lt-torch-btn{background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-size:.75rem;padding:2px 7px;cursor:pointer;line-height:1.4;transition:background .15s,color .15s}
           .lt-torch-btn.lt-torch-on{background:#f39c12;border-color:#e67e22;color:#fff}
+          .lt-torch-btn.lt-focus-on{background:#2980b9;border-color:#3498db;color:#fff}
           .lt-preview-body{display:flex;gap:8px;align-items:flex-start}
           .lt-preview-body.lt-collapsed{display:none}
           .lt-vfeed{flex:1;background:#000;border-radius:6px;overflow:hidden;aspect-ratio:4/3;min-width:0;position:relative}
@@ -654,6 +689,8 @@
 
         torchSupported = checkTorchSupport();
         torchOn        = false;
+        focusSupported = checkFocusSupport();
+        focusLocked    = false;
 
         previewVideo           = document.createElement('video');
         previewVideo.srcObject = liveStream;
@@ -664,6 +701,9 @@
         const torchBtn = torchSupported
             ? `<button class="lt-torch-btn" id="btnLtTorch" type="button" title="Ligar lanterna">🔦 apagada</button>`
             : '';
+        const focusBtn = focusSupported
+            ? `<button class="lt-torch-btn" id="btnLtFocus" type="button" title="Travar foco (evita reajuste ao passar objeto)">🔓 foco</button>`
+            : '';
 
         previewWrap = document.createElement('div');
         previewWrap.className = 'lt-preview';
@@ -673,6 +713,7 @@
               <span class="lt-preview-dot"></span>Câmera ao vivo
             </span>
             <span style="display:flex;gap:5px;align-items:center">
+              ${focusBtn}
               ${torchBtn}
               <button class="lt-preview-toggle" id="btnLtPreviewToggle" type="button">${previewOpen ? '▲ ocultar' : '▼ mostrar'}</button>
             </span>
@@ -774,6 +815,7 @@
         });
 
         document.getElementById('btnLtTorch')?.addEventListener('click', () => setTorch(!torchOn));
+        document.getElementById('btnLtFocus')?.addEventListener('click', () => setFocusLock(!focusLocked));
     }
 
     function hidePreview() {
@@ -848,6 +890,8 @@
         hidePreview();
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         torchOn = false; torchSupported = false;
+        if (focusLocked) setFocusLock(false);
+        focusLocked = false; focusSupported = false;
         roi = { x: 0, y: 0, w: 1, h: 1 }; roiMode = 'idle'; roiStart = null; roiAnchor = null; roiSnap = null;
         roiType = 'rect'; roiLine = { pos: 0.5, dir: 'vertical', activeSide: 'right' };
         lineMode = 'idle'; lineDragStart = null;
@@ -995,4 +1039,6 @@
     } else {
         init();
     }
+
+    window.resetSensorCount = function () { flashCount = 0; updateCountDisplay(); };
 })();
