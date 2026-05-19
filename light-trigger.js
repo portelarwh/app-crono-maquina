@@ -1,34 +1,34 @@
 /* =========================================================
-   LIGHT TRIGGER v2.1 — câmera + auto-start + descartar 1ª
+   LIGHT TRIGGER v2.2 — câmera + auto-start + descartar 1ª
    • flash  — pico de luminância (LED, estroboscópio)
    • motion — diferença entre frames (peça passando, visor)
    • color  — alternância de zona de cor (verde ↔ vermelho)
+   • change — variação de cor/brilho vs baseline (contador)
    ========================================================= */
 (function () {
     'use strict';
 
     const STORAGE_KEY = 'lightTriggerCfg';
 
-    // Limiares por nível 1–5 para cada modo
-    const SENS_FLASH  = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];                          // delta de luminância (0–255)
-    const SENS_MOTION = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005]; // fração de pixels alterados (0–1)
-    const SENS_COLOR  = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];                         // gap R−G ou G−R para classificar zona
+    // Limiares por nível 1–10 para cada modo
+    const SENS_FLASH  = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];
+    const SENS_MOTION = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005];
+    const SENS_COLOR  = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];
+    const SENS_CHANGE = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];
 
-    const MODES = ['flash', 'motion', 'color'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false };
+    const MODES = ['flash', 'motion', 'color', 'change'];
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
         cfg = Object.assign(cfg, saved);
-        // migração: versões antigas guardavam threshold direto
         if (!cfg.sensLevel && cfg.threshold) {
             const idx = SENS_FLASH.reduce((best, t, i) =>
                 Math.abs(t - cfg.threshold) < Math.abs(SENS_FLASH[best] - cfg.threshold) ? i : best, 0);
             cfg.sensLevel = idx + 1;
             delete cfg.threshold;
         }
-        // migração: escala 1-5 → 1-10 (multiplica por 2, subtract 1)
         if (cfg.sensLevel >= 1 && cfg.sensLevel <= 5 && Number.isInteger(cfg.sensLevel)) {
             cfg.sensLevel = cfg.sensLevel * 2 - 1;
         }
@@ -43,21 +43,22 @@
     const SAMPLE_W = 16;
     const SAMPLE_H = 16;
 
-    let stream      = null;
-    let video       = null;
-    let cvs         = null;
-    let ctx         = null;
-    let rafId       = null;
-    let prevLum     = -1;
-    let lumHistory  = [];       // flash mode: janela de mínimos recentes (≈15 frames)
-    let prevPixels  = null;  // motion mode: frame anterior
-    let prevZone    = null;  // color mode: zona anterior ('red'|'green')
-    let onCooldown  = false;
-    let isActive    = false;
-    let flashCount  = 0;
-    let isArmed     = false;   // aguardando 1º evento para iniciar o cronômetro (autoStart)
-    let discardNext = false;   // próxima detecção descartada sem registrar lap (discardFirst)
-    let fromSensor  = false;   // clique programático em btnStart originado pelo sensor
+    let stream         = null;
+    let video          = null;
+    let cvs            = null;
+    let ctx            = null;
+    let rafId          = null;
+    let prevLum        = -1;
+    let lumHistory     = [];
+    let changeBaseline = null;
+    let prevPixels     = null;
+    let prevZone       = null;
+    let onCooldown     = false;
+    let isActive       = false;
+    let flashCount     = 0;
+    let isArmed        = false;
+    let discardNext    = false;
+    let fromSensor     = false;
 
     // preview ao vivo
     let previewVideo = null;
@@ -68,12 +69,18 @@
     let torchOn        = false;
     let torchSupported = false;
 
-    // região de interesse (ROI) — valores normalizados 0–1
+    // ROI — modo retângulo
     let roi       = { x: 0, y: 0, w: 1, h: 1 };
     let roiMode   = 'idle';   // 'idle'|'drawing'|'moving'|'resize-tl'|'resize-tr'|'resize-bl'|'resize-br'
-    let roiStart  = null;     // { x, y } ponto de toque normalizado
-    let roiAnchor = null;     // canto oposto fixo durante resize
-    let roiSnap   = null;     // snapshot do roi no momento do toque (move)
+    let roiStart  = null;
+    let roiAnchor = null;
+    let roiSnap   = null;
+
+    // ROI — modo linha
+    let roiType       = 'rect';   // 'rect' | 'line'
+    let roiLine       = { pos: 0.5, dir: 'vertical', activeSide: 'right' };
+    let lineMode      = 'idle';   // 'idle' | 'dragging' | 'flip'
+    let lineDragStart = null;
 
     // ---------- elementos DOM ----------
     let btnSensor, sensorIndicator, sensorBarFill;
@@ -84,7 +91,7 @@
     let btnLap, btnStart;
     let btnAutoStart, btnDiscardFirst, armedLabel;
 
-    // ---------- análise de luminância média (luma perceptual) ----------
+    // ---------- análise de luminância média ----------
     function avgLuminance(d) {
         let s = 0;
         for (let i = 0; i < d.length; i += 4) {
@@ -93,12 +100,24 @@
         return s / (SAMPLE_W * SAMPLE_H);
     }
 
+    // ---------- média RGB por canal ----------
+    function avgRGB(d) {
+        let r = 0, g = 0, b = 0;
+        const n = SAMPLE_W * SAMPLE_H;
+        for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
+        return { r: r/n, g: g/n, b: b/n };
+    }
+    function rgbDist(a, b) {
+        const dr = a.r-b.r, dg = a.g-b.g, db = a.b-b.b;
+        return Math.sqrt(dr*dr + dg*dg + db*db);
+    }
+
     // ---------- fração de pixels que mudaram vs frame anterior ----------
     function motionFraction(d) {
         if (!prevPixels) return 0;
         let changed = 0;
         for (let i = 0; i < d.length; i += 4) {
-            if (Math.abs(d[i] - prevPixels[i]) + Math.abs(d[i + 1] - prevPixels[i + 1]) + Math.abs(d[i + 2] - prevPixels[i + 2]) > 30) {
+            if (Math.abs(d[i] - prevPixels[i]) + Math.abs(d[i+1] - prevPixels[i+1]) + Math.abs(d[i+2] - prevPixels[i+2]) > 30) {
                 changed++;
             }
         }
@@ -109,12 +128,38 @@
     function detectColorZone(d) {
         let rSum = 0, gSum = 0;
         const n = SAMPLE_W * SAMPLE_H;
-        for (let i = 0; i < d.length; i += 4) { rSum += d[i]; gSum += d[i + 1]; }
+        for (let i = 0; i < d.length; i += 4) { rSum += d[i]; gSum += d[i+1]; }
         const gap  = SENS_COLOR[(cfg.sensLevel || 5) - 1];
         const rAvg = rSum / n, gAvg = gSum / n;
         if (rAvg - gAvg > gap) return 'red';
         if (gAvg - rAvg > gap) return 'green';
         return 'neutral';
+    }
+
+    // ---------- máscara de linha: zera pixels do lado inativo ----------
+    function applyLineMask(d) {
+        const isVert = roiLine.dir === 'vertical';
+        const cut    = Math.round(roiLine.pos * (isVert ? SAMPLE_W : SAMPLE_H));
+        for (let row = 0; row < SAMPLE_H; row++) {
+            for (let col = 0; col < SAMPLE_W; col++) {
+                const coord    = isVert ? col : row;
+                const inactive = (roiLine.activeSide === 'right' || roiLine.activeSide === 'bottom')
+                    ? coord < cut
+                    : coord >= cut;
+                if (inactive) {
+                    const i = (row * SAMPLE_W + col) * 4;
+                    d[i] = d[i+1] = d[i+2] = 0;
+                }
+            }
+        }
+    }
+
+    // ---------- converte frame para escala de cinza ----------
+    function applyGrayscale(d) {
+        for (let i = 0; i < d.length; i += 4) {
+            const g = Math.round(d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
+            d[i] = d[i+1] = d[i+2] = g;
+        }
     }
 
     // ---------- atualiza display do contador ----------
@@ -141,7 +186,6 @@
 
     // ---------- dispara evento detectado ----------
     function triggerEvent() {
-        // modo armado: primeiro evento inicia o cronômetro em vez de registrar lap
         if (isArmed) {
             isArmed = false;
             prevLum = -1; lumHistory = []; prevPixels = null; prevZone = null; flashCount = 0;
@@ -156,7 +200,6 @@
             return;
         }
 
-        // primeiro lap após iniciar: descartar se configurado
         if (discardNext) {
             discardNext = false;
             flashCount  = 0;
@@ -168,7 +211,6 @@
             return;
         }
 
-        // contagem normal
         flashCount++;
         updateCountDisplay();
         if (sensorIndicator) {
@@ -190,38 +232,61 @@
 
         const vW = video.videoWidth  || SAMPLE_W;
         const vH = video.videoHeight || SAMPLE_H;
-        ctx.drawImage(video,
-            Math.round(roi.x * vW), Math.round(roi.y * vH),
-            Math.max(1, Math.round(roi.w * vW)), Math.max(1, Math.round(roi.h * vH)),
-            0, 0, SAMPLE_W, SAMPLE_H);
-        const d   = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H).data;
-        const lum = avgLuminance(d);
 
+        if (roiType === 'rect') {
+            ctx.drawImage(video,
+                Math.round(roi.x * vW), Math.round(roi.y * vH),
+                Math.max(1, Math.round(roi.w * vW)), Math.max(1, Math.round(roi.h * vH)),
+                0, 0, SAMPLE_W, SAMPLE_H);
+        } else {
+            ctx.drawImage(video, 0, 0, vW, vH, 0, 0, SAMPLE_W, SAMPLE_H);
+        }
+
+        const imgData = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H);
+        const d       = imgData.data;
+
+        // pré-processamento: linha e escala de cinza
+        if (roiType === 'line') applyLineMask(d);
+        if (cfg.grayscale)      applyGrayscale(d);
+
+        // devolve os pixels processados ao canvas (para preview)
+        ctx.putImageData(imgData, 0, 0);
+
+        const lum  = avgLuminance(d);
         const sens = (cfg.sensLevel || 5) - 1;
 
-        // flash mode: mantém janela de mínimos recentes (15 frames ≈ 250 ms a 60 fps)
+        let changeRGB = null;
         if (cfg.mode === 'flash') {
             lumHistory.push(lum);
             if (lumHistory.length > 15) lumHistory.shift();
+        } else if (cfg.mode === 'change') {
+            changeRGB = avgRGB(d);
+            if (changeBaseline === null) {
+                changeBaseline = { ...changeRGB };
+            } else {
+                const alpha = onCooldown ? 0.15 : 0.02;
+                changeBaseline.r += (changeRGB.r - changeBaseline.r) * alpha;
+                changeBaseline.g += (changeRGB.g - changeBaseline.g) * alpha;
+                changeBaseline.b += (changeRGB.b - changeBaseline.b) * alpha;
+            }
         }
 
-        // barra de nível — varia conforme modo
         if (sensorBarFill) {
             if (cfg.mode === 'motion') {
-                const score = motionFraction(d);
-                sensorBarFill.style.width = Math.min(100, score * 500).toFixed(1) + '%';
+                sensorBarFill.style.width = Math.min(100, motionFraction(d) * 500).toFixed(1) + '%';
                 sensorBarFill.dataset.zone = '';
             } else if (cfg.mode === 'color') {
                 const zone = detectColorZone(d);
                 sensorBarFill.style.width = zone !== 'neutral' ? '100%' : '30%';
                 sensorBarFill.dataset.zone = zone;
+            } else if (cfg.mode === 'change') {
+                const dist = (changeRGB && changeBaseline) ? rgbDist(changeRGB, changeBaseline) : 0;
+                sensorBarFill.style.width = Math.min(100, (dist / (SENS_CHANGE[sens] || 1)) * 100).toFixed(1) + '%';
+                sensorBarFill.dataset.zone = '';
             } else {
-                // flash: mostra % do limiar para dar feedback visual claro
                 const hist  = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
-                const base  = Math.min(...hist);
-                const delta = Math.max(0, lum - base);
-                const thresh = SENS_FLASH[sens] || 1;
-                sensorBarFill.style.width = Math.min(100, (delta / thresh) * 100).toFixed(1) + '%';
+                const delta = Math.max(0, lum - Math.min(...hist));
+                sensorBarFill.style.width = Math.min(100, (delta / (SENS_FLASH[sens] || 1)) * 100).toFixed(1) + '%';
                 sensorBarFill.dataset.zone = '';
             }
         }
@@ -230,25 +295,25 @@
             let detected = false;
 
             if (cfg.mode === 'flash') {
-                // compara luminância atual ao mínimo recente (janela de 15 frames)
-                // capta mudanças graduais e flashes rápidos igualmente
-                const hist  = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
+                const hist     = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
                 const baseline = Math.min(...hist);
-                const delta    = lum - baseline;
-                if (prevLum >= 0 && delta >= SENS_FLASH[sens]) detected = true;
+                if (prevLum >= 0 && lum - baseline >= SENS_FLASH[sens]) detected = true;
 
             } else if (cfg.mode === 'motion') {
-                const score = motionFraction(d);
-                if (prevPixels && score >= SENS_MOTION[sens]) detected = true;
+                if (prevPixels && motionFraction(d) >= SENS_MOTION[sens]) detected = true;
 
             } else if (cfg.mode === 'color') {
                 const zone = detectColorZone(d);
                 if (zone !== 'neutral' && prevZone && zone !== prevZone) detected = true;
                 if (zone !== 'neutral') prevZone = zone;
+
+            } else if (cfg.mode === 'change') {
+                if (changeRGB && changeBaseline && rgbDist(changeRGB, changeBaseline) >= SENS_CHANGE[sens]) detected = true;
             }
 
             if (detected) {
-                lumHistory = [lum]; // reseta janela para evitar re-trigger pós-cooldown
+                if (cfg.mode === 'flash')  lumHistory = [lum];
+                if (cfg.mode === 'change') changeBaseline = null;
                 onCooldown = true;
                 triggerEvent();
                 setTimeout(() => { onCooldown = false; }, cfg.cooldownMs);
@@ -260,29 +325,74 @@
         updatePreviewCanvas();
     }
 
-    // ---------- lanterna ----------
-    // ---------- ROI — overlay e drag ----------
-    const HANDLE_R  = 10; // raio de hit-test em px (touch-friendly)
-    const HANDLE_SZ = 9;  // tamanho visual da alça em px
+    // ---------- ROI overlay e drag ----------
+    const HANDLE_R  = 10;
+    const HANDLE_SZ = 9;
     const CURSORS   = { 'idle':'crosshair', 'drawing':'crosshair', 'moving':'move',
                         'resize-tl':'nwse-resize', 'resize-br':'nwse-resize',
-                        'resize-tr':'nesw-resize', 'resize-bl':'nesw-resize' };
+                        'resize-tr':'nesw-resize',  'resize-bl':'nesw-resize' };
 
     function roiHitTest(nx, ny, W, H) {
         const full = roi.x === 0 && roi.y === 0 && roi.w === 1 && roi.h === 1;
         if (full) return 'drawing';
         const hx = HANDLE_R / W, hy = HANDLE_R / H;
         const corners = [
-            ['resize-tl', roi.x,          roi.y         ],
-            ['resize-tr', roi.x + roi.w,  roi.y         ],
-            ['resize-bl', roi.x,          roi.y + roi.h ],
-            ['resize-br', roi.x + roi.w,  roi.y + roi.h ],
+            ['resize-tl', roi.x,         roi.y        ],
+            ['resize-tr', roi.x + roi.w, roi.y        ],
+            ['resize-bl', roi.x,         roi.y + roi.h],
+            ['resize-br', roi.x + roi.w, roi.y + roi.h],
         ];
         for (const [name, cx, cy] of corners) {
             if (Math.abs(nx - cx) < hx && Math.abs(ny - cy) < hy) return name;
         }
         if (nx > roi.x && nx < roi.x + roi.w && ny > roi.y && ny < roi.y + roi.h) return 'moving';
         return 'drawing';
+    }
+
+    function drawLineOverlay(cx, W, H) {
+        const isVert = roiLine.dir === 'vertical';
+        const lp     = roiLine.pos;
+        const active = roiLine.activeSide;
+
+        // shade inactive side
+        cx.fillStyle = 'rgba(0,0,0,0.42)';
+        if (isVert) {
+            if (active === 'right') cx.fillRect(0, 0, lp * W, H);
+            else                    cx.fillRect(lp * W, 0, (1 - lp) * W, H);
+        } else {
+            if (active === 'bottom') cx.fillRect(0, 0, W, lp * H);
+            else                     cx.fillRect(0, lp * H, W, (1 - lp) * H);
+        }
+
+        // dashed red line
+        cx.strokeStyle = '#ff4444';
+        cx.lineWidth   = 2;
+        cx.setLineDash([6, 4]);
+        cx.beginPath();
+        if (isVert) { cx.moveTo(lp * W, 0); cx.lineTo(lp * W, H); }
+        else        { cx.moveTo(0, lp * H); cx.lineTo(W, lp * H); }
+        cx.stroke();
+        cx.setLineDash([]);
+
+        // arrow on active side
+        cx.fillStyle    = 'rgba(255,100,100,0.9)';
+        cx.font         = 'bold 13px sans-serif';
+        cx.textAlign    = 'center';
+        cx.textBaseline = 'middle';
+        if (isVert) {
+            const ax = active === 'right' ? lp * W + (1 - lp) * W * 0.45 : lp * W * 0.45;
+            cx.fillText('►', ax, H / 2);
+        } else {
+            const ay = active === 'bottom' ? lp * H + (1 - lp) * H * 0.45 : lp * H * 0.45;
+            cx.fillText('▼', W / 2, ay);
+        }
+
+        // hint
+        cx.fillStyle    = 'rgba(255,255,255,0.45)';
+        cx.font         = 'bold 8px sans-serif';
+        cx.textAlign    = 'center';
+        cx.textBaseline = 'alphabetic';
+        cx.fillText('arraste a linha · toque p/ trocar lado', W / 2, H - 5);
     }
 
     function drawRoiOverlay() {
@@ -295,45 +405,58 @@
         const W = oc.width, H = oc.height;
         const cx = oc.getContext('2d');
         cx.clearRect(0, 0, W, H);
+
+        if (roiType === 'line') {
+            drawLineOverlay(cx, W, H);
+            const btn = document.getElementById('btnLtRoiReset');
+            if (btn) btn.style.display = '';
+            return;
+        }
+
+        // rect mode
         const full = roi.x === 0 && roi.y === 0 && roi.w === 1 && roi.h === 1;
 
         if (!full) {
-            // sombra fora do alvo
             cx.fillStyle = 'rgba(0,0,0,0.52)';
             cx.fillRect(0, 0, W, H);
-            cx.clearRect(roi.x*W, roi.y*H, roi.w*W, roi.h*H);
+            cx.clearRect(roi.x * W, roi.y * H, roi.w * W, roi.h * H);
         }
 
-        // borda do ROI
         cx.strokeStyle = full ? 'rgba(0,229,255,0.22)' : '#00e5ff';
         cx.lineWidth   = 2;
-        cx.strokeRect(roi.x*W + 1, roi.y*H + 1, roi.w*W - 2, roi.h*H - 2);
+        cx.strokeRect(roi.x * W + 1, roi.y * H + 1, roi.w * W - 2, roi.h * H - 2);
 
         if (!full) {
-            // alças dos cantos
             const hs = HANDLE_SZ;
-            cx.fillStyle = '#00e5ff';
+            cx.fillStyle   = '#00e5ff';
             cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 3;
-            [ [roi.x*W,          roi.y*H         ],
-              [roi.x*W + roi.w*W, roi.y*H         ],
-              [roi.x*W,           roi.y*H + roi.h*H],
-              [roi.x*W + roi.w*W, roi.y*H + roi.h*H] ]
+            [ [roi.x * W,              roi.y * H             ],
+              [roi.x * W + roi.w * W,  roi.y * H             ],
+              [roi.x * W,              roi.y * H + roi.h * H ],
+              [roi.x * W + roi.w * W,  roi.y * H + roi.h * H] ]
             .forEach(([px, py]) => cx.fillRect(px - hs/2, py - hs/2, hs, hs));
             cx.shadowBlur = 0;
 
-            // indicador de modo dentro do alvo (ícone de mover)
-            cx.fillStyle = 'rgba(0,229,255,0.35)';
-            cx.font = `${Math.max(10, Math.min(16, roi.w*W*0.25))}px sans-serif`;
-            cx.textAlign = 'center'; cx.textBaseline = 'middle';
-            cx.fillText('✥', (roi.x + roi.w/2)*W, (roi.y + roi.h/2)*H);
+            cx.fillStyle    = 'rgba(0,229,255,0.35)';
+            cx.font         = `${Math.max(10, Math.min(16, roi.w * W * 0.25))}px sans-serif`;
+            cx.textAlign    = 'center'; cx.textBaseline = 'middle';
+            cx.fillText('✥', (roi.x + roi.w / 2) * W, (roi.y + roi.h / 2) * H);
+
+            if (roi.w > 0.08 && roi.h > 0.05) {
+                const rRaw      = roi.w / roi.h;
+                const ratioText = rRaw >= 1 ? `${rRaw.toFixed(1)}:1` : `1:${(1/rRaw).toFixed(1)}`;
+                cx.fillStyle    = 'rgba(0,229,255,0.75)';
+                cx.font         = 'bold 9px monospace';
+                cx.textAlign    = 'right'; cx.textBaseline = 'top';
+                cx.fillText(ratioText, (roi.x + roi.w) * W - 4, roi.y * H + 4);
+            }
         }
 
-        // instrução no quadro completo
         if (full) {
-            cx.fillStyle = 'rgba(255,255,255,0.52)';
-            cx.font = 'bold 9px sans-serif';
-            cx.textAlign = 'center'; cx.textBaseline = 'alphabetic';
-            cx.fillText('arraste para definir alvo', W/2, H - 6);
+            cx.fillStyle    = 'rgba(255,255,255,0.52)';
+            cx.font         = 'bold 9px sans-serif';
+            cx.textAlign    = 'center'; cx.textBaseline = 'alphabetic';
+            cx.fillText('arraste para definir alvo', W / 2, H - 6);
         }
 
         const btn = document.getElementById('btnLtRoiReset');
@@ -354,11 +477,22 @@
         }
 
         overlayCanvas.addEventListener('pointermove', e => {
-            if (roiMode === 'idle') {
-                setCursor(roiHitTest(pos(e).x, pos(e).y, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight));
+            const cur = pos(e);
+
+            if (roiType === 'line') {
+                if (lineMode === 'dragging') {
+                    roiLine.pos = roiLine.dir === 'vertical'
+                        ? Math.max(0.05, Math.min(0.95, cur.x))
+                        : Math.max(0.05, Math.min(0.95, cur.y));
+                    drawRoiOverlay();
+                }
                 return;
             }
-            const cur = pos(e);
+
+            if (roiMode === 'idle') {
+                setCursor(roiHitTest(cur.x, cur.y, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight));
+                return;
+            }
             if (roiMode === 'drawing') {
                 roi.x = Math.min(roiStart.x, cur.x);
                 roi.y = Math.min(roiStart.y, cur.y);
@@ -370,11 +504,19 @@
                 roi.y = Math.max(0, Math.min(1 - roiSnap.h, roiSnap.y + dy));
                 roi.w = roiSnap.w; roi.h = roiSnap.h;
             } else if (roiMode.startsWith('resize-')) {
-                const x1 = Math.max(0, Math.min(roiAnchor.x, cur.x));
-                const y1 = Math.max(0, Math.min(roiAnchor.y, cur.y));
-                const x2 = Math.min(1, Math.max(roiAnchor.x, cur.x));
-                const y2 = Math.min(1, Math.max(roiAnchor.y, cur.y));
-                roi.x = x1; roi.y = y1; roi.w = x2 - x1; roi.h = y2 - y1;
+                const dxRaw = cur.x - roiAnchor.x;
+                const dyRaw = cur.y - roiAnchor.y;
+                const AR    = (roiSnap && roiSnap.h > 0.001) ? roiSnap.w / roiSnap.h : 1;
+                const wByX  = Math.abs(dxRaw);
+                const wByY  = Math.abs(dyRaw) * AR;
+                const newW  = Math.max(0.04, wByX > wByY ? wByX : wByY);
+                const newH  = newW / AR;
+                const x1    = dxRaw >= 0 ? roiAnchor.x : roiAnchor.x - newW;
+                const y1    = dyRaw >= 0 ? roiAnchor.y : roiAnchor.y - newH;
+                roi.x = Math.max(0, Math.min(1 - 0.04, x1));
+                roi.y = Math.max(0, Math.min(1 - 0.04, y1));
+                roi.w = Math.min(newW, 1 - roi.x);
+                roi.h = roi.w / AR;
             }
             drawRoiOverlay();
         });
@@ -382,15 +524,32 @@
         overlayCanvas.addEventListener('pointerdown', e => {
             e.preventDefault();
             const p = pos(e);
+
+            if (roiType === 'line') {
+                const isVert     = roiLine.dir === 'vertical';
+                const linePixPos = isVert
+                    ? roiLine.pos * overlayCanvas.offsetWidth
+                    : roiLine.pos * overlayCanvas.offsetHeight;
+                const pointerPix = isVert
+                    ? p.x * overlayCanvas.offsetWidth
+                    : p.y * overlayCanvas.offsetHeight;
+                lineMode      = Math.abs(pointerPix - linePixPos) < HANDLE_R * 2.5 ? 'dragging' : 'flip';
+                lineDragStart = p;
+                overlayCanvas.style.cursor = lineMode === 'dragging'
+                    ? (isVert ? 'ew-resize' : 'ns-resize')
+                    : 'pointer';
+                overlayCanvas.setPointerCapture(e.pointerId);
+                return;
+            }
+
             const hit = roiHitTest(p.x, p.y, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight);
             roiMode  = hit;
             roiStart = p;
-            if (hit === 'moving') {
-                roiSnap = { ...roi };
-            } else if (hit.startsWith('resize-')) {
+            roiSnap  = { ...roi };
+            if (hit.startsWith('resize-')) {
                 const ox = { tl: roi.x+roi.w, tr: roi.x, bl: roi.x+roi.w, br: roi.x };
                 const oy = { tl: roi.y+roi.h, tr: roi.y+roi.h, bl: roi.y, br: roi.y };
-                const k  = hit.slice(7); // 'tl' | 'tr' | 'bl' | 'br'
+                const k  = hit.slice(7);
                 roiAnchor = { x: ox[k], y: oy[k] };
             }
             setCursor(hit);
@@ -398,6 +557,21 @@
         });
 
         overlayCanvas.addEventListener('pointerup', () => {
+            if (roiType === 'line') {
+                if (lineMode === 'flip' && lineDragStart) {
+                    // set active side to the side that was tapped
+                    if (roiLine.dir === 'vertical') {
+                        roiLine.activeSide = lineDragStart.x >= roiLine.pos ? 'right' : 'left';
+                    } else {
+                        roiLine.activeSide = lineDragStart.y >= roiLine.pos ? 'bottom' : 'top';
+                    }
+                }
+                lineMode = 'idle'; lineDragStart = null;
+                overlayCanvas.style.cursor = 'crosshair';
+                drawRoiOverlay();
+                return;
+            }
+
             if (roiMode === 'drawing' && (roi.w < 0.06 || roi.h < 0.06)) {
                 roi = { x: 0, y: 0, w: 1, h: 1 };
             }
@@ -417,7 +591,7 @@
             const btn = document.getElementById('btnLtTorch');
             if (btn) {
                 btn.classList.toggle('lt-torch-on', on);
-                btn.title = on ? 'Desligar lanterna' : 'Ligar lanterna';
+                btn.title       = on ? 'Desligar lanterna' : 'Ligar lanterna';
                 btn.textContent = on ? '🔦 acesa' : '🔦 apagada';
             }
         } catch (_) {}
@@ -454,8 +628,24 @@
           .lt-vsample{width:72px;flex:none}
           .lt-vsample-canvas{width:72px;height:72px;border-radius:6px;border:1px solid var(--border);display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
           .lt-vsample-label{font-size:.52rem;color:var(--text-muted);text-align:center;margin-top:3px;font-weight:700;text-transform:uppercase}
+          .lt-roi-type-ctrl{position:absolute;top:4px;left:4px;display:flex;gap:3px;z-index:5}
+          .lt-roi-type-btn{background:rgba(0,0,0,0.62);border:1px solid rgba(255,255,255,0.22);border-radius:4px;color:rgba(255,255,255,0.82);font-size:.72rem;font-weight:700;padding:3px 6px;cursor:pointer;line-height:1;transition:background .15s,border-color .15s,color .15s;-webkit-tap-highlight-color:transparent}
+          .lt-roi-type-btn.active{background:rgba(0,180,220,0.75);border-color:#00b4dc;color:#fff}
+          .lt-roi-type-btn.lt-line-active{background:rgba(220,60,60,0.75);border-color:#ff4444;color:#fff}
+          .lt-roi-type-btn.lt-bw-on{background:rgba(220,220,220,0.82);border-color:#bbb;color:#111}
         `;
         document.head.appendChild(s);
+    }
+
+    function applyRoiTypeBtns() {
+        const btnRect = document.getElementById('btnRoiRect');
+        const btnLine = document.getElementById('btnRoiLine');
+        const btnDir  = document.getElementById('btnLineDir');
+        const btnBw   = document.getElementById('btnRoiBw');
+        if (btnRect) btnRect.classList.toggle('active', roiType === 'rect');
+        if (btnLine) btnLine.classList.toggle('lt-line-active', roiType === 'line');
+        if (btnDir)  { btnDir.style.display = roiType === 'line' ? '' : 'none'; btnDir.textContent = roiLine.dir === 'vertical' ? '↕' : '↔'; }
+        if (btnBw)   btnBw.classList.toggle('lt-bw-on', !!cfg.grayscale);
     }
 
     function showPreview(liveStream) {
@@ -490,8 +680,14 @@
           <div class="lt-preview-body${previewOpen ? '' : ' lt-collapsed'}" id="ltPreviewBody">
             <div class="lt-vfeed" id="ltVfeed">
               <canvas class="lt-roi-overlay" id="ltRoiOverlay"></canvas>
-              <button class="lt-roi-reset" id="btnLtRoiReset" type="button" title="Resetar alvo para quadro completo">✕ alvo</button>
-              <span class="lt-vfeed-label">vídeo · arraste para definir alvo</span>
+              <div class="lt-roi-type-ctrl" id="ltRoiTypeCtrl">
+                <button class="lt-roi-type-btn" id="btnRoiRect" type="button" title="Retângulo de interesse">⬚</button>
+                <button class="lt-roi-type-btn" id="btnRoiLine" type="button" title="Linha de gatilho">⊟</button>
+                <button class="lt-roi-type-btn" id="btnLineDir" type="button" title="Girar linha 90°" style="display:none">↕</button>
+                <button class="lt-roi-type-btn" id="btnRoiBw"   type="button" title="Escala de cinza / Cor">BW</button>
+              </div>
+              <button class="lt-roi-reset" id="btnLtRoiReset" type="button" title="Resetar alvo">✕ alvo</button>
+              <span class="lt-vfeed-label" id="ltVfeedLabel">vídeo · arraste para definir alvo</span>
             </div>
             <div class="lt-vsample">
               <canvas class="lt-vsample-canvas" id="ltSampleCanvas" width="16" height="16"></canvas>
@@ -508,16 +704,63 @@
         const vfeed = document.getElementById('ltVfeed');
         vfeed.insertBefore(previewVideo, document.getElementById('ltRoiOverlay'));
 
-        // ROI: drag no overlay
         const overlay = document.getElementById('ltRoiOverlay');
         if (overlay) {
             setupRoiDrag(overlay);
             requestAnimationFrame(() => drawRoiOverlay());
         }
 
-        // Botão reset ROI
+        // aplicar estado inicial dos botões
+        applyRoiTypeBtns();
+
+        // rect mode
+        document.getElementById('btnRoiRect')?.addEventListener('click', () => {
+            roiType = 'rect';
+            roi = { x: 0.35, y: 0.35, w: 0.30, h: 0.30 }; // centered 30% por padrão
+            applyRoiTypeBtns();
+            const lbl = document.getElementById('ltVfeedLabel');
+            if (lbl) lbl.textContent = 'vídeo · arraste para definir alvo';
+            drawRoiOverlay();
+        });
+
+        // line mode
+        document.getElementById('btnRoiLine')?.addEventListener('click', () => {
+            roiType = 'line';
+            roiLine = { pos: 0.5, dir: 'vertical', activeSide: 'right' };
+            applyRoiTypeBtns();
+            const lbl = document.getElementById('ltVfeedLabel');
+            if (lbl) lbl.textContent = 'linha · arraste · toque p/ trocar lado';
+            prevPixels = null; prevZone = null; prevLum = -1; changeBaseline = null;
+            drawRoiOverlay();
+        });
+
+        // rotate line direction
+        document.getElementById('btnLineDir')?.addEventListener('click', () => {
+            if (roiLine.dir === 'vertical') {
+                roiLine.dir = 'horizontal';
+                roiLine.activeSide = 'bottom';
+            } else {
+                roiLine.dir = 'vertical';
+                roiLine.activeSide = 'right';
+            }
+            applyRoiTypeBtns();
+            drawRoiOverlay();
+        });
+
+        // BW toggle
+        document.getElementById('btnRoiBw')?.addEventListener('click', () => {
+            cfg.grayscale = !cfg.grayscale;
+            saveCfg();
+            applyRoiTypeBtns();
+        });
+
+        // reset
         document.getElementById('btnLtRoiReset')?.addEventListener('click', () => {
-            roi = { x: 0, y: 0, w: 1, h: 1 };
+            if (roiType === 'line') {
+                roiLine.pos = 0.5;
+            } else {
+                roi = { x: 0, y: 0, w: 1, h: 1 };
+            }
             drawRoiOverlay();
         });
 
@@ -539,12 +782,11 @@
         if (previewWrap)  { previewWrap.remove(); previewWrap = null; }
     }
 
-    // copia o canvas de análise para o canvas de preview a cada frame
     function updatePreviewCanvas() {
         if (!previewOpen) return;
         const dest = document.getElementById('ltSampleCanvas');
         if (dest && cvs) { const dCtx = dest.getContext('2d'); if (dCtx) dCtx.drawImage(cvs, 0, 0); }
-        if (roiMode === 'idle') drawRoiOverlay();
+        if (roiMode === 'idle' && lineMode === 'idle') drawRoiOverlay();
     }
 
     // ---------- iniciar câmera ----------
@@ -563,10 +805,10 @@
                     frameRate: { ideal: 30, max: 60 }
                 }
             });
-            video             = document.createElement('video');
-            video.srcObject   = stream;
-            video.playsInline = true;
-            video.muted       = true;
+            video              = document.createElement('video');
+            video.srcObject    = stream;
+            video.playsInline  = true;
+            video.muted        = true;
             await video.play();
 
             cvs        = document.createElement('canvas');
@@ -603,13 +845,16 @@
         prevPixels  = null;
         prevZone    = null;
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
-        hidePreview();                                          // apaga lanterna antes de parar a track
+        hidePreview();
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         torchOn = false; torchSupported = false;
         roi = { x: 0, y: 0, w: 1, h: 1 }; roiMode = 'idle'; roiStart = null; roiAnchor = null; roiSnap = null;
+        roiType = 'rect'; roiLine = { pos: 0.5, dir: 'vertical', activeSide: 'right' };
+        lineMode = 'idle'; lineDragStart = null;
         video = cvs = ctx = null;
         prevLum = -1;
         lumHistory = [];
+        changeBaseline = null;
         updateUI(false);
         updateArmedUI();
         if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
@@ -652,7 +897,6 @@
                 cfg.mode === 'color'  ? 'troca/lap'  :
                 cfg.mode === 'motion' ? 'evento/lap' : 'flash/lap';
         }
-        // reseta estado de detecção ao trocar de modo sem parar câmera
         if (isActive) {
             prevPixels = null;
             prevZone   = null;
@@ -685,12 +929,10 @@
 
         if (!btnSensor) return;
 
-        // liga/desliga sensor
         btnSensor.addEventListener('click', () => {
             if (isActive) stopSensor(); else startSensor();
         });
 
-        // flashes por lap
         btnFplMinus?.addEventListener('click', () => {
             cfg.flashesPerLap = Math.max(1, cfg.flashesPerLap - 1);
             flashCount = Math.min(flashCount, cfg.flashesPerLap - 1);
@@ -701,7 +943,6 @@
             saveCfg(); updateCountDisplay(); applyFplButtons();
         });
 
-        // sensibilidade: 10 níveis com +/-
         btnSensMinus?.addEventListener('click', () => {
             cfg.sensLevel = Math.max(1, (cfg.sensLevel ?? 5) - 1);
             saveCfg(); applySensButtons();
@@ -711,12 +952,10 @@
             saveCfg(); applySensButtons();
         });
 
-        // modo de detecção
         modeBtns.forEach(btn => {
             btn.addEventListener('click', () => { cfg.mode = btn.dataset.mode; saveCfg(); applyModeButtons(); });
         });
 
-        // opções de acionamento
         btnAutoStart?.addEventListener('click', () => {
             cfg.autoStart = !cfg.autoStart;
             saveCfg();
@@ -728,7 +967,6 @@
             applyOptionButtons();
         });
 
-        // intercepta ações de sistema (capture phase)
         document.addEventListener('click', e => {
             const action = e.target?.closest('[data-action]')?.dataset?.action;
 
@@ -736,12 +974,10 @@
 
             if (action === 'start' && !fromSensor && isActive) {
                 if (cfg.autoStart && !isArmed) {
-                    // bloqueia o clique e arma o sensor — timer só inicia no 1º evento
                     e.stopPropagation();
                     isArmed = true;
                     updateArmedUI();
                 } else if (!cfg.autoStart && cfg.discardFirst) {
-                    // timer inicia normalmente, mas 1ª detecção será descartada
                     discardNext = true;
                 }
             }
