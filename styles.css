@@ -347,6 +347,29 @@ body.export-mode .chart-title{
             display: none !important;
         }
         .lap-obs-input::placeholder { color: var(--text-muted); }
+        .cause-section {
+            position: relative;
+            width: 100%;
+        }
+        .btn-toggle-causes {
+            position: absolute;
+            top: -22px;
+            right: 0;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px 6px 0 0;
+            border-bottom: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            line-height: 1.4;
+            letter-spacing: 0.02em;
+        }
+        .btn-toggle-causes:hover { color: var(--text-main); }
+        .cause-section.collapsed .lap-cause-grid { display: none !important; }
+        .cause-section.collapsed .btn-toggle-causes { border-radius: 6px; border-bottom: 1px solid var(--border); }
         .lap-cause-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;

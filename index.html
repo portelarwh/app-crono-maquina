@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
-    <link rel="manifest" href="manifest.json?v=5.1.11">
+    <link rel="manifest" href="manifest.json?v=5.1.12">
     <meta name="theme-color" content="#0d1117">
     <title>Cronoanálise Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="assets/lib/html2canvas.min.js"></script>
     <script src="assets/lib/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=5.1.11">
-    <script src="theme-init.js?v=5.1.11"></script>
+    <link rel="stylesheet" href="styles.css?v=5.1.12">
+    <script src="theme-init.js?v=5.1.12"></script>
 </head>
 <body>
 
@@ -626,7 +626,10 @@
         <input type="text" id="lapObs" class="lap-obs-input" placeholder="Observação do ciclo (opcional)..." maxlength="80">
     </div>
     <div id="downtimeIndicator" class="downtime-indicator" style="display:none" aria-live="polite"></div>
-    <div class="lap-cause-grid" id="lapCauseGrid" aria-label="Classificação do ciclo"></div>
+    <div class="cause-section" id="causeSectionWrap" style="display:none">
+        <button id="btnToggleCauses" class="btn-toggle-causes" type="button" title="Ocultar/mostrar tipos de parada" aria-label="Ocultar/mostrar tipos de parada">▾</button>
+        <div class="lap-cause-grid" id="lapCauseGrid" aria-label="Classificação do ciclo"></div>
+    </div>
 
     <!-- Sensor luminoso: indicador de brilho + configuração (visível quando ativo) -->
     <div id="sensorIndicator" class="sensor-indicator" style="display:none" aria-live="polite" aria-label="Sensor luminoso ativo">
@@ -673,11 +676,11 @@
     </div>
 </div>
 
-<script src="app.js?v=5.1.11" defer></script>
-<script src="general-improvements.js?v=5.1.11" defer></script>
-<script src="report-enhancements.js?v=5.1.11" defer></script>
-<script src="whatsapp-share-fix.js?v=5.1.11" defer></script>
-<script src="pwa-ui.js?v=5.1.11" defer></script>
-<script src="light-trigger.js?v=5.1.11" defer></script>
+<script src="app.js?v=5.1.12" defer></script>
+<script src="general-improvements.js?v=5.1.12" defer></script>
+<script src="report-enhancements.js?v=5.1.12" defer></script>
+<script src="whatsapp-share-fix.js?v=5.1.12" defer></script>
+<script src="pwa-ui.js?v=5.1.12" defer></script>
+<script src="light-trigger.js?v=5.1.12" defer></script>
 </body>
 </html>
