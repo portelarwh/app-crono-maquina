@@ -49,6 +49,7 @@
     let ctx         = null;
     let rafId       = null;
     let prevLum     = -1;
+    let lumHistory  = [];       // flash mode: janela de mínimos recentes (≈15 frames)
     let prevPixels  = null;  // motion mode: frame anterior
     let prevZone    = null;  // color mode: zona anterior ('red'|'green')
     let onCooldown  = false;
@@ -109,7 +110,7 @@
         let rSum = 0, gSum = 0;
         const n = SAMPLE_W * SAMPLE_H;
         for (let i = 0; i < d.length; i += 4) { rSum += d[i]; gSum += d[i + 1]; }
-        const gap  = SENS_COLOR[(cfg.sensLevel || 3) - 1];
+        const gap  = SENS_COLOR[(cfg.sensLevel || 5) - 1];
         const rAvg = rSum / n, gAvg = gSum / n;
         if (rAvg - gAvg > gap) return 'red';
         if (gAvg - rAvg > gap) return 'green';
@@ -143,7 +144,7 @@
         // modo armado: primeiro evento inicia o cronômetro em vez de registrar lap
         if (isArmed) {
             isArmed = false;
-            prevLum = -1; prevPixels = null; prevZone = null; flashCount = 0;
+            prevLum = -1; lumHistory = []; prevPixels = null; prevZone = null; flashCount = 0;
             updateArmedUI();
             updateCountDisplay();
             if (btnStart && !btnStart.disabled) {
@@ -196,6 +197,14 @@
         const d   = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H).data;
         const lum = avgLuminance(d);
 
+        const sens = (cfg.sensLevel || 5) - 1;
+
+        // flash mode: mantém janela de mínimos recentes (15 frames ≈ 250 ms a 60 fps)
+        if (cfg.mode === 'flash') {
+            lumHistory.push(lum);
+            if (lumHistory.length > 15) lumHistory.shift();
+        }
+
         // barra de nível — varia conforme modo
         if (sensorBarFill) {
             if (cfg.mode === 'motion') {
@@ -207,17 +216,25 @@
                 sensorBarFill.style.width = zone !== 'neutral' ? '100%' : '30%';
                 sensorBarFill.dataset.zone = zone;
             } else {
-                sensorBarFill.style.width = Math.min(100, (lum / 255) * 100).toFixed(1) + '%';
+                // flash: mostra % do limiar para dar feedback visual claro
+                const hist  = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
+                const base  = Math.min(...hist);
+                const delta = Math.max(0, lum - base);
+                const thresh = SENS_FLASH[sens] || 1;
+                sensorBarFill.style.width = Math.min(100, (delta / thresh) * 100).toFixed(1) + '%';
                 sensorBarFill.dataset.zone = '';
             }
         }
 
         if (!onCooldown) {
             let detected = false;
-            const sens = (cfg.sensLevel || 3) - 1;
 
             if (cfg.mode === 'flash') {
-                const delta = prevLum < 0 ? 0 : lum - prevLum;
+                // compara luminância atual ao mínimo recente (janela de 15 frames)
+                // capta mudanças graduais e flashes rápidos igualmente
+                const hist  = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
+                const baseline = Math.min(...hist);
+                const delta    = lum - baseline;
                 if (prevLum >= 0 && delta >= SENS_FLASH[sens]) detected = true;
 
             } else if (cfg.mode === 'motion') {
@@ -231,6 +248,7 @@
             }
 
             if (detected) {
+                lumHistory = [lum]; // reseta janela para evitar re-trigger pós-cooldown
                 onCooldown = true;
                 triggerEvent();
                 setTimeout(() => { onCooldown = false; }, cfg.cooldownMs);
@@ -591,6 +609,7 @@
         roi = { x: 0, y: 0, w: 1, h: 1 }; roiMode = 'idle'; roiStart = null; roiAnchor = null; roiSnap = null;
         video = cvs = ctx = null;
         prevLum = -1;
+        lumHistory = [];
         updateUI(false);
         updateArmedUI();
         if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
