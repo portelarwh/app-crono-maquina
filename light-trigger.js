@@ -9,12 +9,13 @@
 
     const STORAGE_KEY = 'lightTriggerCfg';
 
-    // Limiares por nível 1–5 para cada modo
-    const SENS_FLASH  = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];                          // delta de luminância (0–255)
-    const SENS_MOTION = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005]; // fração de pixels alterados (0–1)
-    const SENS_COLOR  = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];                         // gap R−G ou G−R para classificar zona
+    // Limiares por nível 1–10 para cada modo
+    const SENS_FLASH  = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];                              // delta de luminância (0–255)
+    const SENS_MOTION = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005];  // fração de pixels alterados (0–1)
+    const SENS_COLOR  = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];                             // gap R−G ou G−R para classificar zona
+    const SENS_CHANGE = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];                          // distância euclidiana RGB média (0–441)
 
-    const MODES = ['flash', 'motion', 'color'];
+    const MODES = ['flash', 'motion', 'color', 'change'];
     const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
@@ -49,7 +50,8 @@
     let ctx         = null;
     let rafId       = null;
     let prevLum     = -1;
-    let lumHistory  = [];       // flash mode: janela de mínimos recentes (≈15 frames)
+    let lumHistory    = [];   // flash mode: janela de mínimos recentes (≈15 frames)
+    let changeBaseline = null; // change mode: baseline RGB { r, g, b }
     let prevPixels  = null;  // motion mode: frame anterior
     let prevZone    = null;  // color mode: zona anterior ('red'|'green')
     let onCooldown  = false;
@@ -91,6 +93,18 @@
             s += d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
         }
         return s / (SAMPLE_W * SAMPLE_H);
+    }
+
+    // ---------- média RGB por canal ----------
+    function avgRGB(d) {
+        let r = 0, g = 0, b = 0;
+        const n = SAMPLE_W * SAMPLE_H;
+        for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
+        return { r: r/n, g: g/n, b: b/n };
+    }
+    function rgbDist(a, b) {
+        const dr = a.r-b.r, dg = a.g-b.g, db = a.b-b.b;
+        return Math.sqrt(dr*dr + dg*dg + db*db);
     }
 
     // ---------- fração de pixels que mudaram vs frame anterior ----------
@@ -199,29 +213,41 @@
 
         const sens = (cfg.sensLevel || 5) - 1;
 
-        // flash mode: mantém janela de mínimos recentes (15 frames ≈ 250 ms a 60 fps)
+        // pré-processamento por modo (roda todo frame, inclusive durante cooldown)
+        let changeRGB = null;
         if (cfg.mode === 'flash') {
             lumHistory.push(lum);
             if (lumHistory.length > 15) lumHistory.shift();
+        } else if (cfg.mode === 'change') {
+            changeRGB = avgRGB(d);
+            if (changeBaseline === null) {
+                changeBaseline = { ...changeRGB };
+            } else {
+                // deriva lenta em operação normal; rápida durante cooldown (adapta ao novo estado)
+                const alpha = onCooldown ? 0.15 : 0.02;
+                changeBaseline.r += (changeRGB.r - changeBaseline.r) * alpha;
+                changeBaseline.g += (changeRGB.g - changeBaseline.g) * alpha;
+                changeBaseline.b += (changeRGB.b - changeBaseline.b) * alpha;
+            }
         }
 
-        // barra de nível — varia conforme modo
+        // barra: mostra % do limiar em vez de valor absoluto
         if (sensorBarFill) {
             if (cfg.mode === 'motion') {
-                const score = motionFraction(d);
-                sensorBarFill.style.width = Math.min(100, score * 500).toFixed(1) + '%';
+                sensorBarFill.style.width = Math.min(100, motionFraction(d) * 500).toFixed(1) + '%';
                 sensorBarFill.dataset.zone = '';
             } else if (cfg.mode === 'color') {
                 const zone = detectColorZone(d);
                 sensorBarFill.style.width = zone !== 'neutral' ? '100%' : '30%';
                 sensorBarFill.dataset.zone = zone;
-            } else {
-                // flash: mostra % do limiar para dar feedback visual claro
+            } else if (cfg.mode === 'change') {
+                const dist = (changeRGB && changeBaseline) ? rgbDist(changeRGB, changeBaseline) : 0;
+                sensorBarFill.style.width = Math.min(100, (dist / (SENS_CHANGE[sens] || 1)) * 100).toFixed(1) + '%';
+                sensorBarFill.dataset.zone = '';
+            } else { // flash
                 const hist  = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
-                const base  = Math.min(...hist);
-                const delta = Math.max(0, lum - base);
-                const thresh = SENS_FLASH[sens] || 1;
-                sensorBarFill.style.width = Math.min(100, (delta / thresh) * 100).toFixed(1) + '%';
+                const delta = Math.max(0, lum - Math.min(...hist));
+                sensorBarFill.style.width = Math.min(100, (delta / (SENS_FLASH[sens] || 1)) * 100).toFixed(1) + '%';
                 sensorBarFill.dataset.zone = '';
             }
         }
@@ -230,25 +256,25 @@
             let detected = false;
 
             if (cfg.mode === 'flash') {
-                // compara luminância atual ao mínimo recente (janela de 15 frames)
-                // capta mudanças graduais e flashes rápidos igualmente
-                const hist  = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
+                const hist     = lumHistory.length > 1 ? lumHistory.slice(0, -1) : [lum];
                 const baseline = Math.min(...hist);
-                const delta    = lum - baseline;
-                if (prevLum >= 0 && delta >= SENS_FLASH[sens]) detected = true;
+                if (prevLum >= 0 && lum - baseline >= SENS_FLASH[sens]) detected = true;
 
             } else if (cfg.mode === 'motion') {
-                const score = motionFraction(d);
-                if (prevPixels && score >= SENS_MOTION[sens]) detected = true;
+                if (prevPixels && motionFraction(d) >= SENS_MOTION[sens]) detected = true;
 
             } else if (cfg.mode === 'color') {
                 const zone = detectColorZone(d);
                 if (zone !== 'neutral' && prevZone && zone !== prevZone) detected = true;
                 if (zone !== 'neutral') prevZone = zone;
+
+            } else if (cfg.mode === 'change') {
+                if (changeRGB && changeBaseline && rgbDist(changeRGB, changeBaseline) >= SENS_CHANGE[sens]) detected = true;
             }
 
             if (detected) {
-                lumHistory = [lum]; // reseta janela para evitar re-trigger pós-cooldown
+                if (cfg.mode === 'flash')  lumHistory = [lum];
+                if (cfg.mode === 'change') changeBaseline = null; // reconstrui baseline pós-cooldown
                 onCooldown = true;
                 triggerEvent();
                 setTimeout(() => { onCooldown = false; }, cfg.cooldownMs);
@@ -326,6 +352,16 @@
             cx.font = `${Math.max(10, Math.min(16, roi.w*W*0.25))}px sans-serif`;
             cx.textAlign = 'center'; cx.textBaseline = 'middle';
             cx.fillText('✥', (roi.x + roi.w/2)*W, (roi.y + roi.h/2)*H);
+
+            // rótulo de proporção (canto superior direito do ROI)
+            if (roi.w > 0.08 && roi.h > 0.05) {
+                const rRaw = roi.w / roi.h;
+                const ratioText = rRaw >= 1 ? `${rRaw.toFixed(1)}:1` : `1:${(1/rRaw).toFixed(1)}`;
+                cx.fillStyle = 'rgba(0,229,255,0.75)';
+                cx.font = 'bold 9px monospace';
+                cx.textAlign = 'right'; cx.textBaseline = 'top';
+                cx.fillText(ratioText, (roi.x + roi.w)*W - 4, roi.y*H + 4);
+            }
         }
 
         // instrução no quadro completo
@@ -370,11 +406,19 @@
                 roi.y = Math.max(0, Math.min(1 - roiSnap.h, roiSnap.y + dy));
                 roi.w = roiSnap.w; roi.h = roiSnap.h;
             } else if (roiMode.startsWith('resize-')) {
-                const x1 = Math.max(0, Math.min(roiAnchor.x, cur.x));
-                const y1 = Math.max(0, Math.min(roiAnchor.y, cur.y));
-                const x2 = Math.min(1, Math.max(roiAnchor.x, cur.x));
-                const y2 = Math.min(1, Math.max(roiAnchor.y, cur.y));
-                roi.x = x1; roi.y = y1; roi.w = x2 - x1; roi.h = y2 - y1;
+                const dxRaw = cur.x - roiAnchor.x;
+                const dyRaw = cur.y - roiAnchor.y;
+                const AR    = (roiSnap && roiSnap.h > 0.001) ? roiSnap.w / roiSnap.h : 1;
+                const wByX  = Math.abs(dxRaw);
+                const wByY  = Math.abs(dyRaw) * AR;
+                const newW  = Math.max(0.04, wByX > wByY ? wByX : wByY);
+                const newH  = newW / AR;
+                const x1    = dxRaw >= 0 ? roiAnchor.x : roiAnchor.x - newW;
+                const y1    = dyRaw >= 0 ? roiAnchor.y : roiAnchor.y - newH;
+                roi.x = Math.max(0, Math.min(1 - 0.04, x1));
+                roi.y = Math.max(0, Math.min(1 - 0.04, y1));
+                roi.w = Math.min(newW, 1 - roi.x);
+                roi.h = roi.w / AR;
             }
             drawRoiOverlay();
         });
@@ -385,8 +429,9 @@
             const hit = roiHitTest(p.x, p.y, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight);
             roiMode  = hit;
             roiStart = p;
+            roiSnap  = { ...roi };
             if (hit === 'moving') {
-                roiSnap = { ...roi };
+                // roiSnap already set above
             } else if (hit.startsWith('resize-')) {
                 const ox = { tl: roi.x+roi.w, tr: roi.x, bl: roi.x+roi.w, br: roi.x };
                 const oy = { tl: roi.y+roi.h, tr: roi.y+roi.h, bl: roi.y, br: roi.y };
@@ -610,6 +655,7 @@
         video = cvs = ctx = null;
         prevLum = -1;
         lumHistory = [];
+        changeBaseline = null;
         updateUI(false);
         updateArmedUI();
         if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
