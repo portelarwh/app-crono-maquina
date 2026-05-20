@@ -1588,6 +1588,31 @@ body.export-mode .hist-label{
     }
 }
 
+/* --- Botão 🗑 limpar registros --- */
+.btn-clear-laps {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-clear-laps:not(:disabled):hover {
+    background: rgba(231, 76, 60, 0.15);
+    border-color: var(--red);
+    color: var(--red);
+}
+.btn-clear-laps:disabled { opacity: 0.32; cursor: not-allowed; }
+
 /* --- Botão 📷 --- */
 .btn-sensor {
     flex-shrink: 0;
