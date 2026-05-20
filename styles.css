@@ -353,11 +353,13 @@ body.export-mode .chart-title{
         }
         .btn-toggle-causes {
             position: absolute;
-            top: -22px;
+            top: -30px;
             right: 0;
-            padding: 2px 8px;
-            font-size: 0.7rem;
-            font-weight: 600;
+            padding: 5px 14px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            min-height: 30px;
+            min-width: 48px;
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 6px 6px 0 0;
@@ -366,8 +368,9 @@ body.export-mode .chart-title{
             cursor: pointer;
             line-height: 1.4;
             letter-spacing: 0.02em;
+            -webkit-tap-highlight-color: transparent;
         }
-        .btn-toggle-causes:hover { color: var(--text-main); }
+        .btn-toggle-causes:hover { color: var(--text-main); background: var(--surface); }
         .cause-section.collapsed .lap-cause-grid { display: none !important; }
         .cause-section.collapsed .btn-toggle-causes { border-radius: 6px; border-bottom: 1px solid var(--border); }
         .lap-cause-grid {
