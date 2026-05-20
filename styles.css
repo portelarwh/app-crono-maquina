@@ -337,7 +337,7 @@ body.export-mode .chart-title{
         .btn-action-wa  { background-color: #25D366; }
         html[data-theme="light"] .btn-action-pdf { background-color: #e2e2e2; color: #121212; }
 
-        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, var(--bg-color) 30%); z-index: 50; transform: translateZ(0); -webkit-transform: translateZ(0); }
+        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: var(--bg-color); border-top: 1px solid var(--border); z-index: 50; transform: translateZ(0); -webkit-transform: translateZ(0); }
         .btn-lap { width: 100%; padding: 20px; font-size: 1.8rem; background-color: var(--blue); border-radius: 10px; box-shadow: var(--shadow-btn); color: var(--text-on-accent); }
         .btn-lap:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
         .lap-meta-row {
@@ -1616,6 +1616,31 @@ body.export-mode .hist-label{
 }
 .btn-clear-laps:disabled { opacity: 0.32; cursor: not-allowed; }
 
+/* --- Botão 🧹 excluir ciclos curtos --- */
+.btn-delete-short {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-delete-short:not(:disabled):hover {
+    background: rgba(253, 126, 20, 0.15);
+    border-color: var(--orange);
+    color: var(--orange);
+}
+.btn-delete-short:disabled { opacity: 0.32; cursor: not-allowed; }
+
 /* --- Botão 📷 --- */
 .btn-sensor {
     flex-shrink: 0;
@@ -1793,6 +1818,15 @@ body.export-mode .hist-label{
     justify-content: center;
 }
 
+/* tempo mínimo de ciclo */
+.sensor-mincyc-ctrl {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    width: 100%;
+    justify-content: center;
+}
+
 /* mobile: indicador acima da lap-action-row */
 @media (max-width: 1023px) {
     .sensor-indicator { margin-bottom: 4px; }
@@ -1805,6 +1839,7 @@ body.export-mode .hist-label{
     .sensor-indicator { flex-wrap: nowrap; width: auto; }
     .sensor-mode-ctrl { flex: 1; }
     .sensor-sens-ctrl { width: auto; justify-content: flex-start; }
+    .sensor-mincyc-ctrl { width: auto; justify-content: flex-start; }
     .sensor-options-ctrl { width: auto; flex-wrap: nowrap; }
 }
 
