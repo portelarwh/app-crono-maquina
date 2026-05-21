@@ -17,7 +17,8 @@
     const SENS_CHANGE = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];
 
     const MODES = ['flash', 'motion', 'color', 'change'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0 };
+    const MIN_CYCLE_STEPS = [0, 2, 5, 8, 10, 12, 15, 18, 20, 25, 30, 40, 50, 60];
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -56,6 +57,7 @@
     let onCooldown     = false;
     let isActive       = false;
     let flashCount     = 0;
+    let lastLapTs      = 0;
     let isArmed        = false;
     let discardNext    = false;
     let fromSensor     = false;
@@ -91,6 +93,7 @@
     let sensorCountEl, sensorFplEl, sensorFplLabel;
     let btnFplMinus, btnFplPlus;
     let btnSensMinus, btnSensPlus, sensorSensLabel;
+    let btnMinCycleMinus, btnMinCyclePlus, sensorMinCycleLabel;
     let modeBtns = [];
     let btnLap, btnStart;
     let btnAutoStart, btnDiscardFirst, armedLabel;
@@ -190,9 +193,13 @@
 
     // ---------- dispara evento detectado ----------
     function triggerEvent() {
+        // bloqueia se ciclo mínimo não passou ainda
+        if (cfg.minCycleMs > 0 && lastLapTs > 0 && Date.now() - lastLapTs < cfg.minCycleMs) return;
+
         if (isArmed) {
             isArmed = false;
             prevLum = -1; lumHistory = []; prevPixels = null; prevZone = null; flashCount = 0;
+            lastLapTs = Date.now();
             updateArmedUI();
             updateCountDisplay();
             if (btnStart && !btnStart.disabled) {
@@ -207,6 +214,7 @@
         if (discardNext) {
             discardNext = false;
             flashCount  = 0;
+            lastLapTs   = Date.now();
             updateCountDisplay();
             if (sensorIndicator) {
                 sensorIndicator.classList.add('sensor-flash');
@@ -223,6 +231,7 @@
         }
         if (flashCount >= cfg.flashesPerLap) {
             flashCount = 0;
+            lastLapTs  = Date.now();
             updateCountDisplay();
             if (typeof window.recordLapFromSensor === 'function') window.recordLapFromSensor();
         }
@@ -884,6 +893,7 @@
         isArmed     = false;
         discardNext = false;
         flashCount  = 0;
+        lastLapTs   = 0;
         prevPixels  = null;
         prevZone    = null;
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
@@ -934,6 +944,15 @@
         if (btnSensPlus)  btnSensPlus.disabled  = lvl >= 10;
     }
 
+    function applyMinCycleButtons() {
+        const ms  = cfg.minCycleMs ?? 0;
+        const idx = MIN_CYCLE_STEPS.indexOf(ms);
+        if (sensorMinCycleLabel) sensorMinCycleLabel.textContent = ms === 0 ? 'min off' : 'min ' + (ms / 1000) + 's';
+        if (btnMinCycleMinus) btnMinCycleMinus.disabled = idx <= 0;
+        if (btnMinCyclePlus)  btnMinCyclePlus.disabled  = idx >= MIN_CYCLE_STEPS.length - 1;
+        if (typeof window.renderAppControls === 'function') window.renderAppControls();
+    }
+
     function applyModeButtons() {
         modeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === cfg.mode));
         if (sensorFplLabel) {
@@ -961,10 +980,13 @@
         sensorFplLabel  = document.getElementById('sensorFplLabel');
         btnFplMinus     = document.getElementById('btnFplMinus');
         btnFplPlus      = document.getElementById('btnFplPlus');
-        btnSensMinus    = document.getElementById('btnSensMinus');
-        btnSensPlus     = document.getElementById('btnSensPlus');
-        sensorSensLabel = document.getElementById('sensorSensLabel');
-        modeBtns        = Array.from(document.querySelectorAll('.sensor-mode-btn'));
+        btnSensMinus       = document.getElementById('btnSensMinus');
+        btnSensPlus        = document.getElementById('btnSensPlus');
+        sensorSensLabel    = document.getElementById('sensorSensLabel');
+        btnMinCycleMinus   = document.getElementById('btnMinCycleMinus');
+        btnMinCyclePlus    = document.getElementById('btnMinCyclePlus');
+        sensorMinCycleLabel = document.getElementById('sensorMinCycleLabel');
+        modeBtns           = Array.from(document.querySelectorAll('.sensor-mode-btn'));
         btnLap          = document.getElementById('btnLap');
         btnStart        = document.getElementById('btnStart');
         btnAutoStart    = document.getElementById('btnAutoStart');
@@ -1027,8 +1049,22 @@
             }
         }, true);
 
+        btnMinCycleMinus?.addEventListener('click', () => {
+            const idx = MIN_CYCLE_STEPS.indexOf(cfg.minCycleMs ?? 0);
+            const next = idx > 0 ? idx - 1 : 0;
+            cfg.minCycleMs = MIN_CYCLE_STEPS[next];
+            saveCfg(); applyMinCycleButtons();
+        });
+        btnMinCyclePlus?.addEventListener('click', () => {
+            const idx = MIN_CYCLE_STEPS.indexOf(cfg.minCycleMs ?? 0);
+            const next = idx < MIN_CYCLE_STEPS.length - 1 ? idx + 1 : MIN_CYCLE_STEPS.length - 1;
+            cfg.minCycleMs = MIN_CYCLE_STEPS[next];
+            saveCfg(); applyMinCycleButtons();
+        });
+
         applyFplButtons();
         applySensButtons();
+        applyMinCycleButtons();
         applyModeButtons();
         applyOptionButtons();
         updateCountDisplay();
@@ -1040,5 +1076,6 @@
         init();
     }
 
-    window.resetSensorCount = function () { flashCount = 0; updateCountDisplay(); };
+    window.resetSensorCount = function () { flashCount = 0; lastLapTs = 0; updateCountDisplay(); };
+    window.getSensorMinMs   = function () { return cfg.minCycleMs ?? 0; };
 })();
