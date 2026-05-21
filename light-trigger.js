@@ -20,7 +20,7 @@
     const SENS_PIXEL_THR = [50, 45, 40, 35, 30, 25, 20, 18, 15, 12];
 
     const MODES = ['flash', 'motion', 'color', 'change'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0 };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0, zoom: 1 };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -36,6 +36,7 @@
             cfg.sensLevel = cfg.sensLevel * 2 - 1;
         }
         if (!MODES.includes(cfg.mode)) cfg.mode = 'flash';
+        if (!Number.isInteger(cfg.zoom) || cfg.zoom < 1 || cfg.zoom > 3) cfg.zoom = 1;
     } catch (_) {}
 
     function saveCfg() {
@@ -43,8 +44,8 @@
     }
 
     // ---------- estado interno ----------
-    const SAMPLE_W = 16;
-    const SAMPLE_H = 16;
+    const SAMPLE_W = 32;
+    const SAMPLE_H = 32;
 
     let stream         = null;
     let video          = null;
@@ -76,6 +77,9 @@
     // foco
     let focusLocked    = false;
     let focusSupported = false;
+
+    // zoom (nativo da câmera quando suportado, com fallback digital via CSS+crop)
+    let digitalZoomActive = false;
 
     // ROI — modo retângulo
     let roi       = { x: 0, y: 0, w: 1, h: 1 };
@@ -260,13 +264,19 @@
         const vW = video.videoWidth  || SAMPLE_W;
         const vH = video.videoHeight || SAMPLE_H;
 
+        const z     = digitalZoomActive ? (cfg.zoom || 1) : 1;
+        const cropW = vW / z;
+        const cropH = vH / z;
+        const cropX = (vW - cropW) / 2;
+        const cropY = (vH - cropH) / 2;
+
         if (roiType === 'rect') {
             ctx.drawImage(video,
-                Math.round(roi.x * vW), Math.round(roi.y * vH),
-                Math.max(1, Math.round(roi.w * vW)), Math.max(1, Math.round(roi.h * vH)),
+                Math.round(cropX + roi.x * cropW), Math.round(cropY + roi.y * cropH),
+                Math.max(1, Math.round(roi.w * cropW)), Math.max(1, Math.round(roi.h * cropH)),
                 0, 0, SAMPLE_W, SAMPLE_H);
         } else {
-            ctx.drawImage(video, 0, 0, vW, vH, 0, 0, SAMPLE_W, SAMPLE_H);
+            ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, SAMPLE_W, SAMPLE_H);
         }
 
         const imgData = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H);
@@ -662,6 +672,44 @@
         } catch (_) {}
     }
 
+    // ---------- zoom (nativo da câmera, com fallback digital) ----------
+    function updateZoomBtn() {
+        const btn = document.getElementById('btnRoiZoom');
+        if (!btn) return;
+        btn.textContent = `🔍${cfg.zoom || 1}x`;
+        btn.classList.toggle('active', (cfg.zoom || 1) > 1);
+    }
+
+    async function applyZoom(level) {
+        cfg.zoom = level;
+        saveCfg();
+        digitalZoomActive = false;
+        if (previewVideo) previewVideo.style.transform = '';
+
+        let nativeOk = false;
+        const track = stream?.getVideoTracks?.()[0];
+        const caps  = track?.getCapabilities?.();
+        if (track && caps?.zoom) {
+            const zMin = caps.zoom.min || 1;
+            const zMax = caps.zoom.max || 1;
+            const target = level === 1 ? zMin : Math.min(zMax, Math.max(zMin, level));
+            try {
+                await track.applyConstraints({ advanced: [{ zoom: target }] });
+                nativeOk = (level === 1) || (target >= level * 0.9);
+            } catch (_) {}
+        }
+
+        if (!nativeOk && level > 1) {
+            digitalZoomActive = true;
+            if (previewVideo) {
+                previewVideo.style.transformOrigin = 'center center';
+                previewVideo.style.transform = `scale(${level})`;
+            }
+        }
+        updateZoomBtn();
+        drawRoiOverlay();
+    }
+
     // ---------- preview ao vivo ----------
     function injectPreviewStyles() {
         if (document.getElementById('lt-preview-style')) return;
@@ -749,14 +797,15 @@
                 <button class="lt-roi-type-btn" id="btnRoiRect" type="button" title="Retângulo de interesse">⬚</button>
                 <button class="lt-roi-type-btn" id="btnRoiLine" type="button" title="Linha de gatilho">⊟</button>
                 <button class="lt-roi-type-btn" id="btnLineDir" type="button" title="Girar linha 90°" style="display:none">↕</button>
+                <button class="lt-roi-type-btn${(cfg.zoom||1)>1?' active':''}" id="btnRoiZoom" type="button" title="Zoom (1x → 2x → 3x)">🔍${cfg.zoom||1}x</button>
                 <button class="lt-roi-type-btn" id="btnRoiBw"   type="button" title="Escala de cinza / Cor">BW</button>
               </div>
               <button class="lt-roi-reset" id="btnLtRoiReset" type="button" title="Resetar alvo">✕ alvo</button>
               <span class="lt-vfeed-label" id="ltVfeedLabel">vídeo · arraste para definir alvo</span>
             </div>
             <div class="lt-vsample">
-              <canvas class="lt-vsample-canvas" id="ltSampleCanvas" width="16" height="16"></canvas>
-              <div class="lt-vsample-label">sensor 16×16</div>
+              <canvas class="lt-vsample-canvas" id="ltSampleCanvas" width="${SAMPLE_W}" height="${SAMPLE_H}"></canvas>
+              <div class="lt-vsample-label">sensor ${SAMPLE_W}×${SAMPLE_H}</div>
             </div>
           </div>
         `;
@@ -819,6 +868,12 @@
             applyRoiTypeBtns();
         });
 
+        // Zoom cycle: 1x → 2x → 3x → 1x
+        document.getElementById('btnRoiZoom')?.addEventListener('click', () => {
+            const next = ((cfg.zoom || 1) % 3) + 1;
+            applyZoom(next);
+        });
+
         // reset
         document.getElementById('btnLtRoiReset')?.addEventListener('click', () => {
             if (roiType === 'line') {
@@ -866,8 +921,8 @@
             stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: { ideal: 'environment' },
-                    width:  { ideal: 64 },
-                    height: { ideal: 64 },
+                    width:  { ideal: 640 },
+                    height: { ideal: 480 },
                     frameRate: { ideal: 30, max: 60 }
                 }
             });
@@ -893,6 +948,7 @@
             analyseFrame();
             updateUI(true);
             showPreview(stream);
+            if ((cfg.zoom || 1) > 1) applyZoom(cfg.zoom);
 
         } catch (err) {
             const msg = err.name === 'NotAllowedError'
@@ -911,6 +967,7 @@
         lastLapTs   = 0;
         prevPixels  = null;
         prevZone    = null;
+        digitalZoomActive = false;
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
         hidePreview();
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
