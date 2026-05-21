@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.18';
+const APP_VERSION='v5.1.19';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -203,7 +203,6 @@ function finalizeCycle({durationMs,productiveMs,startMs,endedAt,q}){
   state.lastSegmentStartMs=endedAt;
   if(els.lapObs)els.lapObs.value='';
   render();persist();
-  autoDeleteOutliers();
 }
 function recordDowntime(t){
   if(!state.running)return;
@@ -248,18 +247,6 @@ function deleteEvent(eventId){
 }
 function clearLaps(){if(!state.events.length)return;state.events=[];if(els.lapObs)els.lapObs.value='';render();persist();if(typeof window.resetSensorCount==='function')window.resetSensorCount()}
 function deleteShortCycles(){
-  const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;
-  if(!minMs||!state.events.length)return;
-  let changed=false;
-  for(let idx=state.events.length-1;idx>=0;idx--){
-    const ev=state.events[idx];
-    if(ev.type!=='cycle')continue;
-    if((ev.productiveMs||ev.durationMs||0)<minMs){mergeDeleteCycle(idx);changed=true;}
-  }
-  if(changed){render();persist()}
-}
-function autoDeleteOutliers(){
-  if(typeof window.getSensorOutlierAuto!=='function'||!window.getSensorOutlierAuto())return;
   const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;
   if(!minMs||!state.events.length)return;
   let changed=false;
@@ -662,5 +649,4 @@ function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;load();
 window.getCronoMachineData=getCronoMachineData;
 window.renderAppControls=renderControls;
 window.recordLapFromSensor=recordNormal;
-window.autoDeleteOutliers=autoDeleteOutliers;
 })();

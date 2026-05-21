@@ -17,7 +17,7 @@
     const SENS_CHANGE = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];
 
     const MODES = ['flash', 'motion', 'color', 'change'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0, outlierAuto: false };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0 };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -92,24 +92,36 @@
     let sensorCountEl, sensorFplEl, sensorFplLabel;
     let btnFplMinus, btnFplPlus;
     let btnSensMinus, btnSensPlus, sensorSensLabel;
-    let sensorOutlierInput, btnOutlierAuto;
+    let sensorOutlierInput;
     let modeBtns = [];
     let btnLap, btnStart;
     let btnAutoStart, btnDiscardFirst, armedLabel;
 
-    // ---------- análise de luminância média ----------
-    function avgLuminance(d) {
+    // ---------- contagem de pixels ativos (consistência entre os 3 modos de ROI) ----------
+    function getActivePixelCount() {
+        if (roiType !== 'line') return SAMPLE_W * SAMPLE_H;
+        const isVert = roiLine.dir === 'vertical';
+        const cut    = Math.round(roiLine.pos * (isVert ? SAMPLE_W : SAMPLE_H));
+        if (isVert) {
+            const aw = roiLine.activeSide === 'right' ? SAMPLE_W - cut : cut;
+            return Math.max(1, aw * SAMPLE_H);
+        }
+        const ah = roiLine.activeSide === 'bottom' ? SAMPLE_H - cut : cut;
+        return Math.max(1, SAMPLE_W * ah);
+    }
+
+    // ---------- análise de luminância média (dividida por pixels ativos) ----------
+    function avgLuminance(d, n) {
         let s = 0;
         for (let i = 0; i < d.length; i += 4) {
             s += d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
         }
-        return s / (SAMPLE_W * SAMPLE_H);
+        return s / n;
     }
 
     // ---------- média RGB por canal ----------
-    function avgRGB(d) {
+    function avgRGB(d, n) {
         let r = 0, g = 0, b = 0;
-        const n = SAMPLE_W * SAMPLE_H;
         for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
         return { r: r/n, g: g/n, b: b/n };
     }
@@ -118,8 +130,8 @@
         return Math.sqrt(dr*dr + dg*dg + db*db);
     }
 
-    // ---------- fração de pixels que mudaram vs frame anterior ----------
-    function motionFraction(d) {
+    // ---------- fração de pixels ativos que mudaram vs frame anterior ----------
+    function motionFraction(d, n) {
         if (!prevPixels) return 0;
         let changed = 0;
         for (let i = 0; i < d.length; i += 4) {
@@ -127,13 +139,12 @@
                 changed++;
             }
         }
-        return changed / (SAMPLE_W * SAMPLE_H);
+        return changed / n;
     }
 
     // ---------- classifica zona de cor dominante ----------
-    function detectColorZone(d) {
+    function detectColorZone(d, n) {
         let rSum = 0, gSum = 0;
-        const n = SAMPLE_W * SAMPLE_H;
         for (let i = 0; i < d.length; i += 4) { rSum += d[i]; gSum += d[i+1]; }
         const gap  = SENS_COLOR[(cfg.sensLevel || 5) - 1];
         const rAvg = rSum / n, gAvg = gSum / n;
@@ -192,8 +203,8 @@
 
     // ---------- dispara evento detectado ----------
     function triggerEvent() {
-        // bloqueia ao vivo somente quando auto está ligado
-        if (cfg.outlierAuto && cfg.minCycleMs > 0 && lastLapTs > 0 && Date.now() - lastLapTs < cfg.minCycleMs) return;
+        // bloqueia ao vivo qualquer disparo abaixo do Outlier (cronômetro segue rodando)
+        if (cfg.minCycleMs > 0 && lastLapTs > 0 && Date.now() - lastLapTs < cfg.minCycleMs) return;
 
         if (isArmed) {
             isArmed = false;
@@ -264,7 +275,8 @@
         // devolve os pixels processados ao canvas (para preview)
         ctx.putImageData(imgData, 0, 0);
 
-        const lum  = avgLuminance(d);
+        const n    = getActivePixelCount();
+        const lum  = avgLuminance(d, n);
         const sens = (cfg.sensLevel || 5) - 1;
 
         let changeRGB = null;
@@ -272,7 +284,7 @@
             lumHistory.push(lum);
             if (lumHistory.length > 15) lumHistory.shift();
         } else if (cfg.mode === 'change') {
-            changeRGB = avgRGB(d);
+            changeRGB = avgRGB(d, n);
             if (changeBaseline === null) {
                 changeBaseline = { ...changeRGB };
             } else {
@@ -285,10 +297,10 @@
 
         if (sensorBarFill) {
             if (cfg.mode === 'motion') {
-                sensorBarFill.style.width = Math.min(100, motionFraction(d) * 500).toFixed(1) + '%';
+                sensorBarFill.style.width = Math.min(100, motionFraction(d, n) * 500).toFixed(1) + '%';
                 sensorBarFill.dataset.zone = '';
             } else if (cfg.mode === 'color') {
-                const zone = detectColorZone(d);
+                const zone = detectColorZone(d, n);
                 sensorBarFill.style.width = zone !== 'neutral' ? '100%' : '30%';
                 sensorBarFill.dataset.zone = zone;
             } else if (cfg.mode === 'change') {
@@ -312,10 +324,10 @@
                 if (prevLum >= 0 && lum - baseline >= SENS_FLASH[sens]) detected = true;
 
             } else if (cfg.mode === 'motion') {
-                if (prevPixels && motionFraction(d) >= SENS_MOTION[sens]) detected = true;
+                if (prevPixels && motionFraction(d, n) >= SENS_MOTION[sens]) detected = true;
 
             } else if (cfg.mode === 'color') {
-                const zone = detectColorZone(d);
+                const zone = detectColorZone(d, n);
                 if (zone !== 'neutral' && prevZone && zone !== prevZone) detected = true;
                 if (zone !== 'neutral') prevZone = zone;
 
@@ -948,7 +960,6 @@
         if (sensorOutlierInput) {
             sensorOutlierInput.value = ms > 0 ? (ms / 1000).toFixed(1) : '';
         }
-        if (btnOutlierAuto) btnOutlierAuto.classList.toggle('active', !!cfg.outlierAuto);
         if (typeof window.renderAppControls === 'function') window.renderAppControls();
     }
 
@@ -983,7 +994,6 @@
         btnSensPlus        = document.getElementById('btnSensPlus');
         sensorSensLabel    = document.getElementById('sensorSensLabel');
         sensorOutlierInput = document.getElementById('sensorOutlierInput');
-        btnOutlierAuto     = document.getElementById('btnOutlierAuto');
         modeBtns           = Array.from(document.querySelectorAll('.sensor-mode-btn'));
         btnLap          = document.getElementById('btnLap');
         btnStart        = document.getElementById('btnStart');
@@ -1058,12 +1068,6 @@
         sensorOutlierInput?.addEventListener('change', commitOutlierInput);
         sensorOutlierInput?.addEventListener('blur',   commitOutlierInput);
 
-        btnOutlierAuto?.addEventListener('click', () => {
-            cfg.outlierAuto = !cfg.outlierAuto;
-            saveCfg(); applyOutlierUI();
-            if (cfg.outlierAuto) window.autoDeleteOutliers?.();
-        });
-
         applyFplButtons();
         applySensButtons();
         applyOutlierUI();
@@ -1078,7 +1082,6 @@
         init();
     }
 
-    window.resetSensorCount    = function () { flashCount = 0; lastLapTs = 0; updateCountDisplay(); };
-    window.getSensorMinMs      = function () { return cfg.minCycleMs ?? 0; };
-    window.getSensorOutlierAuto = function () { return !!cfg.outlierAuto; };
+    window.resetSensorCount = function () { flashCount = 0; lastLapTs = 0; updateCountDisplay(); };
+    window.getSensorMinMs   = function () { return cfg.minCycleMs ?? 0; };
 })();
