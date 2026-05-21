@@ -11,10 +11,13 @@
     const STORAGE_KEY = 'lightTriggerCfg';
 
     // Limiares por nível 1–10 para cada modo
-    const SENS_FLASH  = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];
-    const SENS_MOTION = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005];
-    const SENS_COLOR  = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];
-    const SENS_CHANGE = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];
+    const SENS_FLASH     = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];
+    const SENS_MOTION    = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005];
+    const SENS_COLOR     = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];
+    const SENS_CHANGE    = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];
+    // Limiar Manhattan por pixel no modo motion — escala com sensibilidade para detectar
+    // bordas sutis na entrada do ROI: sens=1→50 (exige mudança grande), sens=10→12 (detecta 4 unid/canal)
+    const SENS_PIXEL_THR = [50, 45, 40, 35, 30, 25, 20, 18, 15, 12];
 
     const MODES = ['flash', 'motion', 'color', 'change'];
     const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0 };
@@ -133,9 +136,10 @@
     // ---------- fração de pixels ativos que mudaram vs frame anterior ----------
     function motionFraction(d, n) {
         if (!prevPixels) return 0;
+        const pixThr = SENS_PIXEL_THR[(cfg.sensLevel || 5) - 1];
         let changed = 0;
         for (let i = 0; i < d.length; i += 4) {
-            if (Math.abs(d[i] - prevPixels[i]) + Math.abs(d[i+1] - prevPixels[i+1]) + Math.abs(d[i+2] - prevPixels[i+2]) > 30) {
+            if (Math.abs(d[i] - prevPixels[i]) + Math.abs(d[i+1] - prevPixels[i+1]) + Math.abs(d[i+2] - prevPixels[i+2]) > pixThr) {
                 changed++;
             }
         }
