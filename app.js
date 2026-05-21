@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.19';
+const APP_VERSION='v5.1.21';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -241,8 +241,7 @@ function mergeDeleteCycle(idx){
 function deleteEvent(eventId){
   const idx=state.events.findIndex(e=>e.id===eventId);
   if(idx===-1)return;
-  if(state.events[idx].type==='cycle')mergeDeleteCycle(idx);
-  else state.events.splice(idx,1);
+  state.events.splice(idx,1);
   render();persist();
 }
 function clearLaps(){if(!state.events.length)return;state.events=[];if(els.lapObs)els.lapObs.value='';render();persist();if(typeof window.resetSensorCount==='function')window.resetSensorCount()}
@@ -253,7 +252,10 @@ function deleteShortCycles(){
   for(let idx=state.events.length-1;idx>=0;idx--){
     const ev=state.events[idx];
     if(ev.type!=='cycle')continue;
-    if((ev.productiveMs||ev.durationMs||0)<minMs){mergeDeleteCycle(idx);changed=true;}
+    if((ev.productiveMs||ev.durationMs||0)<minMs){
+      if(state.running)mergeDeleteCycle(idx);else state.events.splice(idx,1);
+      changed=true;
+    }
   }
   if(changed){render();persist()}
 }
