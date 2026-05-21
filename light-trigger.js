@@ -17,8 +17,7 @@
     const SENS_CHANGE = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];
 
     const MODES = ['flash', 'motion', 'color', 'change'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0 };
-    const MIN_CYCLE_STEPS = [0, 2, 5, 8, 10, 12, 15, 18, 20, 25, 30, 40, 50, 60];
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0, outlierAuto: false };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -93,7 +92,7 @@
     let sensorCountEl, sensorFplEl, sensorFplLabel;
     let btnFplMinus, btnFplPlus;
     let btnSensMinus, btnSensPlus, sensorSensLabel;
-    let btnMinCycleMinus, btnMinCyclePlus, sensorMinCycleLabel;
+    let sensorOutlierInput, btnOutlierAuto;
     let modeBtns = [];
     let btnLap, btnStart;
     let btnAutoStart, btnDiscardFirst, armedLabel;
@@ -193,8 +192,8 @@
 
     // ---------- dispara evento detectado ----------
     function triggerEvent() {
-        // bloqueia se ciclo mínimo não passou ainda
-        if (cfg.minCycleMs > 0 && lastLapTs > 0 && Date.now() - lastLapTs < cfg.minCycleMs) return;
+        // bloqueia ao vivo somente quando auto está ligado
+        if (cfg.outlierAuto && cfg.minCycleMs > 0 && lastLapTs > 0 && Date.now() - lastLapTs < cfg.minCycleMs) return;
 
         if (isArmed) {
             isArmed = false;
@@ -939,17 +938,17 @@
 
     function applySensButtons() {
         const lvl = cfg.sensLevel ?? 5;
-        if (sensorSensLabel) sensorSensLabel.textContent = 'sens ' + lvl;
+        if (sensorSensLabel) sensorSensLabel.textContent = 'Sensibilidade - ' + lvl;
         if (btnSensMinus) btnSensMinus.disabled = lvl <= 1;
         if (btnSensPlus)  btnSensPlus.disabled  = lvl >= 10;
     }
 
-    function applyMinCycleButtons() {
-        const ms  = cfg.minCycleMs ?? 0;
-        const idx = MIN_CYCLE_STEPS.indexOf(ms);
-        if (sensorMinCycleLabel) sensorMinCycleLabel.textContent = ms === 0 ? 'min off' : 'min ' + (ms / 1000) + 's';
-        if (btnMinCycleMinus) btnMinCycleMinus.disabled = idx <= 0;
-        if (btnMinCyclePlus)  btnMinCyclePlus.disabled  = idx >= MIN_CYCLE_STEPS.length - 1;
+    function applyOutlierUI() {
+        const ms = cfg.minCycleMs ?? 0;
+        if (sensorOutlierInput) {
+            sensorOutlierInput.value = ms > 0 ? (ms / 1000).toFixed(1) : '';
+        }
+        if (btnOutlierAuto) btnOutlierAuto.classList.toggle('active', !!cfg.outlierAuto);
         if (typeof window.renderAppControls === 'function') window.renderAppControls();
     }
 
@@ -983,9 +982,8 @@
         btnSensMinus       = document.getElementById('btnSensMinus');
         btnSensPlus        = document.getElementById('btnSensPlus');
         sensorSensLabel    = document.getElementById('sensorSensLabel');
-        btnMinCycleMinus   = document.getElementById('btnMinCycleMinus');
-        btnMinCyclePlus    = document.getElementById('btnMinCyclePlus');
-        sensorMinCycleLabel = document.getElementById('sensorMinCycleLabel');
+        sensorOutlierInput = document.getElementById('sensorOutlierInput');
+        btnOutlierAuto     = document.getElementById('btnOutlierAuto');
         modeBtns           = Array.from(document.querySelectorAll('.sensor-mode-btn'));
         btnLap          = document.getElementById('btnLap');
         btnStart        = document.getElementById('btnStart');
@@ -1049,22 +1047,26 @@
             }
         }, true);
 
-        btnMinCycleMinus?.addEventListener('click', () => {
-            const idx = MIN_CYCLE_STEPS.indexOf(cfg.minCycleMs ?? 0);
-            const next = idx > 0 ? idx - 1 : 0;
-            cfg.minCycleMs = MIN_CYCLE_STEPS[next];
-            saveCfg(); applyMinCycleButtons();
-        });
-        btnMinCyclePlus?.addEventListener('click', () => {
-            const idx = MIN_CYCLE_STEPS.indexOf(cfg.minCycleMs ?? 0);
-            const next = idx < MIN_CYCLE_STEPS.length - 1 ? idx + 1 : MIN_CYCLE_STEPS.length - 1;
-            cfg.minCycleMs = MIN_CYCLE_STEPS[next];
-            saveCfg(); applyMinCycleButtons();
+        function commitOutlierInput() {
+            const raw = parseFloat(sensorOutlierInput?.value ?? '');
+            const val = Number.isFinite(raw) && raw > 0
+                ? Math.min(300, Math.max(0, Math.round(raw * 10) / 10))
+                : 0;
+            cfg.minCycleMs = Math.round(val * 1000);
+            saveCfg(); applyOutlierUI();
+        }
+        sensorOutlierInput?.addEventListener('change', commitOutlierInput);
+        sensorOutlierInput?.addEventListener('blur',   commitOutlierInput);
+
+        btnOutlierAuto?.addEventListener('click', () => {
+            cfg.outlierAuto = !cfg.outlierAuto;
+            saveCfg(); applyOutlierUI();
+            if (cfg.outlierAuto) window.autoDeleteOutliers?.();
         });
 
         applyFplButtons();
         applySensButtons();
-        applyMinCycleButtons();
+        applyOutlierUI();
         applyModeButtons();
         applyOptionButtons();
         updateCountDisplay();
@@ -1076,6 +1078,7 @@
         init();
     }
 
-    window.resetSensorCount = function () { flashCount = 0; lastLapTs = 0; updateCountDisplay(); };
-    window.getSensorMinMs   = function () { return cfg.minCycleMs ?? 0; };
+    window.resetSensorCount    = function () { flashCount = 0; lastLapTs = 0; updateCountDisplay(); };
+    window.getSensorMinMs      = function () { return cfg.minCycleMs ?? 0; };
+    window.getSensorOutlierAuto = function () { return !!cfg.outlierAuto; };
 })();

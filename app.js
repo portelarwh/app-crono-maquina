@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.17';
+const APP_VERSION='v5.1.18';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -203,6 +203,7 @@ function finalizeCycle({durationMs,productiveMs,startMs,endedAt,q}){
   state.lastSegmentStartMs=endedAt;
   if(els.lapObs)els.lapObs.value='';
   render();persist();
+  autoDeleteOutliers();
 }
 function recordDowntime(t){
   if(!state.running)return;
@@ -226,9 +227,49 @@ function recordDowntime(t){
   render();persist();
 }
 function updateLapQty(eventId,value){const e=state.events.find(x=>x.id===eventId);if(!e||e.type!=='cycle')return;const v=pn(value);e.qty=Number.isFinite(v)&&v>=0?v:null;render();persist()}
-function deleteEvent(eventId){state.events=state.events.filter(e=>e.id!==eventId);render();persist()}
+function mergeDeleteCycle(idx){
+  const ev=state.events[idx];
+  for(let i=idx-1;i>=0;i--){
+    const prev=state.events[i];
+    if(prev.type==='cycle'){
+      prev.durationMs=(prev.durationMs||0)+(ev.durationMs||0);
+      prev.productiveMs=(prev.productiveMs||0)+(ev.productiveMs||0);
+      break;
+    }
+  }
+  state.events.splice(idx,1);
+}
+function deleteEvent(eventId){
+  const idx=state.events.findIndex(e=>e.id===eventId);
+  if(idx===-1)return;
+  if(state.events[idx].type==='cycle')mergeDeleteCycle(idx);
+  else state.events.splice(idx,1);
+  render();persist();
+}
 function clearLaps(){if(!state.events.length)return;state.events=[];if(els.lapObs)els.lapObs.value='';render();persist();if(typeof window.resetSensorCount==='function')window.resetSensorCount()}
-function deleteShortCycles(){const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;if(!minMs||!state.events.length)return;const before=state.events.length;state.events=state.events.filter(e=>e.type!=='cycle'||(e.productiveMs||e.durationMs||0)>=minMs);if(state.events.length<before){render();persist()}}
+function deleteShortCycles(){
+  const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;
+  if(!minMs||!state.events.length)return;
+  let changed=false;
+  for(let idx=state.events.length-1;idx>=0;idx--){
+    const ev=state.events[idx];
+    if(ev.type!=='cycle')continue;
+    if((ev.productiveMs||ev.durationMs||0)<minMs){mergeDeleteCycle(idx);changed=true;}
+  }
+  if(changed){render();persist()}
+}
+function autoDeleteOutliers(){
+  if(typeof window.getSensorOutlierAuto!=='function'||!window.getSensorOutlierAuto())return;
+  const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;
+  if(!minMs||!state.events.length)return;
+  let changed=false;
+  for(let idx=state.events.length-1;idx>=0;idx--){
+    const ev=state.events[idx];
+    if(ev.type!=='cycle')continue;
+    if((ev.productiveMs||ev.durationMs||0)<minMs){mergeDeleteCycle(idx);changed=true;}
+  }
+  if(changed){render();persist()}
+}
 function render(){renderTimersOnly();renderMode();renderStats();renderHistory();renderCharts();renderEventTimeline();renderParadasCards();renderOeeSaved();renderPrint();renderControls()}
 function fmtDur(ms){const s=Math.max(0,Math.floor((ms||0)/1000));if(s<60)return `${s}s`;const m=Math.floor(s/60),ss=s%60;if(m<60)return `${m}m ${String(ss).padStart(2,'0')}s`;const h=Math.floor(m/60),mm=m%60;return `${h}h ${String(mm).padStart(2,'0')}m`}
 function renderParadasCards(){
@@ -621,4 +662,5 @@ function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;load();
 window.getCronoMachineData=getCronoMachineData;
 window.renderAppControls=renderControls;
 window.recordLapFromSensor=recordNormal;
+window.autoDeleteOutliers=autoDeleteOutliers;
 })();
