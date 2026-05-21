@@ -12,7 +12,7 @@
 
     // Limiares por nível 1–10 para cada modo
     const SENS_FLASH     = [55, 42, 32, 24, 18, 13, 9, 6, 3, 1];
-    const SENS_MOTION    = [0.30, 0.22, 0.16, 0.11, 0.075, 0.05, 0.03, 0.018, 0.01, 0.005];
+    const SENS_MOTION    = [0.18, 0.14, 0.10, 0.075, 0.055, 0.04, 0.025, 0.015, 0.008, 0.004];
     const SENS_COLOR     = [80, 62, 48, 36, 26, 18, 12, 8, 5, 2];
     const SENS_CHANGE    = [60, 45, 33, 23, 16, 11, 7, 4, 2.5, 1.5];
     // Limiar Manhattan por pixel no modo motion — escala com sensibilidade para detectar
@@ -296,13 +296,13 @@
         let changeRGB = null;
         if (cfg.mode === 'flash') {
             lumHistory.push(lum);
-            if (lumHistory.length > 15) lumHistory.shift();
+            if (lumHistory.length > 8) lumHistory.shift();
         } else if (cfg.mode === 'change') {
             changeRGB = avgRGB(d, n);
             if (changeBaseline === null) {
                 changeBaseline = { ...changeRGB };
             } else {
-                const alpha = onCooldown ? 0.15 : 0.02;
+                const alpha = onCooldown ? 0.25 : 0.03;
                 changeBaseline.r += (changeRGB.r - changeBaseline.r) * alpha;
                 changeBaseline.g += (changeRGB.g - changeBaseline.g) * alpha;
                 changeBaseline.b += (changeRGB.b - changeBaseline.b) * alpha;
