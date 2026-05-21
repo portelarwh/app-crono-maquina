@@ -1818,14 +1818,30 @@ body.export-mode .hist-label{
     justify-content: center;
 }
 
-/* tempo mínimo de ciclo */
-.sensor-mincyc-ctrl {
+/* Outlier — campo digitável + toggle auto */
+.sensor-outlier-ctrl {
     display: flex;
-    gap: 3px;
+    gap: 5px;
     align-items: center;
     width: 100%;
     justify-content: center;
+    flex-wrap: nowrap;
 }
+.sensor-outlier-input {
+    width: 72px;
+    text-align: center;
+    font-weight: bold;
+    padding: 3px 6px;
+    font-size: 0.82rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-main);
+    /* remove spinners */
+    -moz-appearance: textfield;
+}
+.sensor-outlier-input::-webkit-inner-spin-button,
+.sensor-outlier-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* mobile: indicador acima da lap-action-row */
 @media (max-width: 1023px) {
@@ -1839,7 +1855,7 @@ body.export-mode .hist-label{
     .sensor-indicator { flex-wrap: nowrap; width: auto; }
     .sensor-mode-ctrl { flex: 1; }
     .sensor-sens-ctrl { width: auto; justify-content: flex-start; }
-    .sensor-mincyc-ctrl { width: auto; justify-content: flex-start; }
+    .sensor-outlier-ctrl { width: auto; justify-content: flex-start; }
     .sensor-options-ctrl { width: auto; flex-wrap: nowrap; }
 }
 

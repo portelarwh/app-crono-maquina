@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
-    <link rel="manifest" href="manifest.json?v=5.1.17">
+    <link rel="manifest" href="manifest.json?v=5.1.18">
     <meta name="theme-color" content="#0d1117">
     <title>Cronoanálise Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="assets/lib/html2canvas.min.js"></script>
     <script src="assets/lib/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=5.1.17">
-    <script src="theme-init.js?v=5.1.17"></script>
+    <link rel="stylesheet" href="styles.css?v=5.1.18">
+    <script src="theme-init.js?v=5.1.18"></script>
 </head>
 <body>
 
@@ -656,10 +656,13 @@
             <span id="sensorSensLabel" class="sensor-fpl-label">sens 5</span>
             <button id="btnSensPlus"  class="sensor-cfg-btn" type="button" aria-label="Aumentar sensibilidade">+</button>
         </div>
-        <div class="sensor-mincyc-ctrl" aria-label="Tempo mínimo de ciclo (ignora acionamentos muito rápidos)">
-            <button id="btnMinCycleMinus" class="sensor-cfg-btn" type="button" aria-label="Diminuir tempo mínimo de ciclo">−</button>
-            <span id="sensorMinCycleLabel" class="sensor-fpl-label">min off</span>
-            <button id="btnMinCyclePlus"  class="sensor-cfg-btn" type="button" aria-label="Aumentar tempo mínimo de ciclo">+</button>
+        <div class="sensor-outlier-ctrl" aria-label="Outlier — limite mínimo de ciclo válido">
+            <span class="sensor-fpl-label">Outlier (s)</span>
+            <input id="sensorOutlierInput" type="number" min="0" max="300" step="0.1"
+                   inputmode="decimal" class="sensor-outlier-input"
+                   placeholder="off" title="Digite 0 ou apague para desligar; ex: 8.5 (máx 300s)">
+            <button id="btnOutlierAuto" class="sensor-opt-btn" type="button"
+                    title="Auto: bloqueia capturas e remove ciclos abaixo do limite automaticamente">⚡ auto</button>
         </div>
         <div class="sensor-options-ctrl" aria-label="Opções de acionamento">
             <button id="btnAutoStart" class="sensor-opt-btn" type="button"
@@ -690,11 +693,11 @@
     </div>
 </div>
 
-<script src="app.js?v=5.1.17" defer></script>
-<script src="general-improvements.js?v=5.1.17" defer></script>
-<script src="report-enhancements.js?v=5.1.17" defer></script>
-<script src="whatsapp-share-fix.js?v=5.1.17" defer></script>
-<script src="pwa-ui.js?v=5.1.17" defer></script>
-<script src="light-trigger.js?v=5.1.17" defer></script>
+<script src="app.js?v=5.1.18" defer></script>
+<script src="general-improvements.js?v=5.1.18" defer></script>
+<script src="report-enhancements.js?v=5.1.18" defer></script>
+<script src="whatsapp-share-fix.js?v=5.1.18" defer></script>
+<script src="pwa-ui.js?v=5.1.18" defer></script>
+<script src="light-trigger.js?v=5.1.18" defer></script>
 </body>
 </html>
