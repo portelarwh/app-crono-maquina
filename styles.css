@@ -209,7 +209,7 @@ body.export-mode .chart-title{
         .export-mode .chart-bar { flex: 1 !important; min-width: 4px !important; }
         .export-mode .chart-svg { width: 100% !important; }
         .event-timeline-wrapper {
-            height: 80px;
+            height: 120px;
             display: flex;
             align-items: flex-end;
             gap: 2px;
@@ -224,9 +224,21 @@ body.export-mode .chart-title{
         }
         .event-timeline-wrapper::-webkit-scrollbar { height: 4px; }
         .event-timeline-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .evt-dur-label {
+            position: absolute;
+            bottom: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.5rem;
+            font-weight: bold;
+            color: rgba(255,255,255,0.9);
+            pointer-events: none;
+            white-space: nowrap;
+            text-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
         .evt-bar {
-            flex: 0 0 18px;
-            min-width: 18px;
+            flex: 0 0 20px;
+            min-width: 20px;
             border-top-left-radius: 3px;
             border-top-right-radius: 3px;
             position: relative;
