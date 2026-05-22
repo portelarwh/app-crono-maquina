@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.1.25',
+      version: window.APP_VERSION || 'v5.1.28',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -24,13 +24,19 @@
       return {
         idx: lap.index || i + 1,
         time: Number(lap.durationSec) || 0,
+        productiveTime: Number.isFinite(Number(lap.productiveSec)) ? Number(lap.productiveSec) : null,
         qty: lap.qty,
         obs: lap.obs || '',
         cause: lap.cause || 'Normal',
-        id: lap.id
+        id: lap.id,
+        type: lap.type || 'cycle',
+        startedAt: lap.startedAt || null,
+        endedAt: lap.endedAt || null
       };
     }).filter(function(x){ return x.time > 0; });
   }
+
+  function median(arr){ if(!arr.length) return 0; var s = arr.slice().sort(function(a,b){ return a-b; }), m = Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; }
 
   function st(s){
     var d = data(), ds = d.stats || {}, vals = s.map(function(x){ return x.time; });
@@ -40,6 +46,7 @@
     return {
       n: s.length,
       mean: m,
+      med: Number.isFinite(ds.med) ? ds.med : (vals.length ? median(vals) : 0),
       sd: sd,
       min: Number.isFinite(ds.min) ? ds.min : (vals.length ? Math.min.apply(null,vals) : 0),
       max: Number.isFinite(ds.max) ? ds.max : (vals.length ? Math.max.apply(null,vals) : 0),
@@ -71,6 +78,7 @@
     return '<section class="kpiGrid">'
       + kpi('Takt Time',x.takt ? f(x.takt,2) : '—',x.takt ? 's' : '')
       + kpi('Ciclo Médio',fs(x.mean),'')
+      + kpi('Mediana',fs(x.med),'')
       + kpi('Eficiência',eff,eff === '--' ? '' : '%',x.eff > 110 ? 'alert' : '')
       + kpi('Capacidade',f(x.cap,1),unit())
       + kpi('Estabilidade',f(x.stab,1),'%','','Estabilidade: percentual de ciclos dentro da faixa esperada de controle.')
@@ -102,12 +110,18 @@
   function impactBlock(){
     var d = data(), i = d.impact || {}, std = d.standardTime || {}, an = d.analysis || {}, ex = d.extras || {};
     var action = 'Ação recomendada: investigar os maiores picos de ciclo acima do Takt Time e classificar corretamente as causas dos eventos registrados. Priorizar as amostras com maior impacto sobre a perda de capacidade e sobre a instabilidade do processo.';
+    var isGain = i.target && (i.gap||0) >= 0;
+    var cardCls = i.target ? (isGain ? 'cardGood' : 'cardBad') : '';
+    var hourLabel = isGain ? 'Ganho/h' : 'Perda/h';
+    var shiftLabel = isGain ? 'Ganho/turno' : 'Perda/turno';
+    var hourValue = i.target ? f(isGain ? (i.gainPerHour||0) : (i.lossPerHour||0), 0) : '—';
+    var shiftValue = i.target ? f(isGain ? (i.gainPerShift||0) : (i.lossPerShift||0), 0) : '—';
     return '<section class="panel diagnostic"><h2>Diagnóstico executivo</h2><div class="diagGrid">'
       + '<div><b>Meta</b><strong>'+esc(i.target?f(i.target,1):'—')+' '+esc(i.unitLabel||unit())+'</strong></div>'
       + '<div><b>Real</b><strong>'+esc((i.actual||i.cap)?f(i.actual||i.cap,1):'—')+' '+esc(i.unitLabel||unit())+'</strong></div>'
-      + '<div><b>Gap</b><strong class="'+(i.gap<0?'bad':'good')+'">'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
-      + '<div><b>Perda/h</b><strong>'+esc(i.target?f(i.lossPerHour,0):'—')+' un/h</strong></div>'
-      + '<div><b>Perda/turno</b><strong>'+esc(i.target?f(i.lossPerShift,0):'—')+' un</strong></div>'
+      + '<div class="'+cardCls+'"><b>Gap</b><strong>'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+hourLabel+'</b><strong>'+hourValue+' un/h</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+shiftLabel+'</b><strong>'+shiftValue+' un</strong></div>'
       + '<div><b>Tempo padrão</b><strong>'+esc(std.standardSec?f(std.standardSec,2):'—')+'s</strong></div></div>'
       + '<p><b>Classificação:</b> '+esc(an.stabilityClass||'—')+'</p>'
       + '<p><b>Conclusão:</b> '+esc(executiveConclusion())+'</p>'
@@ -203,6 +217,16 @@
       cum += pct;
       return '<div class="paretoRow '+(isNormal?'isNormal':'isAttention')+'"><div class="paretoLabel">'+(i+1)+'. '+esc(x.cause)+'<small>'+esc(x.count)+' evento(s)</small></div><div class="paretoTrack"><div class="paretoBar" style="width:'+Math.max(2,Math.min(100,pct))+'%"></div></div><div class="paretoVal">'+f(pct,1)+'% | '+f(cum,1)+'%</div></div>';
     }).join('')+'</section>';
+  }
+
+  function compactPareto(maxRows){
+    var rows = (data().pareto || []).slice(0, maxRows || 5);
+    if(!rows.length) return '<section class="panel paretoPanel compact"><h2>Pareto de perdas</h2><p class="paretoNote">Sem paradas registradas.</p></section>';
+    var html = rows.map(function(r,i){
+      var attn = String(r.cause).toLowerCase() !== 'normal';
+      return '<div class="paretoRow '+(attn?'isAttention':'isNormal')+'"><div class="paretoLabel">'+(i+1)+'. '+esc(r.cause)+'<small>'+f(r.lossSec,1)+'s</small></div><div class="paretoTrack"><div class="paretoBar" style="width:'+Math.max(2,Math.min(100,r.percent))+'%"></div></div><div class="paretoVal">'+f(r.percent,1)+'%</div></div>';
+    }).join('');
+    return '<section class="panel paretoPanel compact"><h2>Pareto de perdas</h2>'+html+'</section>';
   }
 
   function comparisonBlock(){ var c = data().comparison || {}; if(!c.active) return ''; return '<section class="panel comparisonPanel"><h2>Comparativo selecionado</h2><div>'+c.html+'</div></section>'; }
@@ -328,13 +352,31 @@
     finally{ r(); }
   }
   window.generateComparisonPDF = exportComparisonPDF;
-  function table(s,title){ var x = st(s), rows = s.map(function(a){ var over = x.takt > 0 && a.time > x.takt; return '<tr><td><b>'+a.idx+'</b></td><td class="'+(over?'overTakt':'')+'">'+f(a.time,2)+'</td><td>'+(a.qty!=null?esc(f(Number(a.qty),2)):'—')+'</td><td>'+esc(a.cause||'Normal')+'</td><td>'+esc(a.obs||'—')+'</td></tr>'; }).join(''); return '<section class="panel samples"><h3>'+esc(title||'Amostras coletadas')+'</h3><table><thead><tr><th>#</th><th>Tempo (s)</th><th>Qtd</th><th>Causa</th><th>Observação</th></tr></thead><tbody>'+rows+'</tbody></table><p>Valores acima do Takt Time em vermelho.</p></section>'; }
-
-  function css(extra){
-    return '<style>*{box-sizing:border-box}body{margin:0;background:#fff}.reportA4{width:794px;min-height:1123px;background:#fff;color:#07183a;padding:10px 10px 10px;font-family:Arial,Helvetica,sans-serif;line-height:1.16}.top{border-bottom:2px solid #07183a;padding-bottom:6px;margin-bottom:6px}.title{font-size:23px;font-weight:900;letter-spacing:-.035em}.subtitle{font-size:11px;color:#58677d}.metaLine{margin-top:5px;font-size:9.5px;color:#33445c}.sectionLabel{font-size:8.5px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#58677d;margin:5px 0 3px}.panel{border:1px solid #d5dce8;border-radius:8px;background:#fff;box-shadow:0 1px 5px rgba(7,24,58,.05)}.kpiGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin:4px 0}.kpi{border:1px solid #cbd5e4;border-radius:8px;background:#f8fbff;min-height:56px;padding:5px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center}.kpiTitle{font-size:8px;font-weight:900;text-transform:uppercase;color:#58677d}.kpiValue{font-size:18px;font-weight:900}.kpiValue span{font-size:9px;margin-left:3px;color:#58677d}.kpiNote{margin-top:2px;font-size:7px;line-height:1.2;color:#4d5f7b;font-weight:700}.kpi.alert{border-color:#f26b00;background:#fff7ef}.kpi.alert .kpiValue{color:#f26b00}.diagnostic{padding:6px 8px;margin-bottom:6px}.diagnostic h2,.chartPanel h2,.paretoPanel h2,.comparisonPanel h2{font-size:13px;margin:0 0 5px}.diagGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}.diagGrid div{background:#f7faff;border:1px solid #d5dce8;border-radius:6px;padding:4px 5px;text-align:center}.diagGrid b{display:block;font-size:7.5px;color:#58677d;text-transform:uppercase}.diagGrid strong{display:block;font-size:12px}.bad{color:#df1f2d}.good{color:#1e9a44}.small{font-size:9.5px;color:#33445c;margin:4px 0}.main{display:grid;grid-template-columns:61% 39%;gap:10px;align-items:start}.chartPanel{padding:6px 8px;margin-bottom:8px}.chartBox{height:168px;border-left:2px solid #07183a;border-bottom:2px solid #07183a;position:relative;margin-left:8px;padding-right:82px}.hist{margin-bottom:10px}.hist .chartBox{height:90px;padding-right:0;margin-bottom:8px}.gridLine{position:absolute;left:0;right:0;border-top:1px dashed #d6deea}.bars,.hBars{position:absolute;inset:0 88px 0 20px;display:flex;align-items:flex-end;gap:4px}.hist .hBars{inset:18px 8px 0 20px}.barWrap{flex:1;height:100%;display:flex;align-items:flex-end;position:relative}.bar{width:100%;border-radius:4px 4px 0 0;border:1px solid rgba(7,24,58,.2)}.xLabel{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-size:7.5px;font-weight:800}.yLabel{font-size:8px;color:#58677d}.refLine{position:absolute;left:0;right:82px;z-index:2}.avg{border-top:2px dashed #8d99a8}.takt{border-top:2px dashed #f26b00}.lsc{border-top:1.5px dashed #df1f2d}.lic{border-top:1.5px dashed #6b35a8}.refTags{position:absolute;inset:0 4px 0 auto;width:74px;z-index:4;pointer-events:none}.refTag{position:absolute;right:0;transform:translateY(50%);background:#fff;padding:1px 4px;border:1px solid #d5dce8;border-radius:10px;font-size:6.8px;font-weight:900;white-space:nowrap}.refTag.avg{color:#44576f}.refTag.takt{color:#b25a00}.refTag.lsc{color:#b51c29}.refTag.lic{color:#5f2f92}.legend{font-size:8px;color:#58677d;margin-top:8px}.legend span{display:inline-block;width:9px;height:9px;border-radius:2px;margin-left:6px}.legend .g{background:#2da84e}.legend .r{background:#ef334a}.legend .p{background:#6b35a8}.hWrap{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;position:relative}.hBar{width:82%;background:#118bee;border-radius:4px 4px 0 0;position:relative}.hBar span{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:900}.hLabel{position:absolute;bottom:-19px;font-size:6.6px;font-weight:800;white-space:nowrap}.auxGrid{display:grid;grid-template-columns:1fr;gap:5px}.aux{border:1px solid #d5dce8;border-radius:7px;padding:6px 7px;display:flex;justify-content:space-between;background:#fbfcfe}.auxTitle{font-size:7.5px;font-weight:900;text-transform:uppercase;color:#58677d}.auxValue{font-size:12px;font-weight:900}.time{margin-top:6px;padding:7px;border:1px solid #d5dce8;border-radius:7px;text-align:center;font-weight:900}.time small{display:block;font-size:7.5px;color:#58677d}.time span{font-size:19px;color:#0879e9;font-family:monospace}.paretoPanel,.comparisonPanel{padding:7px 9px;margin:10px 0 6px}.paretoPanel p{font-size:8.8px;color:#33445c;margin:0 0 6px}.paretoRow{display:grid;grid-template-columns:120px 1fr 75px;gap:8px;align-items:center;font-size:9px;margin:4px 0}.paretoLabel{font-weight:900}.paretoLabel small{display:block;color:#58677d;font-weight:400}.paretoTrack{height:16px;background:#eef3f9;border:1px solid #d5dce8;border-radius:8px;overflow:hidden}.paretoBar{height:100%;min-width:2px;border-radius:8px}.paretoRow.isNormal .paretoBar{background:#2da84e}.paretoRow.isAttention .paretoBar{background:#ef334a}.paretoRow.isAttention .paretoLabel{color:#b6202d}.paretoVal{text-align:right;font-weight:900}.comparisonPanel{font-size:10px;line-height:1.35}.samples{margin-top:10px;padding:10px}.samples h3{font-size:12px;margin:0 0 7px}.samples table{width:100%;border-collapse:collapse;font-size:9.5px}.samples th{background:#f3f6fa;font-weight:900}.samples td,.samples th{border:1px solid #d5dce8;padding:4px;text-align:center}.samples .overTakt{color:#df1f2d;font-weight:900}.samples p{font-size:8.5px;color:#58677d;margin:6px 0 0}.foot{margin-top:10px;border-top:2px solid #07183a;padding-top:7px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:9px;color:#33445c}.foot b{display:block;font-size:10px}.sig{border-top:1px solid #07183a;text-align:center;padding-top:6px}.note{padding:10px;background:#f7faff;font-size:10px}'+(extra||'')+'</style>';
+  function table(s,title){
+    var x = st(s);
+    var clk = function(ms){ return ms ? new Date(ms).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—'; };
+    var rows = s.map(function(a){
+      var isDt = a.type === 'downtime';
+      var over = !isDt && x.takt > 0 && a.time > x.takt;
+      var prod = (!isDt && a.productiveTime != null) ? f(a.productiveTime,2) : '—';
+      var qtyTxt = a.qty != null ? esc(f(Number(a.qty),2)) : '—';
+      return '<tr class="'+(isDt?'rowDt':'')+'"><td><b>'+a.idx+'</b></td><td class="cellClk">'+esc(clk(a.endedAt))+'</td><td>'+(isDt?'Parada':'Ciclo')+'</td><td class="'+(over?'overTakt':'')+'">'+f(a.time,2)+'</td><td>'+prod+'</td><td>'+qtyTxt+'</td><td>'+esc(a.cause||'Normal')+'</td><td>'+esc(a.obs||'—')+'</td></tr>';
+    }).join('');
+    return '<section class="panel samples"><h3>'+esc(title||'Amostras coletadas')+'</h3><table><thead><tr><th>#</th><th>Hora</th><th>Tipo</th><th>Total (s)</th><th>Produtivo (s)</th><th>Qtd</th><th>Causa</th><th>Observação</th></tr></thead><tbody>'+rows+'</tbody></table><p>Valores acima do Takt Time em vermelho. Linhas de parada com fundo rosa claro.</p></section>';
   }
 
-  function header(sub){ var d = data(), form = d.form || {}, ex = d.extras || {}, equip = form.equipName || 'Sem identificação'; return '<header class="top"><div class="title">Cronoanálise — '+esc(equip)+'</div><div class="subtitle">'+esc(sub)+'</div><div class="metaLine"><b>Data:</b> '+new Date().toLocaleDateString('pt-BR')+' | <b>Analista:</b> '+esc(form.analystName||'—')+' | <b>Tipo:</b> '+esc(form.analysisModeLabel||'—')+' | <b>Peças/ciclo:</b> '+esc(form.units||'—')+' | <b>Linha:</b> '+esc(ex.lineName||'—')+' | <b>Produto:</b> '+esc(ex.productName||'—')+' | <b>Versão:</b> '+esc(window.APP_VERSION||d.version||'—')+'</div></header>'; }
+  function css(extra){
+    return '<style>*{box-sizing:border-box}body{margin:0;background:#fff}.reportA4{width:794px;min-height:1123px;background:#fff;color:#07183a;padding:10px 10px 10px;font-family:Arial,Helvetica,sans-serif;line-height:1.16}.top{border-bottom:2px solid #07183a;padding-bottom:6px;margin-bottom:6px}.title{font-size:23px;font-weight:900;letter-spacing:-.035em}.subtitle{font-size:11px;color:#58677d}.metaLine{margin-top:5px;font-size:9.5px;color:#33445c}.sectionLabel{font-size:8.5px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#58677d;margin:5px 0 3px}.panel{border:1px solid #d5dce8;border-radius:8px;background:#fff;box-shadow:0 1px 5px rgba(7,24,58,.05)}.kpiGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin:4px 0}.kpi{border:1px solid #cbd5e4;border-radius:8px;background:#f8fbff;min-height:56px;padding:5px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center}.kpiTitle{font-size:8px;font-weight:900;text-transform:uppercase;color:#58677d}.kpiValue{font-size:18px;font-weight:900}.kpiValue span{font-size:9px;margin-left:3px;color:#58677d}.kpiNote{margin-top:2px;font-size:7px;line-height:1.2;color:#4d5f7b;font-weight:700}.kpi.alert{border-color:#f26b00;background:#fff7ef}.kpi.alert .kpiValue{color:#f26b00}.diagnostic{padding:6px 8px;margin-bottom:6px}.diagnostic h2,.chartPanel h2,.paretoPanel h2,.comparisonPanel h2{font-size:13px;margin:0 0 5px}.diagGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}.diagGrid div{background:#f7faff;border:1px solid #d5dce8;border-radius:6px;padding:4px 5px;text-align:center}.diagGrid div.cardGood{background:#e6f4ea;border-color:#1e9a44}.diagGrid div.cardBad{background:#fce8ea;border-color:#df1f2d}.diagGrid div.cardGood strong{color:#1e9a44}.diagGrid div.cardBad strong{color:#df1f2d}.diagGrid b{display:block;font-size:7.5px;color:#58677d;text-transform:uppercase}.diagGrid strong{display:block;font-size:12px}.bad{color:#df1f2d}.good{color:#1e9a44}.small{font-size:9.5px;color:#33445c;margin:4px 0}.main{display:grid;grid-template-columns:61% 39%;gap:10px;align-items:start}.chartPanel{padding:6px 8px;margin-bottom:8px}.chartBox{height:168px;border-left:2px solid #07183a;border-bottom:2px solid #07183a;position:relative;margin-left:8px;padding-right:82px}.hist{margin-bottom:10px}.hist .chartBox{height:90px;padding-right:0;margin-bottom:8px}.gridLine{position:absolute;left:0;right:0;border-top:1px dashed #d6deea}.bars,.hBars{position:absolute;inset:0 88px 0 20px;display:flex;align-items:flex-end;gap:4px}.hist .hBars{inset:18px 8px 0 20px}.barWrap{flex:1;height:100%;display:flex;align-items:flex-end;position:relative}.bar{width:100%;border-radius:4px 4px 0 0;border:1px solid rgba(7,24,58,.2)}.xLabel{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-size:7.5px;font-weight:800}.yLabel{font-size:8px;color:#58677d}.refLine{position:absolute;left:0;right:82px;z-index:2}.avg{border-top:2px dashed #8d99a8}.takt{border-top:2px dashed #f26b00}.lsc{border-top:1.5px dashed #df1f2d}.lic{border-top:1.5px dashed #6b35a8}.refTags{position:absolute;inset:0 4px 0 auto;width:74px;z-index:4;pointer-events:none}.refTag{position:absolute;right:0;transform:translateY(50%);background:#fff;padding:1px 4px;border:1px solid #d5dce8;border-radius:10px;font-size:6.8px;font-weight:900;white-space:nowrap}.refTag.avg{color:#44576f}.refTag.takt{color:#b25a00}.refTag.lsc{color:#b51c29}.refTag.lic{color:#5f2f92}.legend{font-size:8px;color:#58677d;margin-top:8px}.legend span{display:inline-block;width:9px;height:9px;border-radius:2px;margin-left:6px}.legend .g{background:#2da84e}.legend .r{background:#ef334a}.legend .p{background:#6b35a8}.hWrap{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;position:relative}.hBar{width:82%;background:#118bee;border-radius:4px 4px 0 0;position:relative}.hBar span{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:900}.hLabel{position:absolute;bottom:-19px;font-size:6.6px;font-weight:800;white-space:nowrap}.auxGrid{display:grid;grid-template-columns:1fr;gap:5px}.aux{border:1px solid #d5dce8;border-radius:7px;padding:6px 7px;display:flex;justify-content:space-between;background:#fbfcfe}.auxTitle{font-size:7.5px;font-weight:900;text-transform:uppercase;color:#58677d}.auxValue{font-size:12px;font-weight:900}.time{margin-top:6px;padding:7px;border:1px solid #d5dce8;border-radius:7px;text-align:center;font-weight:900}.time small{display:block;font-size:7.5px;color:#58677d}.time span{font-size:19px;color:#0879e9;font-family:monospace}.paretoPanel,.comparisonPanel{padding:7px 9px;margin:10px 0 6px}.paretoPanel p{font-size:8.8px;color:#33445c;margin:0 0 6px}.paretoRow{display:grid;grid-template-columns:120px 1fr 75px;gap:8px;align-items:center;font-size:9px;margin:4px 0}.paretoLabel{font-weight:900}.paretoLabel small{display:block;color:#58677d;font-weight:400}.paretoTrack{height:16px;background:#eef3f9;border:1px solid #d5dce8;border-radius:8px;overflow:hidden}.paretoBar{height:100%;min-width:2px;border-radius:8px}.paretoRow.isNormal .paretoBar{background:#2da84e}.paretoRow.isAttention .paretoBar{background:#ef334a}.paretoRow.isAttention .paretoLabel{color:#b6202d}.paretoVal{text-align:right;font-weight:900}.comparisonPanel{font-size:10px;line-height:1.35}.samples{margin-top:10px;padding:10px}.samples h3{font-size:12px;margin:0 0 7px}.samples table{width:100%;border-collapse:collapse;font-size:9.5px}.samples th{background:#f3f6fa;font-weight:900}.samples td,.samples th{border:1px solid #d5dce8;padding:4px;text-align:center}.samples .overTakt{color:#df1f2d;font-weight:900}.samples tr.rowDt{background:#fdecee}.samples tr.rowDt td{color:#7d3030}.samples .cellClk{font-family:monospace;font-size:9px}.samples p{font-size:8.5px;color:#58677d;margin:6px 0 0}.foot{margin-top:10px;border-top:2px solid #07183a;padding-top:7px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:9px;color:#33445c}.foot b{display:block;font-size:10px}.sig{border-top:1px solid #07183a;text-align:center;padding-top:6px}.note{padding:10px;background:#f7faff;font-size:10px}'+(extra||'')+'</style>';
+  }
+
+  function header(sub){
+    var d = data(), form = d.form || {}, ex = d.extras || {}, equip = form.equipName || 'Sem identificação';
+    var clk = function(ms){ return ms ? new Date(ms).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—'; };
+    var sessionLine = d.sessionStartTs
+      ? '<div class="metaLine"><b>Início sessão:</b> '+esc(clk(d.sessionStartTs))+' | <b>Fim sessão:</b> '+esc(d.running||!d.sessionEndTs?'em andamento':clk(d.sessionEndTs))+' | <b>Tempo total medido:</b> '+esc(($('totalTimer')&&$('totalTimer').textContent)||'00:00')+'</div>'
+      : '';
+    return '<header class="top"><div class="title">Cronoanálise — '+esc(equip)+'</div><div class="subtitle">'+esc(sub)+'</div><div class="metaLine"><b>Data:</b> '+new Date().toLocaleDateString('pt-BR')+' | <b>Analista:</b> '+esc(form.analystName||'—')+' | <b>Tipo:</b> '+esc(form.analysisModeLabel||'—')+' | <b>Peças/ciclo:</b> '+esc(form.units||'—')+' | <b>Linha:</b> '+esc(ex.lineName||'—')+' | <b>Produto:</b> '+esc(ex.productName||'—')+' | <b>Versão:</b> '+esc(window.APP_VERSION||d.version||'—')+'</div>'+sessionLine+'</header>';
+  }
   function foot(){ return '<footer class="foot"><div><b>Crono Máquina</b>Sistema de cronoanálise e tempo padrão</div><div><b>Operix</b>Base para decisão operacional</div><div class="sig">Assinatura do Analista</div></footer>'; }
 
   function report(doc,opt){
@@ -350,7 +392,8 @@
       + kpis(s)
       + impactBlock()
       + oeeBlock()
-      + '<main class="main"><section>'+chart(s)+hist(s)+'</section><aside>'+auxiliary(s)+'<div class="time"><small>Tempo total de medição</small><span>'+esc(($('totalTimer') && $('totalTimer').textContent) || '00:00')+'</span></div></aside></main>'
+      + '<main class="main"><section>'+chart(s)+'</section><aside>'+compactPareto(5)+'</aside></main>'
+      + '<main class="main"><section>'+hist(s)+'</section><aside>'+auxiliary(s)+'<div class="time"><small>Tempo total de medição</small><span>'+esc(($('totalTimer') && $('totalTimer').textContent) || '00:00')+'</span></div></aside></main>'
       + paretoBlock()
       + comparisonBlock()
       + (showSamples ? table(s,'Amostras coletadas') : (showSamplesNote ? '<section class="panel samples"><h3>Amostras coletadas</h3><div class="note">Este estudo possui '+s.length+' amostras. A tabela completa foi direcionada para a página 2 para preservar a leitura executiva da primeira página.</div></section>' : ''))
@@ -361,10 +404,11 @@
   function samplePage(doc,s){
     var el = doc.createElement('div');
     el.className = 'reportA4';
-    el.innerHTML = css('.samples table{font-size:10px}.samples td,.samples th{padding:4px}.foot{margin-top:22px}')
+    el.innerHTML = css('.samples table{font-size:10px}.samples td,.samples th{padding:4px}.foot{margin-top:18px}')
       + header('Tabela completa de tempos coletados durante a cronoanálise')
       + '<div class="sectionLabel">Detalhamento técnico</div>'
       + kpis(s)
+      + impactBlock()
       + table(s,'Tabela completa de amostras')
       + foot();
     return el;
@@ -487,26 +531,35 @@
 
   function compactReport(doc){
     var s = samples(), x = st(s), d = data(), el = doc.createElement('div');
+    var i = d.impact || {};
     var oeeO = d.oee, hasOee = oeeO && Number.isFinite(Number(oeeO.oee));
     var totalTxt = ($('totalTimer')&&$('totalTimer').textContent)||'00:00';
     var eff = x.eff == null ? '--' : f(x.eff,1);
     var a5Extra = [
-      '.reportA4{width:794px!important;min-height:510px!important}',
-      '.kpiGrid{grid-template-columns:repeat(auto-fit,minmax(68px,1fr))!important;gap:4px!important}',
-      '.kpi{min-height:46px!important;padding:3px 5px!important}',
-      '.kpiValue{font-size:14px!important}',
-      '.chartBox{height:175px!important}',
-      '.hist .chartBox{height:80px!important}',
+      '.reportA4{width:794px!important;min-height:540px!important}',
+      '.kpiGrid{grid-template-columns:repeat(auto-fit,minmax(64px,1fr))!important;gap:4px!important}',
+      '.kpi{min-height:42px!important;padding:3px 5px!important}',
+      '.kpiValue{font-size:13px!important}',
+      '.diagGrid.miniImpact{grid-template-columns:repeat(3,1fr)!important;margin:2px 0 4px!important}',
+      '.diagGrid.miniImpact div{padding:3px 5px!important;min-height:30px!important}',
+      '.diagGrid.miniImpact strong{font-size:11px!important}',
+      '.chartBox{height:170px!important}',
+      '.hist .chartBox{height:75px!important}',
       '.hist{margin-bottom:0!important}',
-      '.main{grid-template-columns:65% 35%!important;gap:8px!important}',
+      '.main{grid-template-columns:62% 38%!important;gap:8px!important;align-items:start}',
       '.top{padding-bottom:3px!important;margin-bottom:3px!important}',
       '.title{font-size:19px!important}',
       '.sectionLabel{margin:2px 0 2px!important}',
-      '.chartPanel{margin-bottom:4px!important;padding:5px 7px!important}'
+      '.chartPanel{margin-bottom:4px!important;padding:5px 7px!important}',
+      '.paretoPanel.compact{padding:5px 7px!important;margin:0!important}',
+      '.paretoPanel.compact h2{font-size:11px!important;margin:0 0 4px!important}',
+      '.paretoPanel.compact .paretoRow{grid-template-columns:90px 1fr 52px!important;font-size:8.5px!important;margin:3px 0!important}',
+      '.paretoPanel.compact .paretoTrack{height:12px!important}'
     ].join('');
     var allBadges = '<section class="kpiGrid">'
       + kpi('Takt Time', x.takt ? f(x.takt,2) : '—', x.takt ? 's' : '')
       + kpi('Ciclo Médio', fs(x.mean), '')
+      + kpi('Mediana', fs(x.med), '')
       + kpi('Eficiência', eff, eff === '--' ? '' : '%', x.eff != null && x.eff > 110 ? 'alert' : '')
       + kpi('Capacidade', f(x.cap,1), unit())
       + kpi('Estabilidade', f(x.stab,1), '%')
@@ -516,14 +569,28 @@
       + kpi('Desvio', fs(x.sd), '')
       + (hasOee ? kpi('OEE', f(Number(oeeO.oee)*100,1), '%', Number(oeeO.oee) < 0.60 ? 'alert' : '') : '')
       + '</section>';
+    var isGain = i.target && (i.gap||0) >= 0;
+    var cardCls = i.target ? (isGain ? 'cardGood' : 'cardBad') : '';
+    var hourLabel = isGain ? 'Ganho/h' : 'Perda/h';
+    var shiftLabel = isGain ? 'Ganho/turno' : 'Perda/turno';
+    var hourValue = i.target ? f(isGain ? (i.gainPerHour||0) : (i.lossPerHour||0), 0) : '—';
+    var shiftValue = i.target ? f(isGain ? (i.gainPerShift||0) : (i.lossPerShift||0), 0) : '—';
+    var miniImpact = '<div class="diagGrid miniImpact">'
+      + '<div class="'+cardCls+'"><b>Gap</b><strong>'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+hourLabel+'</b><strong>'+hourValue+' un/h</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+shiftLabel+'</b><strong>'+shiftValue+' un</strong></div>'
+      + '</div>';
     var mainChart = s.length > 20 ? chartLine(s) : chart(s);
     el.className = 'reportA4';
     el.innerHTML = css(a5Extra)
       + header('Extrato de cronoanálise')
       + '<div class="sectionLabel">Indicadores</div>'
       + allBadges
-      + '<main class="main"><section>'+mainChart+hist(s)+'</section>'
-      + '<aside><div class="time"><small>Tempo total de medição</small><span>'+esc(totalTxt)+'</span></div></aside></main>';
+      + miniImpact
+      + '<main class="main"><section>'+mainChart+'</section>'
+      + '<aside>'+compactPareto(5)+'</aside></main>'
+      + hist(s)
+      + '<div class="time" style="margin-top:4px;padding:5px"><small>Tempo total de medição</small><span>'+esc(totalTxt)+'</span></div>';
     return el;
   }
 

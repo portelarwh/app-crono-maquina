@@ -78,7 +78,11 @@
       .impact-grid div,.advanced-grid section{background:var(--card-bg);border:1px solid var(--border);border-radius:7px;padding:8px 6px;text-align:center}
       .impact-grid span,.mini-result span{display:block;font-size:.63rem;color:var(--text-muted);font-weight:700;text-transform:uppercase}
       .impact-grid strong,.mini-result strong{display:block;font-size:.92rem;color:var(--text-main);margin-top:3px}
-      .impact-grid .bad{color:#ff5d6c}.impact-grid .good{color:#5bd47f}
+      .impact-grid div{transition:background .2s,border-color .2s}
+      .impact-grid div.cardGood{background:rgba(91,212,127,.16);border-color:#5bd47f}
+      .impact-grid div.cardBad{background:rgba(255,93,108,.16);border-color:#ff5d6c}
+      .impact-grid div.cardGood strong{color:#1e9a44}
+      .impact-grid div.cardBad strong{color:#df1f2d}
       .btn-undo-lap{flex:1;padding:12px 2px;background:#6c757d;font-size:.82rem}
       .lap-cause-wrap{display:inline-flex;align-items:center;gap:3px;margin-left:4px}
       .lap-cause-warn{display:none;align-items:center}
@@ -155,8 +159,8 @@
         <div class="operix-panel-title">Gap de capacidade e perda estimada</div>
         <div class="impact-grid">
           <div><span>Gap</span><strong id="valCapacityGap">--</strong></div>
-          <div><span>Perda/h</span><strong id="valLossHour">--</strong></div>
-          <div><span>Perda/turno</span><strong id="valLossShift">--</strong></div>
+          <div><span id="lblHourImpact">Perda/h</span><strong id="valLossHour">--</strong></div>
+          <div><span id="lblShiftImpact">Perda/turno</span><strong id="valLossShift">--</strong></div>
         </div>`;
       results.appendChild(panel);
     }
@@ -199,7 +203,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v5.1.25', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v5.1.28', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
@@ -207,8 +211,8 @@
   }
 
   function calculateImpact(data){
-    const target = parseNumber(data.form.target, 0), cap = parseNumber(data.stats.cap, 0), gap = target > 0 ? cap - target : 0, gapPct = target > 0 ? gap / target * 100 : null, lossPerBase = Math.max(0, target - cap), lossPerHour = data.form.timeUnit === '60' ? lossPerBase * 60 : lossPerBase, lossPerShift = lossPerHour * data.extras.shiftHours;
-    return { target, actual: cap, cap, gap, gapPct, lossPerBase, lossPerHour, lossPerShift, shiftHours: data.extras.shiftHours, unitLabel: data.form.timeUnitLabel };
+    const target = parseNumber(data.form.target, 0), cap = parseNumber(data.stats.cap, 0), gap = target > 0 ? cap - target : 0, gapPct = target > 0 ? gap / target * 100 : null, lossPerBase = Math.max(0, target - cap), gainPerBase = Math.max(0, cap - target), lossPerHour = data.form.timeUnit === '60' ? lossPerBase * 60 : lossPerBase, lossPerShift = lossPerHour * data.extras.shiftHours, gainPerHour = data.form.timeUnit === '60' ? gainPerBase * 60 : gainPerBase, gainPerShift = gainPerHour * data.extras.shiftHours;
+    return { target, actual: cap, cap, gap, gapPct, lossPerBase, lossPerHour, lossPerShift, gainPerBase, gainPerHour, gainPerShift, shiftHours: data.extras.shiftHours, unitLabel: data.form.timeUnitLabel };
   }
   function calculateStandardTime(data){
     const values = data.laps.map(lap => lap.durationSec).filter(value => Number.isFinite(value) && value > 0), avg = parseNumber(data.stats.av, 0), dev = parseNumber(data.stats.dev, 0), lsc = avg + 3 * dev, lic = Math.max(0, avg - 3 * dev);
@@ -237,7 +241,7 @@
   function patchDataGetter(){ const original = window.getCronoMachineData; if(typeof original !== 'function' || original.__operixDataLayer) return; const wrapped = function(){ return enrichData(original()); }; wrapped.__operixDataLayer = true; window.getCronoMachineData = wrapped; }
   function getData(){ patchDataGetter(); return typeof window.getCronoMachineData === 'function' ? window.getCronoMachineData() : null; }
 
-  function renderImpact(data){ const i = data?.impact || {}; if($('valCapacityGap')) $('valCapacityGap').textContent = i.target ? `${formatNumber(i.gap,1)} ${i.unitLabel} (${formatNumber(i.gapPct,1)}%)` : '--'; if($('valLossHour')) $('valLossHour').textContent = i.target ? `${formatNumber(i.lossPerHour,0)} un/h` : '--'; if($('valLossShift')) $('valLossShift').textContent = i.target ? `${formatNumber(i.lossPerShift,0)} un/turno` : '--'; }
+  function renderImpact(data){ const i = data?.impact || {}; const isGain = i.target && (i.gap||0) >= 0; const setCard=(id,val,goodWhen)=>{const el=$(id); if(!el)return; const card=el.parentElement; el.textContent=val; if(card){card.classList.remove('cardGood','cardBad'); if(i.target){card.classList.add(goodWhen?'cardGood':'cardBad');}}}; const lblH=$('lblHourImpact'), lblS=$('lblShiftImpact'); if(lblH) lblH.textContent = isGain ? 'Ganho/h' : 'Perda/h'; if(lblS) lblS.textContent = isGain ? 'Ganho/turno' : 'Perda/turno'; setCard('valCapacityGap', i.target?`${formatNumber(i.gap,1)} ${i.unitLabel} (${formatNumber(i.gapPct,1)}%)`:'--', isGain); if(isGain){ setCard('valLossHour', `${formatNumber(i.gainPerHour||0,0)} un/h`, true); setCard('valLossShift', `${formatNumber(i.gainPerShift||0,0)} un/turno`, true); } else { setCard('valLossHour', i.target?`${formatNumber(i.lossPerHour||0,0)} un/h`:'--', (i.lossPerHour||0)<=0); setCard('valLossShift', i.target?`${formatNumber(i.lossPerShift||0,0)} un/turno`:'--', (i.lossPerShift||0)<=0); } }
   function renderStandard(data){ const box = $('stdTimeBox'); if(!box) return; const s = data?.standardTime || {}; const newHtml = s.total ? `<strong>${formatNumber(s.standardSec,2)}s</strong><span>Base ${formatNumber(s.baseMean,2)}s + ${formatNumber(s.tolerancePct,1)}% | usadas ${s.used}/${s.total}</span>` : '<span>Sem amostras</span>'; if(box.innerHTML !== newHtml) box.innerHTML = newHtml; }
   function renderPareto(data){ const box = $('paretoBox'); if(!box) return; const rows = (data?.pareto || []).slice(0,5); const newHtml = rows.length ? rows.map((row, index) => `<div class="pareto-line"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatNumber(row.lossSec,1)}s</span></div>`).join('') : 'Sem dados'; if(box.innerHTML !== newHtml) box.innerHTML = newHtml; }
   function renderStudyOptions(){
