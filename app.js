@@ -1,11 +1,11 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.23';
+const APP_VERSION='v5.1.24';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
-const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null};
-const els={equipName:$('equipName'),analystName:$('analystName'),analysisMode:$('analysisMode'),units:$('units'),defaultLapQty:$('defaultLapQty'),defaultLapQtyGroup:$('defaultLapQtyGroup'),timeUnit:$('timeUnit'),takt:$('takt'),target:$('target'),lblTargetText:$('lblTargetText'),lapQtyMode:$('lapQtyMode'),lapQtyModeGroup:$('lapQtyModeGroup'),btnStart:$('btnStart'),btnStop:$('btnStop'),btnReset:$('btnReset'),btnLap:$('btnLap'),btnClearLaps:$('btnClearLaps'),btnDeleteShort:$('btnDeleteShort'),btnExport:$('btnExport'),btnPNG:$('btnPNG'),btnPDF:$('btnPDF'),btnWhatsApp:$('btnWhatsApp'),liveTimer:$('liveTimer'),totalTimer:$('totalTimer'),lapObs:$('lapObs'),lapCauseGrid:$('lapCauseGrid'),downtimeIndicator:$('downtimeIndicator'),valSamples:$('valSamples'),valHourlyCap:$('valHourlyCap'),valLastCycle:$('valLastCycle'),valAvgCycle:$('valAvgCycle'),valMinCycle:$('valMinCycle'),valMaxCycle:$('valMaxCycle'),valStdDev:$('valStdDev'),valEstabilidade:$('valEstabilidade'),valEfficiency:$('valEfficiency'),lblCapTitle:$('lblCapTitle'),lblLastCycleTitle:$('lblLastCycleTitle'),lblAvgCycleTitle:$('lblAvgCycleTitle'),historyListScreen:$('historyListScreen'),historyListPrint:$('historyListPrint'),chartContainer:$('chartContainer'),histogramContainer:$('histogramContainer'),eventTimeline:$('eventTimeline'),paradasCardsGrid:$('paradasCardsGrid'),oeeSavedSummary:$('oeeSavedSummary'),guideModal:$('guideModal'),oeeModal:$('oeeModal'),qtyModal:$('qtyModal'),qtyModalInput:$('qtyModalInput'),confirmModal:$('confirmModal'),confirmModalTitle:$('confirmModalTitle'),confirmModalText:$('confirmModalText'),infoModal:$('infoModal'),modalTitle:$('modalTitle'),modalText:$('modalText'),printDate:$('printDate'),printAnalyst:$('printAnalyst'),printEquipName:$('printEquipName'),printAnalysisMode:$('printAnalysisMode'),printUnits:$('printUnits'),printTimeUnit:$('printTimeUnit'),printTakt:$('printTakt'),printTarget:$('printTarget'),printExecutiveSummary:$('printExecutiveSummary'),appVersion:$('appVersion'),splashScreen:$('splashScreen')};
+const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null,sessionStartTs:null,sessionEndTs:null};
+const els={equipName:$('equipName'),analystName:$('analystName'),analysisMode:$('analysisMode'),units:$('units'),defaultLapQty:$('defaultLapQty'),defaultLapQtyGroup:$('defaultLapQtyGroup'),timeUnit:$('timeUnit'),takt:$('takt'),target:$('target'),lblTargetText:$('lblTargetText'),lapQtyMode:$('lapQtyMode'),lapQtyModeGroup:$('lapQtyModeGroup'),btnStart:$('btnStart'),btnStop:$('btnStop'),btnReset:$('btnReset'),btnLap:$('btnLap'),btnClearLaps:$('btnClearLaps'),btnDeleteShort:$('btnDeleteShort'),btnExport:$('btnExport'),btnPNG:$('btnPNG'),btnPDF:$('btnPDF'),btnWhatsApp:$('btnWhatsApp'),liveTimer:$('liveTimer'),totalTimer:$('totalTimer'),lapObs:$('lapObs'),lapCauseGrid:$('lapCauseGrid'),downtimeIndicator:$('downtimeIndicator'),valSamples:$('valSamples'),valHourlyCap:$('valHourlyCap'),valLastCycle:$('valLastCycle'),valAvgCycle:$('valAvgCycle'),valMinCycle:$('valMinCycle'),valMaxCycle:$('valMaxCycle'),valStdDev:$('valStdDev'),valEstabilidade:$('valEstabilidade'),valEfficiency:$('valEfficiency'),lblCapTitle:$('lblCapTitle'),lblLastCycleTitle:$('lblLastCycleTitle'),lblAvgCycleTitle:$('lblAvgCycleTitle'),historyListScreen:$('historyListScreen'),historyListPrint:$('historyListPrint'),chartContainer:$('chartContainer'),histogramContainer:$('histogramContainer'),eventTimeline:$('eventTimeline'),paradasCardsGrid:$('paradasCardsGrid'),oeeSavedSummary:$('oeeSavedSummary'),guideModal:$('guideModal'),oeeModal:$('oeeModal'),qtyModal:$('qtyModal'),qtyModalInput:$('qtyModalInput'),confirmModal:$('confirmModal'),confirmModalTitle:$('confirmModalTitle'),confirmModalText:$('confirmModalText'),infoModal:$('infoModal'),modalTitle:$('modalTitle'),modalText:$('modalText'),printDate:$('printDate'),printAnalyst:$('printAnalyst'),printEquipName:$('printEquipName'),printAnalysisMode:$('printAnalysisMode'),printUnits:$('printUnits'),printTimeUnit:$('printTimeUnit'),printTakt:$('printTakt'),printTarget:$('printTarget'),printExecutiveSummary:$('printExecutiveSummary'),appVersion:$('appVersion'),splashScreen:$('splashScreen'),sessionTimesDisplay:$('sessionTimesDisplay'),btnExtract:$('btnExtract')};
 
 
 function dismissSplash(){
@@ -21,6 +21,7 @@ function escAttr(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<'
 function id(){return (crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`)}
 function fmtClock(ms,cent=false){ms=Math.max(0,Math.floor(ms||0));const s=Math.floor(ms/1000),m=Math.floor(s/60),ss=s%60,c=Math.floor(ms%1000/10);return cent?`${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}.${String(c).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`}
 function fmtS(s){return `${(Number.isFinite(s)?s:0).toFixed(2)}s`}
+function fmtHHMMSS(ts){var d=new Date(ts||0),h=d.getHours(),m=d.getMinutes(),s=d.getSeconds();return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function totalMs(now=Date.now()){return state.running&&state.startedAt?state.totalElapsedMs+(now-state.startedAt):state.totalElapsedMs}
 function lapMs(now=Date.now()){if(!state.currentCycle)return 0;let v=state.currentCycle.productiveAccumMs||0;if(state.mode==='running_normal'&&state.running&&state.lastSegmentStartMs)v+=now-state.lastSegmentStartMs;return v}
 function activeDowntimeDurationMs(now=Date.now()){if(!state.activeDowntime)return 0;let v=state.activeDowntime.accumMs||0;if(state.running&&state.activeDowntime.startMs)v+=now-state.activeDowntime.startMs;return v}
@@ -98,6 +99,7 @@ function startTimer(){
   state.startedAt=now;
   if(state.mode==='idle'){
     state.mode='running_normal';
+    if(!state.sessionStartTs)state.sessionStartTs=now;
     if(!state.currentCycle)state.currentCycle={startMs:now,productiveAccumMs:0};
     state.lastSegmentStartMs=now;
   }else if(state.mode==='running_normal'){
@@ -121,11 +123,12 @@ function stopTimer(){
   }
   state.totalElapsedMs+=now-state.startedAt;
   state.startedAt=null;
+  state.sessionEndTs=now;
   state.running=false;
   stopTick();render();persist();
 }
 let confirmCb=null;function resetTimer(){if(state.events.length||totalMs()>0||state.running||state.mode!=='idle'){openConfirm('Zerar medição','Deseja zerar todos os tempos, amostras e histórico?',doReset);return}doReset()}
-function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,oee:null});if(els.lapObs)els.lapObs.value='';render();persist()}
+function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,oee:null,sessionStartTs:null,sessionEndTs:null});if(els.lapObs)els.lapObs.value='';render();persist()}
 window.loadStudyIntoState=function(study){
   const d=study.data;
   if(!d||!Array.isArray(d.laps))return;
@@ -153,7 +156,7 @@ window.loadStudyIntoState=function(study){
 };
 function tick(){stopTick();let last=0;const loop=t=>{if(!state.running)return;if(t-last>=100){renderTimersOnly();last=t}state.tickId=requestAnimationFrame(loop)};state.tickId=requestAnimationFrame(loop)}
 function stopTick(){if(state.tickId){cancelAnimationFrame(state.tickId);state.tickId=null}}
-function renderTimersOnly(){if(els.liveTimer)els.liveTimer.textContent=fmtClock(lapMs(),true);if(els.totalTimer)els.totalTimer.textContent=fmtClock(totalMs(),false);if(els.downtimeIndicator&&state.mode==='downtime_active'&&state.activeDowntime){els.downtimeIndicator.textContent=`⏸ ${state.activeDowntime.cause} · ${fmtClock(activeDowntimeDurationMs(),false)}`}}
+function renderTimersOnly(){if(els.liveTimer)els.liveTimer.textContent=fmtClock(lapMs(),true);if(els.totalTimer)els.totalTimer.textContent=fmtClock(totalMs(),false);if(els.downtimeIndicator&&state.mode==='downtime_active'&&state.activeDowntime){els.downtimeIndicator.textContent=`⏸ ${state.activeDowntime.cause} · ${fmtClock(activeDowntimeDurationMs(),false)}`};if(els.sessionTimesDisplay){if(state.sessionStartTs){const e=!state.running&&state.sessionEndTs?fmtHHMMSS(state.sessionEndTs):'em andamento';els.sessionTimesDisplay.textContent=fmtHHMMSS(state.sessionStartTs)+' → '+e;}else{els.sessionTimesDisplay.textContent='';}}}
 function closeActiveDowntime(now){
   if(!state.activeDowntime)return 0;
   const dt=state.activeDowntime;
@@ -474,19 +477,19 @@ function renderControls(){
     const isActive=state.mode==='downtime_active'&&state.activeDowntime&&b.dataset.cause===state.activeDowntime.cause;
     b.classList.toggle('active',!!isActive);
   });
-  [els.btnExport,els.btnPNG,els.btnPDF,els.btnWhatsApp].forEach(b=>{if(b)b.disabled=!has});
+  [els.btnExport,els.btnPNG,els.btnPDF,els.btnWhatsApp].forEach(b=>{if(b)b.disabled=!has});if(els.btnExtract)els.btnExtract.disabled=!has;
   if(els.btnClearLaps)els.btnClearLaps.disabled=!has;
   if(els.btnDeleteShort){const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;els.btnDeleteShort.disabled=!has||!minMs;}
 }
 function row(e,i,print=false){
   const lid=escAttr(e.id);
   if(e.type==='downtime'){
-    return `<div class="history-row history-downtime"><span class="history-id"></span><span class="history-time">${fmtS((e.durationMs||0)/1000)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
+    return `<div class="history-row history-downtime"><span class="history-id"></span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS((e.durationMs||0)/1000)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
   }
   const qv=escAttr(e.qty??'');
   const idx=cycles().findIndex(c=>c.id===e.id)+1;
   const sec=(e.productiveMs||e.durationMs||0)/1000;
-  return `<div class="history-row history-cycle"><span class="history-id">#${idx}</span><span class="history-time">${fmtS(sec)}</span>${els.analysisMode.value==='interval'?`<input class="history-qty-input" value="${qv}" placeholder="Qtd" inputmode="decimal" data-event-id="${lid}">`:''}${!print?`<button class="btn-delete" aria-label="Remover ciclo ${idx}" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
+  return `<div class="history-row history-cycle"><span class="history-id">#${idx}</span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS(sec)}</span>${els.analysisMode.value==='interval'?`<input class="history-qty-input" value="${qv}" placeholder="Qtd" inputmode="decimal" data-event-id="${lid}">`:''}${!print?`<button class="btn-delete" aria-label="Remover ciclo ${idx}" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
 }
 function renderHistory(){els.historyListScreen.innerHTML=state.events.length?state.events.map((e,i)=>row(e,i,false)).join(''):'<div class="history-row"><span class="history-time">Nenhuma amostra registrada</span></div>';els.historyListPrint.innerHTML=state.events.map((e,i)=>row(e,i,true)).join('')}
 function renderCharts(){
@@ -593,7 +596,7 @@ function load(){
   }catch(e){localStorage.removeItem(STORAGE_KEY)}
 }
 function handleExportWithModal(type){const active=window.hasActiveComparison?.();const doExport=()=>{if(type==='pdf')window.generateRealPDF?.();else if(type==='png')window.generatePNG?.();else shareWhatsApp();};const doComp=()=>{const cd=window.getComparisonStudiesData?.();if(cd)window.generateComparisonPDF?.(cd);else doExport();};if(active&&window.showExportChoiceModal){window.showExportChoiceModal(doExport,doComp);}else{doExport();}}
-const ACTIONS={start:startTimer,sensorStart:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>handleExportWithModal('png'),exportPdf:()=>handleExportWithModal('pdf'),shareWhatsapp:()=>handleExportWithModal('wa'),openGuide:openGuide,closeGuide:closeGuide,openOee:openOee,closeOee:closeOee,saveOee:saveOee,clearOee:clearOee,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId),clearLaps:clearLaps,deleteShortCycles:deleteShortCycles};
+const ACTIONS={start:startTimer,sensorStart:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>handleExportWithModal('png'),exportPdf:()=>handleExportWithModal('pdf'),shareWhatsapp:()=>handleExportWithModal('wa'),openGuide:openGuide,closeGuide:closeGuide,openOee:openOee,closeOee:closeOee,saveOee:saveOee,clearOee:clearOee,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId),clearLaps:clearLaps,deleteShortCycles:deleteShortCycles,exportExtract:()=>window.exportExtractPDF?.()};
 const debounce=(fn,ms)=>{let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms)}};
 const renderDeb=debounce(render,80);
 const persistDeb=debounce(persist,250);

@@ -111,9 +111,10 @@
             font-variant-numeric: tabular-nums; margin: 5px 0 2px 0;
             font-family: var(--font-mono); color: var(--text-main);
         }
-        .total-timer-wrap { text-align: center; margin-bottom: 10px; }
+        .total-timer-wrap { text-align: center; margin-bottom: 2px; }
         .total-timer-label { font-size: 0.65rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
         .total-timer { font-size: 1.1rem; font-weight: bold; font-family: var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .session-times-display { font-size: .72rem; color: var(--text-muted); font-family: var(--font-mono); text-align: center; min-height: 1.2em; letter-spacing: .3px; margin-bottom: 8px; }
         
         .btn-row { display: flex; gap: 6px; margin-bottom: 10px;}
         button { border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.1s;}
@@ -160,6 +161,7 @@
         .history-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-main);}
         .history-row:last-child { border-bottom: none; }
         .history-id { width: 30px; font-weight: bold; color: var(--text-muted);}
+        .history-clock { font-size: .65rem; color: var(--text-muted); font-family: var(--font-mono); min-width: 52px; text-align: center; }
         .history-time { flex: 1; text-align: center; font-weight: bold; font-family: var(--font-mono); font-size: 1rem; color: var(--text-main);}
         .btn-delete { background: transparent; color: var(--red); padding: 4px 12px; border: 1px solid var(--red); font-size: 0.75rem; border-radius: 6px; cursor: pointer;}
         .history-qty-input {
@@ -335,6 +337,7 @@ body.export-mode .chart-title{
         .btn-action-png { background-color: #17a2b8; }
         .btn-action-pdf { background-color: var(--border); color: var(--text-main); }
         .btn-action-wa  { background-color: #25D366; }
+        .btn-action-extract { background-color: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
         html[data-theme="light"] .btn-action-pdf { background-color: #e2e2e2; color: #121212; }
 
         .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 10px; background: var(--bg-color); border-top: 1px solid var(--border); z-index: 50; transform: translateZ(0); -webkit-transform: translateZ(0); }
