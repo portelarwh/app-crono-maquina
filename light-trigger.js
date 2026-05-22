@@ -740,6 +740,7 @@
           .lt-roi-type-btn.active{background:rgba(0,180,220,0.75);border-color:#00b4dc;color:#fff}
           .lt-roi-type-btn.lt-line-active{background:rgba(220,60,60,0.75);border-color:#ff4444;color:#fff}
           .lt-roi-type-btn.lt-bw-on{background:rgba(220,220,220,0.82);border-color:#bbb;color:#111}
+          .lt-cam-timer{position:absolute;bottom:24px;right:5px;background:rgba(0,0,0,.55);color:#fff;font-family:monospace;font-size:.7rem;font-weight:bold;padding:3px 7px;border-radius:4px;pointer-events:none;line-height:1.4;text-align:right;white-space:nowrap}
         `;
         document.head.appendChild(s);
     }
@@ -802,6 +803,7 @@
               </div>
               <button class="lt-roi-reset" id="btnLtRoiReset" type="button" title="Resetar alvo">✕ alvo</button>
               <span class="lt-vfeed-label" id="ltVfeedLabel">vídeo · arraste para definir alvo</span>
+              <div class="lt-cam-timer" id="ltCameraTimer"></div>
             </div>
             <div class="lt-vsample">
               <canvas class="lt-vsample-canvas" id="ltSampleCanvas" width="${SAMPLE_W}" height="${SAMPLE_H}"></canvas>
@@ -908,6 +910,12 @@
         const dest = document.getElementById('ltSampleCanvas');
         if (dest && cvs) { const dCtx = dest.getContext('2d'); if (dCtx) dCtx.drawImage(cvs, 0, 0); }
         if (roiMode === 'idle' && lineMode === 'idle') drawRoiOverlay();
+        const camTimer = document.getElementById('ltCameraTimer');
+        if (camTimer) {
+            const live = document.getElementById('liveTimer');
+            const total = document.getElementById('totalTimer');
+            camTimer.textContent = (live ? live.textContent : '00:00.00') + ' · ' + (total ? total.textContent : '00:00');
+        }
     }
 
     // ---------- iniciar câmera ----------

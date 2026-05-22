@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.1.23',
+      version: window.APP_VERSION || 'v5.1.24',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -440,4 +440,37 @@
   window.buildCronoMachinePNGBlob = buildPNGBlob;
   window.getCronoMachinePNGFileName = function(){ return fileName('.png'); };
   window.generateRealPDF = exportPDF;
+
+  function compactReport(doc){
+    var s = samples(), el = doc.createElement('div');
+    var a5Extra = '.reportA4{width:559px!important;min-height:794px!important}.kpiGrid{grid-template-columns:repeat(3,1fr)!important}.chartBox{height:150px!important}.hist .chartBox{height:80px!important}';
+    el.className = 'reportA4';
+    el.innerHTML = css(a5Extra)
+      + header('Extrato de cronoanálise — A5')
+      + '<div class="sectionLabel">Visão executiva</div>'
+      + kpis(s)
+      + '<main class="main"><section>'+chart(s)+hist(s)+'</section><aside>'+auxiliary(s)+'<div class="time"><small>Tempo total de medição</small><span>'+esc(($('totalTimer')&&$('totalTimer').textContent)||'00:00')+'</span></div></aside></main>';
+    return el;
+  }
+
+  async function exportExtractPDF(){
+    var r = btn('btnExtract','⏳ Gerando...');
+    try{
+      if(!window.jspdf||!window.jspdf.jsPDF) throw new Error('jsPDF não carregado.');
+      var sb = sandbox();
+      var page = compactReport(sb.doc);
+      sb.doc.body.appendChild(page);
+      await new Promise(function(ok){ setTimeout(ok,150); });
+      var canvas = await cap(page);
+      var PDF = window.jspdf.jsPDF, pdf = new PDF('p','mm','a5');
+      var pageW = 148, pageH = 210;
+      var imgW = pageW, imgH = canvas.height * imgW / canvas.width;
+      if(imgH > pageH) { imgH = pageH; imgW = canvas.width * imgH / canvas.height; }
+      pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,imgW,imgH,undefined,'FAST');
+      sb.iframe.remove();
+      pdf.save(fileName('-extrato.pdf'));
+    }catch(e){ console.error(e); alert(e.message||'Erro ao gerar PDF Extrato.'); }
+    finally{ r(); }
+  }
+  window.exportExtractPDF = exportExtractPDF;
 })();
