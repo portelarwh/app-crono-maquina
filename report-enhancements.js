@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.1.26',
+      version: window.APP_VERSION || 'v5.1.27',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -106,15 +106,18 @@
   function impactBlock(){
     var d = data(), i = d.impact || {}, std = d.standardTime || {}, an = d.analysis || {}, ex = d.extras || {};
     var action = 'Ação recomendada: investigar os maiores picos de ciclo acima do Takt Time e classificar corretamente as causas dos eventos registrados. Priorizar as amostras com maior impacto sobre a perda de capacidade e sobre a instabilidade do processo.';
-    var gapCls = i.target ? ((i.gap||0) >= 0 ? 'cardGood' : 'cardBad') : '';
-    var lhCls  = i.target ? ((i.lossPerHour||0) <= 0 ? 'cardGood' : 'cardBad') : '';
-    var lsCls  = i.target ? ((i.lossPerShift||0) <= 0 ? 'cardGood' : 'cardBad') : '';
+    var isGain = i.target && (i.gap||0) >= 0;
+    var cardCls = i.target ? (isGain ? 'cardGood' : 'cardBad') : '';
+    var hourLabel = isGain ? 'Ganho/h' : 'Perda/h';
+    var shiftLabel = isGain ? 'Ganho/turno' : 'Perda/turno';
+    var hourValue = i.target ? f(isGain ? (i.gainPerHour||0) : (i.lossPerHour||0), 0) : '—';
+    var shiftValue = i.target ? f(isGain ? (i.gainPerShift||0) : (i.lossPerShift||0), 0) : '—';
     return '<section class="panel diagnostic"><h2>Diagnóstico executivo</h2><div class="diagGrid">'
       + '<div><b>Meta</b><strong>'+esc(i.target?f(i.target,1):'—')+' '+esc(i.unitLabel||unit())+'</strong></div>'
       + '<div><b>Real</b><strong>'+esc((i.actual||i.cap)?f(i.actual||i.cap,1):'—')+' '+esc(i.unitLabel||unit())+'</strong></div>'
-      + '<div class="'+gapCls+'"><b>Gap</b><strong>'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
-      + '<div class="'+lhCls+'"><b>Perda/h</b><strong>'+esc(i.target?f(i.lossPerHour,0):'—')+' un/h</strong></div>'
-      + '<div class="'+lsCls+'"><b>Perda/turno</b><strong>'+esc(i.target?f(i.lossPerShift,0):'—')+' un</strong></div>'
+      + '<div class="'+cardCls+'"><b>Gap</b><strong>'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+hourLabel+'</b><strong>'+hourValue+' un/h</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+shiftLabel+'</b><strong>'+shiftValue+' un</strong></div>'
       + '<div><b>Tempo padrão</b><strong>'+esc(std.standardSec?f(std.standardSec,2):'—')+'s</strong></div></div>'
       + '<p><b>Classificação:</b> '+esc(an.stabilityClass||'—')+'</p>'
       + '<p><b>Conclusão:</b> '+esc(executiveConclusion())+'</p>'
@@ -543,13 +546,16 @@
       + kpi('Desvio', fs(x.sd), '')
       + (hasOee ? kpi('OEE', f(Number(oeeO.oee)*100,1), '%', Number(oeeO.oee) < 0.60 ? 'alert' : '') : '')
       + '</section>';
-    var gapCls = i.target ? ((i.gap||0) >= 0 ? 'cardGood' : 'cardBad') : '';
-    var lhCls  = i.target ? ((i.lossPerHour||0) <= 0 ? 'cardGood' : 'cardBad') : '';
-    var lsCls  = i.target ? ((i.lossPerShift||0) <= 0 ? 'cardGood' : 'cardBad') : '';
+    var isGain = i.target && (i.gap||0) >= 0;
+    var cardCls = i.target ? (isGain ? 'cardGood' : 'cardBad') : '';
+    var hourLabel = isGain ? 'Ganho/h' : 'Perda/h';
+    var shiftLabel = isGain ? 'Ganho/turno' : 'Perda/turno';
+    var hourValue = i.target ? f(isGain ? (i.gainPerHour||0) : (i.lossPerHour||0), 0) : '—';
+    var shiftValue = i.target ? f(isGain ? (i.gainPerShift||0) : (i.lossPerShift||0), 0) : '—';
     var miniImpact = '<div class="diagGrid miniImpact">'
-      + '<div class="'+gapCls+'"><b>Gap</b><strong>'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
-      + '<div class="'+lhCls+'"><b>Perda/h</b><strong>'+esc(i.target?f(i.lossPerHour,0):'—')+' un/h</strong></div>'
-      + '<div class="'+lsCls+'"><b>Perda/turno</b><strong>'+esc(i.target?f(i.lossPerShift,0):'—')+' un</strong></div>'
+      + '<div class="'+cardCls+'"><b>Gap</b><strong>'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+hourLabel+'</b><strong>'+hourValue+' un/h</strong></div>'
+      + '<div class="'+cardCls+'"><b>'+shiftLabel+'</b><strong>'+shiftValue+' un</strong></div>'
       + '</div>';
     var mainChart = s.length > 20 ? chartLine(s) : chart(s);
     el.className = 'reportA4';
