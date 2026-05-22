@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.1.24',
+      version: window.APP_VERSION || 'v5.1.25',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -441,15 +441,89 @@
   window.getCronoMachinePNGFileName = function(){ return fileName('.png'); };
   window.generateRealPDF = exportPDF;
 
+  function chartLine(s){
+    if(!s.length) return '';
+    var x = st(s);
+    var mx = Math.max.apply(null,s.map(function(a){ return a.time; }).concat([x.lsc,x.takt||0,0.01]));
+    var spacing = s.length > 60 ? 10 : s.length > 30 ? 14 : 18;
+    var W = Math.max(s.length * spacing, 480), H = 140, pL = 4, pB = 18, pR = 80, pT = 8;
+    var innerW = W - pL - pR, innerH = H - pT - pB;
+    var yOf = function(v){ return (pT + innerH - Math.max(0,Math.min(innerH,v/mx*innerH))).toFixed(1); };
+    var xOf = function(i){ return (pL + (s.length > 1 ? i/(s.length-1)*innerW : innerW/2)).toFixed(1); };
+    var pts = s.map(function(a,i){ return {x:xOf(i),y:yOf(a.time),v:a.time,idx:a.idx}; });
+    var path = pts.map(function(p,i){ return (i===0?'M':'L')+p.x+','+p.y; }).join(' ');
+    var step = s.length > 40 ? 10 : s.length > 20 ? 5 : 2;
+    var dots = pts.map(function(p){
+      var out = p.v > x.lsc || p.v < x.lic;
+      var col = out ? '#6b35a8' : (x.takt && p.v > x.takt ? '#ef334a' : '#2da84e');
+      var lbl = (p.idx===1||p.idx===s.length||p.idx%step===0) ? '<text x="'+p.x+'" y="'+(H-2)+'" text-anchor="middle" font-size="6.5" fill="#58677d">'+p.idx+'</text>' : '';
+      return '<circle cx="'+p.x+'" cy="'+p.y+'" r="2.8" fill="'+col+'"/>'+lbl;
+    }).join('');
+    var refs = '', tags = '';
+    var avgY = yOf(x.mean);
+    refs += '<line x1="'+pL+'" y1="'+avgY+'" x2="'+(pL+innerW)+'" y2="'+avgY+'" stroke="#8d99a8" stroke-width="1.5" stroke-dasharray="4 3"/>';
+    tags += '<text x="'+(pL+innerW+3)+'" y="'+(Number(avgY)+3.5).toFixed(1)+'" font-size="6.8" font-weight="bold" fill="#44576f">M '+fs(x.mean)+'</text>';
+    var lscY = yOf(x.lsc);
+    refs += '<line x1="'+pL+'" y1="'+lscY+'" x2="'+(pL+innerW)+'" y2="'+lscY+'" stroke="#df1f2d" stroke-width="1" stroke-dasharray="3 2"/>';
+    tags += '<text x="'+(pL+innerW+3)+'" y="'+(Number(lscY)+3.5).toFixed(1)+'" font-size="6.8" font-weight="bold" fill="#b51c29">LSC '+fs(x.lsc)+'</text>';
+    if(x.lic > 0){
+      var licY = yOf(x.lic);
+      refs += '<line x1="'+pL+'" y1="'+licY+'" x2="'+(pL+innerW)+'" y2="'+licY+'" stroke="#6b35a8" stroke-width="1" stroke-dasharray="3 2"/>';
+    }
+    if(x.takt){
+      var taktY = yOf(x.takt);
+      refs += '<line x1="'+pL+'" y1="'+taktY+'" x2="'+(pL+innerW)+'" y2="'+taktY+'" stroke="#f26b00" stroke-width="1.5" stroke-dasharray="4 2"/>';
+      tags += '<text x="'+(pL+innerW+3)+'" y="'+(Number(taktY)+3.5).toFixed(1)+'" font-size="6.8" font-weight="bold" fill="#b25a00">Takt '+fs(x.takt)+'</text>';
+    }
+    return '<section class="panel chartPanel control"><h2>Curva de Controle</h2>'
+      + '<div class="yLabel">Tempo (s)</div>'
+      + '<div style="overflow-x:auto;border-left:2px solid #07183a;border-bottom:2px solid #07183a;margin-left:8px;padding-right:2px">'
+      + '<svg viewBox="0 0 '+W+' '+H+'" style="width:'+W+'px;height:160px;display:block">'
+      + '<path d="'+path+'" fill="none" stroke="#118bee" stroke-width="1.8"/>'
+      + refs + dots + tags
+      + '</svg></div>'
+      + '<div class="legend"><span class="g"></span> dentro takt <span class="r"></span> acima takt <span class="p"></span> fora controle</div></section>';
+  }
+
   function compactReport(doc){
-    var s = samples(), el = doc.createElement('div');
-    var a5Extra = '.reportA4{width:559px!important;min-height:794px!important}.kpiGrid{grid-template-columns:repeat(3,1fr)!important}.chartBox{height:150px!important}.hist .chartBox{height:80px!important}';
+    var s = samples(), x = st(s), d = data(), el = doc.createElement('div');
+    var oeeO = d.oee, hasOee = oeeO && Number.isFinite(Number(oeeO.oee));
+    var totalTxt = ($('totalTimer')&&$('totalTimer').textContent)||'00:00';
+    var eff = x.eff == null ? '--' : f(x.eff,1);
+    var a5Extra = [
+      '.reportA4{width:794px!important;min-height:510px!important}',
+      '.kpiGrid{grid-template-columns:repeat(auto-fit,minmax(68px,1fr))!important;gap:4px!important}',
+      '.kpi{min-height:46px!important;padding:3px 5px!important}',
+      '.kpiValue{font-size:14px!important}',
+      '.chartBox{height:175px!important}',
+      '.hist .chartBox{height:80px!important}',
+      '.hist{margin-bottom:0!important}',
+      '.main{grid-template-columns:65% 35%!important;gap:8px!important}',
+      '.top{padding-bottom:3px!important;margin-bottom:3px!important}',
+      '.title{font-size:19px!important}',
+      '.sectionLabel{margin:2px 0 2px!important}',
+      '.chartPanel{margin-bottom:4px!important;padding:5px 7px!important}'
+    ].join('');
+    var allBadges = '<section class="kpiGrid">'
+      + kpi('Takt Time', x.takt ? f(x.takt,2) : '—', x.takt ? 's' : '')
+      + kpi('Ciclo Médio', fs(x.mean), '')
+      + kpi('Eficiência', eff, eff === '--' ? '' : '%', x.eff != null && x.eff > 110 ? 'alert' : '')
+      + kpi('Capacidade', f(x.cap,1), unit())
+      + kpi('Estabilidade', f(x.stab,1), '%')
+      + kpi('N ciclos', String(x.n), '')
+      + kpi('Mínimo', fs(x.min), '')
+      + kpi('Máximo', fs(x.max), '')
+      + kpi('Desvio', fs(x.sd), '')
+      + (hasOee ? kpi('OEE', f(Number(oeeO.oee)*100,1), '%', Number(oeeO.oee) < 0.60 ? 'alert' : '') : '')
+      + '</section>';
+    var mainChart = s.length > 20 ? chartLine(s) : chart(s);
     el.className = 'reportA4';
     el.innerHTML = css(a5Extra)
-      + header('Extrato de cronoanálise — A5')
-      + '<div class="sectionLabel">Visão executiva</div>'
-      + kpis(s)
-      + '<main class="main"><section>'+chart(s)+hist(s)+'</section><aside>'+auxiliary(s)+'<div class="time"><small>Tempo total de medição</small><span>'+esc(($('totalTimer')&&$('totalTimer').textContent)||'00:00')+'</span></div></aside></main>';
+      + header('Extrato de cronoanálise')
+      + '<div class="sectionLabel">Indicadores</div>'
+      + allBadges
+      + '<main class="main"><section>'+mainChart+hist(s)+'</section>'
+      + '<aside><div class="time"><small>Tempo total de medição</small><span>'+esc(totalTxt)+'</span></div></aside></main>';
     return el;
   }
 
@@ -462,8 +536,8 @@
       sb.doc.body.appendChild(page);
       await new Promise(function(ok){ setTimeout(ok,150); });
       var canvas = await cap(page);
-      var PDF = window.jspdf.jsPDF, pdf = new PDF('p','mm','a5');
-      var pageW = 148, pageH = 210;
+      var PDF = window.jspdf.jsPDF, pdf = new PDF('l','mm','a5');
+      var pageW = 210, pageH = 148;
       var imgW = pageW, imgH = canvas.height * imgW / canvas.width;
       if(imgH > pageH) { imgH = pageH; imgW = canvas.width * imgH / canvas.height; }
       pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,imgW,imgH,undefined,'FAST');

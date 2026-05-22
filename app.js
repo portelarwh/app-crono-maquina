@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.24';
+const APP_VERSION='v5.1.25';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -205,6 +205,7 @@ function finalizeCycle({durationMs,productiveMs,startMs,endedAt,q}){
   state.currentCycle={startMs:endedAt,productiveAccumMs:0};
   state.lastSegmentStartMs=endedAt;
   if(els.lapObs)els.lapObs.value='';
+  if(cycles().length===26&&state.chartType==='bars')state.chartType='line';
   render();persist();
 }
 function recordDowntime(t){
@@ -448,7 +449,11 @@ function renderEventTimeline(){
     const isProd=seg.type==='productive';
     const isFirstOfCycle=i>0&&timeline[i-1].cycleId!==seg.cycleId;
     const tip=`${isProd?'Normal':seg.cause}: ${sec.toFixed(2)}s`;
-    return `<div class="evt-bar ${isProd?'evt-bar-prod':'evt-bar-dt'}${isFirstOfCycle?' evt-cycle-sep':''}" style="height:${Math.max(4,sec/max*100)}%" title="${escAttr(tip)}">${!isProd?'<span class="evt-bar-icon" aria-label="Parada">⚠</span>':''}</div>`;
+    const pct=Math.max(4,sec/max*100);
+    const showLbl=pct>22;
+    const lbl=showLbl?`<span class="evt-dur-label">${sec.toFixed(1)}s</span>`:'';
+    const icon=!isProd?'<span class="evt-bar-icon" aria-label="Parada">⚠</span>':'';
+    return `<div class="evt-bar ${isProd?'evt-bar-prod':'evt-bar-dt'}${isFirstOfCycle?' evt-cycle-sep':''}" style="height:${pct}%" title="${escAttr(tip)}">${icon}${lbl}</div>`;
   }).join('');
   requestAnimationFrame(()=>{if(wasAtEnd)cont.scrollLeft=cont.scrollWidth;else cont.scrollLeft=prevL});
 }
