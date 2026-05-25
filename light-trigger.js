@@ -22,7 +22,7 @@
     const MODES = ['flash', 'motion', 'color', 'change'];
     // Defaults por modo — motion sobe (7) porque a faixa de cruzamento é estreita; color e change ficam neutros (5).
     const SENS_BY_MODE_DEFAULT = { flash: 5, motion: 7, color: 5, change: 5 };
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0, zoom: 1, sensByMode: Object.assign({}, SENS_BY_MODE_DEFAULT) };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, binaryMode: false, binaryThr: 160, minCycleMs: 0, zoom: 1, sensByMode: Object.assign({}, SENS_BY_MODE_DEFAULT) };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -93,6 +93,10 @@
     // foco
     let focusLocked    = false;
     let focusSupported = false;
+
+    // exposição (trava AE/AWB por hardware)
+    let exposureLocked    = false;
+    let exposureSupported = false;
 
     // zoom (nativo da câmera quando suportado, com fallback digital via CSS+crop)
     let digitalZoomActive = false;
@@ -210,6 +214,16 @@
         }
     }
 
+    // ---------- máscara binária (silhueta): pixel ≥ thr → branco, < thr → preto ----------
+    // Elimina cinzas ambíguos; o preview mostra a silhueta exata que o sensor detecta.
+    function applyBinaryThreshold(d, thr) {
+        for (let i = 0; i < d.length; i += 4) {
+            const g = Math.round(d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
+            const v = g >= thr ? 255 : 0;
+            d[i] = d[i+1] = d[i+2] = v;
+        }
+    }
+
     // ---------- atualiza display do contador ----------
     function updateCountDisplay() {
         if (!sensorCountEl || !sensorFplEl) return;
@@ -309,9 +323,15 @@
         const lumGlobalNow = avgLuminance(d, SAMPLE_W * SAMPLE_H);
         const globalShift  = (prevLumGlobal >= 0) ? Math.abs(lumGlobalNow - prevLumGlobal) : 0;
 
-        // pré-processamento: linha e escala de cinza
+        // pré-processamento: linha → binarização ou cinza
         if (roiType === 'line') applyLineMask(d);
-        if (cfg.grayscale)      applyGrayscale(d);
+        // Máscara binária: converte tudo em preto/branco puro via threshold.
+        // Não aplica no modo 'color' pois precisa de info R/G para detectar zonas de cor.
+        if (cfg.binaryMode && cfg.mode !== 'color') {
+            applyBinaryThreshold(d, Number.isFinite(cfg.binaryThr) ? cfg.binaryThr : 160);
+        } else if (cfg.grayscale) {
+            applyGrayscale(d);
+        }
 
         // devolve os pixels processados ao canvas (para preview)
         ctx.putImageData(imgData, 0, 0);
@@ -727,6 +747,41 @@
         } catch (_) {}
     }
 
+    function checkExposureSupport() {
+        if (!stream) return false;
+        const track = stream.getVideoTracks()[0];
+        const caps  = track?.getCapabilities?.() ?? {};
+        const modes = caps.exposureMode || [];
+        return modes.includes('manual') || modes.includes('locked');
+    }
+
+    function updateExposureBtn() {
+        const btn = document.getElementById('btnLtExposure');
+        if (!btn) return;
+        btn.classList.toggle('lt-exp-on', exposureLocked);
+        btn.title       = exposureLocked ? 'Desbloquear exposição (AE livre)' : 'Travar exposição (evita auto-exposure)';
+        btn.textContent = exposureLocked ? '🔒 exp' : '🔓 exp';
+    }
+
+    async function setExposureLock(lock) {
+        if (!stream) return;
+        const track = stream.getVideoTracks()[0];
+        if (!track) return;
+        try {
+            const caps    = track.getCapabilities?.() ?? {};
+            const exModes = caps.exposureMode || [];
+            const wbModes = caps.whiteBalanceMode || [];
+            const adv = {};
+            if (exModes.includes('manual'))        adv.exposureMode = lock ? 'manual' : 'continuous-with-automatic-exposure';
+            else if (exModes.includes('locked'))   adv.exposureMode = lock ? 'locked' : 'continuous';
+            if (wbModes.includes('manual'))        adv.whiteBalanceMode = lock ? 'manual' : 'continuous';
+            else if (wbModes.includes('locked'))   adv.whiteBalanceMode = lock ? 'locked' : 'continuous';
+            if (Object.keys(adv).length) await track.applyConstraints({ advanced: [adv] });
+            exposureLocked = lock;
+            updateExposureBtn();
+        } catch (_) {}
+    }
+
     // ---------- zoom (nativo da câmera, com fallback digital) ----------
     function updateZoomBtn() {
         const btn = document.getElementById('btnRoiZoom');
@@ -780,6 +835,11 @@
           .lt-torch-btn{background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-size:.75rem;padding:2px 7px;cursor:pointer;line-height:1.4;transition:background .15s,color .15s}
           .lt-torch-btn.lt-torch-on{background:#f39c12;border-color:#e67e22;color:#fff}
           .lt-torch-btn.lt-focus-on{background:#2980b9;border-color:#3498db;color:#fff}
+          .lt-torch-btn.lt-exp-on{background:#8e44ad;border-color:#9b59b6;color:#fff}
+          .lt-roi-type-btn.lt-mask-on{background:rgba(180,60,220,0.75);border-color:#b43cdc;color:#fff}
+          .lt-binary-ctrl{padding:6px 8px 4px;display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,.55);border-radius:0 0 6px 6px;margin-top:-2px}
+          .lt-binary-ctrl label{font-size:.58rem;color:rgba(255,255,255,.8);font-weight:700;text-align:center;display:flex;justify-content:space-between}
+          .lt-binary-ctrl input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:#b43cdc}
           .lt-preview-body{display:flex;gap:8px;align-items:flex-start}
           .lt-preview-body.lt-collapsed{display:none}
           .lt-vfeed{flex:1;background:#000;border-radius:6px;overflow:hidden;aspect-ratio:4/3;min-width:0;position:relative}
@@ -810,7 +870,9 @@
         if (btnRect) btnRect.classList.toggle('active', roiType === 'rect');
         if (btnLine) btnLine.classList.toggle('lt-line-active', roiType === 'line');
         if (btnDir)  { btnDir.style.display = roiType === 'line' ? '' : 'none'; btnDir.textContent = roiLine.dir === 'vertical' ? '↕' : '↔'; }
-        if (btnBw)   btnBw.classList.toggle('lt-bw-on', !!cfg.grayscale);
+        if (btnBw)   btnBw.classList.toggle('lt-bw-on', !!cfg.grayscale && !cfg.binaryMode);
+        const btnMask = document.getElementById('btnRoiMask');
+        if (btnMask) btnMask.classList.toggle('lt-mask-on', !!cfg.binaryMode);
         const isLine = roiType === 'line';
         const isVert = roiLine.dir === 'vertical';
         if (btnSA) {
@@ -832,9 +894,11 @@
         hidePreview();
 
         torchSupported = checkTorchSupport();
-        torchOn        = false;
-        focusSupported = checkFocusSupport();
-        focusLocked    = false;
+        torchOn           = false;
+        focusSupported    = checkFocusSupport();
+        focusLocked       = false;
+        exposureSupported = checkExposureSupport();
+        exposureLocked    = false;
 
         previewVideo           = document.createElement('video');
         previewVideo.srcObject = liveStream;
@@ -842,11 +906,17 @@
         previewVideo.muted     = true;
         previewVideo.autoplay  = true;
 
-        const torchBtn = torchSupported
+        exposureSupported = checkExposureSupport();
+        exposureLocked    = false;
+
+        const torchBtn    = torchSupported
             ? `<button class="lt-torch-btn" id="btnLtTorch" type="button" title="Ligar lanterna">🔦 apagada</button>`
             : '';
-        const focusBtn = focusSupported
+        const focusBtn    = focusSupported
             ? `<button class="lt-torch-btn" id="btnLtFocus" type="button" title="Travar foco (evita reajuste ao passar objeto)">🔓 foco</button>`
+            : '';
+        const exposureBtn = exposureSupported
+            ? `<button class="lt-torch-btn" id="btnLtExposure" type="button" title="Travar exposição (evita auto-exposure)">🔓 exp</button>`
             : '';
 
         previewWrap = document.createElement('div');
@@ -856,7 +926,8 @@
             <span class="lt-preview-title">
               <span class="lt-preview-dot"></span>Câmera ao vivo
             </span>
-            <span style="display:flex;gap:5px;align-items:center">
+            <span style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+              ${exposureBtn}
               ${focusBtn}
               ${torchBtn}
               <button class="lt-preview-toggle" id="btnLtPreviewToggle" type="button">${previewOpen ? '▲ ocultar' : '▼ mostrar'}</button>
@@ -873,7 +944,9 @@
                 <button class="lt-roi-type-btn" id="btnLineSideB" type="button" title="Entrada pela direita" style="display:none">►</button>
                 <button class="lt-roi-type-btn${(cfg.zoom||1)>1?' active':''}" id="btnRoiZoom" type="button" title="Zoom (1x → 2x → 3x)">🔍${cfg.zoom||1}x</button>
                 <button class="lt-roi-type-btn" id="btnRoiBw"   type="button" title="Escala de cinza / Cor">BW</button>
+                <button class="lt-roi-type-btn${cfg.binaryMode?' lt-mask-on':''}" id="btnRoiMask" type="button" title="Máscara binária — silhueta preto/branco (threshold ajustável)">M</button>
               </div>
+              ${cfg.binaryMode ? `<div class="lt-binary-ctrl" id="ltBinaryCtrl"><label><span>Threshold</span><span id="ltBinaryThrVal">${cfg.binaryThr||160}</span></label><input type="range" id="ltBinaryThrSlider" min="0" max="255" step="5" value="${cfg.binaryThr||160}"></div>` : ''}
               <button class="lt-roi-reset" id="btnLtRoiReset" type="button" title="Resetar alvo">✕ alvo</button>
               <span class="lt-vfeed-label" id="ltVfeedLabel">vídeo · arraste para definir alvo</span>
               <div class="lt-cam-timer" id="ltCameraTimer"></div>
@@ -957,6 +1030,29 @@
             applyRoiTypeBtns();
         });
 
+        // Mask (binary threshold) toggle
+        document.getElementById('btnRoiMask')?.addEventListener('click', () => {
+            cfg.binaryMode = !cfg.binaryMode;
+            saveCfg();
+            applyRoiTypeBtns();
+            // injetar/remover o slider de threshold ao vivo
+            const vfeed = document.getElementById('ltVfeed');
+            const existing = document.getElementById('ltBinaryCtrl');
+            if (cfg.binaryMode && !existing && vfeed) {
+                const ctrl = document.createElement('div');
+                ctrl.className = 'lt-binary-ctrl';
+                ctrl.id        = 'ltBinaryCtrl';
+                ctrl.innerHTML = `<label><span>Threshold mask</span><span id="ltBinaryThrVal">${cfg.binaryThr||160}</span></label><input type="range" id="ltBinaryThrSlider" min="0" max="255" step="5" value="${cfg.binaryThr||160}">`;
+                // inserir abaixo da toolbar
+                const toolbar = document.getElementById('ltRoiTypeCtrl');
+                if (toolbar) vfeed.insertBefore(ctrl, toolbar.nextSibling);
+                wireBinarySlider(ctrl);
+            } else if (!cfg.binaryMode && existing) {
+                existing.remove();
+            }
+            prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
+        });
+
         // Zoom cycle: 1x → 2x → 3x → 1x
         document.getElementById('btnRoiZoom')?.addEventListener('click', () => {
             const next = ((cfg.zoom || 1) % 3) + 1;
@@ -984,10 +1080,32 @@
 
         document.getElementById('btnLtTorch')?.addEventListener('click', () => setTorch(!torchOn));
         document.getElementById('btnLtFocus')?.addEventListener('click', () => setFocusLock(!focusLocked));
+        document.getElementById('btnLtExposure')?.addEventListener('click', () => setExposureLock(!exposureLocked));
+
+        // wira slider caso binaryMode já estava ativo ao abrir
+        if (cfg.binaryMode) {
+            const ctrl = document.getElementById('ltBinaryCtrl');
+            if (ctrl) wireBinarySlider(ctrl);
+        }
+    }
+
+    function wireBinarySlider(ctrl) {
+        const slider = ctrl.querySelector('#ltBinaryThrSlider');
+        const valEl  = ctrl.querySelector('#ltBinaryThrVal');
+        if (!slider) return;
+        slider.addEventListener('input', () => {
+            const v = parseInt(slider.value, 10);
+            cfg.binaryThr = v;
+            if (valEl) valEl.textContent = v;
+            saveCfg();
+            prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
+        });
     }
 
     function hidePreview() {
         if (torchOn) setTorch(false);
+        if (exposureLocked) setExposureLock(false).catch(()=>{});
+        exposureLocked = false;
         if (previewVideo) { previewVideo.srcObject = null; previewVideo = null; }
         if (previewWrap)  { previewWrap.remove(); previewWrap = null; }
     }
