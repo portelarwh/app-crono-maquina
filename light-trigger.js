@@ -73,11 +73,13 @@
     let isArmed        = false;
     let discardNext    = false;
     let fromSensor     = false;
-    // Anti-falso-positivo no motion: warm-up descarta artefatos iniciais; streak exige 2 frames consecutivos acima do limiar
+    // Anti-falso-positivo no motion: warm-up descarta artefatos iniciais; streak exige frames consecutivos quando borderline.
     let warmupUntil    = 0;
     let motionStreak   = 0;
-    const WARMUP_MS    = 400;
+    let prevLumGlobal  = -1; // luminância do frame INTEIRO (não-mascarado) — detecta auto-exposição/AWB
+    const WARMUP_MS    = 700;
     const MOTION_MIN_FRAMES = 2;
+    const MOTION_STRONG_MULT = 2.0; // se sinal ≥ 2× threshold, dispara em 1 frame (cruzamento claro)
 
     // preview ao vivo
     let previewVideo = null;
@@ -119,8 +121,10 @@
     let btnAutoStart, btnDiscardFirst, armedLabel;
 
     // Faixa estreita centrada na linha: somente pixels DENTRO desta faixa contam para a detecção.
-    // Largura total ~6 px (3 de cada lado) em frame 32×32 ≈ 19% — só motion que atravessa a linha dispara.
-    const LINE_BAND_HALF = 3;
+    // Largura total ~8 px (4 de cada lado) em frame 32×32 ≈ 25% — só motion que atravessa a linha dispara.
+    const LINE_BAND_HALF = 4;
+    // Limiar de luminância global (frame inteiro) — acima disso assumimos auto-exposição/AWB e suprimimos detecção.
+    const GLOBAL_LUM_SHIFT_MAX = 4.0;
 
     // ---------- contagem de pixels ativos (consistência entre os 3 modos de ROI) ----------
     function getActivePixelCount() {
@@ -301,6 +305,10 @@
         const imgData = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H);
         const d       = imgData.data;
 
+        // Luminância do FRAME INTEIRO (antes do mask) — detecta mudança global de exposição/WB
+        const lumGlobalNow = avgLuminance(d, SAMPLE_W * SAMPLE_H);
+        const globalShift  = (prevLumGlobal >= 0) ? Math.abs(lumGlobalNow - prevLumGlobal) : 0;
+
         // pré-processamento: linha e escala de cinza
         if (roiType === 'line') applyLineMask(d);
         if (cfg.grayscale)      applyGrayscale(d);
@@ -357,13 +365,22 @@
                 if (prevLum >= 0 && lum - baseline >= SENS_FLASH[sens]) detected = true;
 
             } else if (cfg.mode === 'motion') {
+                const thr = SENS_MOTION[sens];
                 if (Date.now() < warmupUntil) {
                     motionStreak = 0;
-                } else if (prevPixels && motionFraction(d, n) >= SENS_MOTION[sens]) {
-                    motionStreak++;
-                    if (motionStreak >= MOTION_MIN_FRAMES) { detected = true; motionStreak = 0; }
-                } else {
+                } else if (globalShift > GLOBAL_LUM_SHIFT_MAX) {
+                    // câmera ajustou exposição/WB — frame inteiro mudou: ignore para não disparar falsamente
                     motionStreak = 0;
+                } else if (prevPixels) {
+                    const frac = motionFraction(d, n);
+                    if (frac >= thr * MOTION_STRONG_MULT) {
+                        detected = true; motionStreak = 0;          // sinal forte: cruzamento claro, dispara já
+                    } else if (frac >= thr) {
+                        motionStreak++;
+                        if (motionStreak >= MOTION_MIN_FRAMES) { detected = true; motionStreak = 0; }
+                    } else {
+                        motionStreak = 0;
+                    }
                 }
 
             } else if (cfg.mode === 'color') {
@@ -380,12 +397,18 @@
                 if (cfg.mode === 'change') changeBaseline = null;
                 onCooldown = true;
                 triggerEvent();
-                setTimeout(() => { onCooldown = false; }, cfg.cooldownMs);
+                setTimeout(() => {
+                    onCooldown   = false;
+                    // ao sair do cooldown, descarta o frame anterior para evitar diff contra um baseline desatualizado
+                    prevPixels   = null;
+                    motionStreak = 0;
+                }, cfg.cooldownMs);
             }
         }
 
-        prevLum    = lum;
-        prevPixels = new Uint8ClampedArray(d);
+        prevLum       = lum;
+        prevLumGlobal = lumGlobalNow;
+        prevPixels    = new Uint8ClampedArray(d);
         updatePreviewCanvas();
     }
 
@@ -1017,6 +1040,7 @@
             prevZone    = null;
             flashCount  = 0;
             motionStreak = 0;
+            prevLumGlobal = -1;
             warmupUntil  = Date.now() + WARMUP_MS;
             updateCountDisplay();
             analyseFrame();
@@ -1111,6 +1135,7 @@
             prevLum    = -1;
             flashCount = 0;
             motionStreak = 0;
+            prevLumGlobal = -1;
             warmupUntil  = Date.now() + WARMUP_MS;
             updateCountDisplay();
             if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
