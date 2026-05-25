@@ -87,7 +87,8 @@
       .lap-cause-wrap{display:inline-flex;align-items:center;gap:3px;margin-left:4px}
       .lap-cause-warn{display:none;align-items:center}
       .lap-cause-select-row{width:70px;font-size:.72rem;padding:4px;border-radius:6px;background:var(--card-bg);color:var(--text-main);border:1px solid var(--border)}
-      .pareto-line{display:grid;grid-template-columns:92px 1fr 54px;gap:6px;align-items:center;font-size:.73rem;margin:4px 0}
+      .pareto-line{display:grid;grid-template-columns:92px 1fr 54px;gap:6px;align-items:center;font-size:.73rem;margin:4px 0;cursor:pointer;padding:2px 4px;border-radius:6px;transition:background .15s}
+      .pareto-line:hover{background:rgba(8,121,233,.08)}
       .pareto-track{height:9px;background:rgba(127,127,127,.18);border-radius:12px;overflow:hidden}.pareto-bar{height:100%;background:var(--blue)}
       .study-actions,.load-row,.compare-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin:6px 0}
       .study-actions button,.load-row button,.compare-row button{background:var(--blue);color:#fff;padding:8px;border-radius:7px}
@@ -203,7 +204,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v5.1.30', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v5.1.31', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
@@ -243,7 +244,22 @@
 
   function renderImpact(data){ const i = data?.impact || {}; const isGain = i.target && (i.gap||0) >= 0; const setCard=(id,val,goodWhen)=>{const el=$(id); if(!el)return; const card=el.parentElement; el.textContent=val; if(card){card.classList.remove('cardGood','cardBad'); if(i.target){card.classList.add(goodWhen?'cardGood':'cardBad');}}}; const lblH=$('lblHourImpact'), lblS=$('lblShiftImpact'); if(lblH) lblH.textContent = isGain ? 'Ganho/h' : 'Perda/h'; if(lblS) lblS.textContent = isGain ? 'Ganho/turno' : 'Perda/turno'; setCard('valCapacityGap', i.target?`${formatNumber(i.gap,1)} ${i.unitLabel} (${formatNumber(i.gapPct,1)}%)`:'--', isGain); if(isGain){ setCard('valLossHour', `${formatNumber(i.gainPerHour||0,0)} un/h`, true); setCard('valLossShift', `${formatNumber(i.gainPerShift||0,0)} un/turno`, true); } else { setCard('valLossHour', i.target?`${formatNumber(i.lossPerHour||0,0)} un/h`:'--', (i.lossPerHour||0)<=0); setCard('valLossShift', i.target?`${formatNumber(i.lossPerShift||0,0)} un/turno`:'--', (i.lossPerShift||0)<=0); } }
   function renderStandard(data){ const box = $('stdTimeBox'); if(!box) return; const s = data?.standardTime || {}; const newHtml = s.total ? `<strong>${formatNumber(s.standardSec,2)}s</strong><span>Base ${formatNumber(s.baseMean,2)}s + ${formatNumber(s.tolerancePct,1)}% | usadas ${s.used}/${s.total}</span>` : '<span>Sem amostras</span>'; if(box.innerHTML !== newHtml) box.innerHTML = newHtml; }
-  function renderPareto(data){ const box = $('paretoBox'); if(!box) return; const rows = (data?.pareto || []).slice(0,5); const newHtml = rows.length ? rows.map((row, index) => `<div class="pareto-line"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatNumber(row.lossSec,1)}s</span></div>`).join('') : 'Sem dados'; if(box.innerHTML !== newHtml) box.innerHTML = newHtml; }
+  function renderPareto(data){
+    const box = $('paretoBox'); if(!box) return;
+    const rows = (data?.pareto || []).slice(0,5);
+    const newHtml = rows.length
+      ? rows.map((row, index) => `<div class="pareto-line" data-cause="${escapeHtml(row.cause)}" title="Clique para selecionar etapas com causa '${escapeHtml(row.cause)}'"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatNumber(row.lossSec,1)}s</span></div>`).join('')
+      : 'Sem dados';
+    if(box.innerHTML !== newHtml) box.innerHTML = newHtml;
+    if(!box.dataset.clickWired){
+      box.dataset.clickWired = '1';
+      box.addEventListener('click', e => {
+        const line = e.target.closest('.pareto-line'); if(!line) return;
+        const cause = line.dataset.cause; if(!cause) return;
+        if(typeof window.selectEventsByCause === 'function') window.selectEventsByCause(cause);
+      });
+    }
+  }
   function renderStudyOptions(){
     const base = $('studyBase'), compare = $('studyCompare');
     if(!base || !compare) return;

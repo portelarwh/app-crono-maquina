@@ -158,8 +158,12 @@
             background: var(--surface);
             transition: background-color 0.2s ease, border-color 0.2s ease;
         }
-        .history-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-main);}
+        .history-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-main); cursor: pointer; transition: background .12s, box-shadow .12s; }
         .history-row:last-child { border-bottom: none; }
+        .history-row.is-selected { background: rgba(8,121,233,.16); box-shadow: inset 3px 0 0 var(--blue); }
+        .history-row.is-selected.history-downtime { background: rgba(217,52,43,.18); box-shadow: inset 3px 0 0 #d9342b; }
+        .btn-delete-selected { background: #d9342b; color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-weight: 700; font-size: .85rem; cursor: pointer; }
+        .btn-delete-selected:active { transform: scale(.97); }
         .history-id { width: 30px; font-weight: bold; color: var(--text-muted);}
         .history-clock { font-size: .65rem; color: var(--text-muted); font-family: var(--font-mono); min-width: 52px; text-align: center; }
         .history-time { flex: 1; text-align: center; font-weight: bold; font-family: var(--font-mono); font-size: 1rem; color: var(--text-main);}
