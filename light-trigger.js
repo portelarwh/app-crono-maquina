@@ -20,7 +20,9 @@
     const SENS_PIXEL_THR = [50, 45, 40, 35, 30, 25, 20, 18, 15, 12];
 
     const MODES = ['flash', 'motion', 'color', 'change'];
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0, zoom: 1 };
+    // Defaults por modo — motion sobe (7) porque a faixa de cruzamento é estreita; color e change ficam neutros (5).
+    const SENS_BY_MODE_DEFAULT = { flash: 5, motion: 7, color: 5, change: 5 };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, minCycleMs: 0, zoom: 1, sensByMode: Object.assign({}, SENS_BY_MODE_DEFAULT) };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -37,6 +39,13 @@
         }
         if (!MODES.includes(cfg.mode)) cfg.mode = 'flash';
         if (!Number.isInteger(cfg.zoom) || cfg.zoom < 1 || cfg.zoom > 3) cfg.zoom = 1;
+        // Migração: garante sensByMode populado e consistente com sensLevel atual.
+        cfg.sensByMode = Object.assign({}, SENS_BY_MODE_DEFAULT, cfg.sensByMode || {});
+        MODES.forEach(m => {
+            const v = cfg.sensByMode[m];
+            if (!Number.isInteger(v) || v < 1 || v > 10) cfg.sensByMode[m] = SENS_BY_MODE_DEFAULT[m];
+        });
+        cfg.sensByMode[cfg.mode] = cfg.sensLevel;
     } catch (_) {}
 
     function saveCfg() {
@@ -104,17 +113,20 @@
     let btnLap, btnStart;
     let btnAutoStart, btnDiscardFirst, armedLabel;
 
+    // Faixa estreita centrada na linha: somente pixels DENTRO desta faixa contam para a detecção.
+    // Largura total ~6 px (3 de cada lado) em frame 32×32 ≈ 19% — só motion que atravessa a linha dispara.
+    const LINE_BAND_HALF = 3;
+
     // ---------- contagem de pixels ativos (consistência entre os 3 modos de ROI) ----------
     function getActivePixelCount() {
         if (roiType !== 'line') return SAMPLE_W * SAMPLE_H;
         const isVert = roiLine.dir === 'vertical';
-        const cut    = Math.round(roiLine.pos * (isVert ? SAMPLE_W : SAMPLE_H));
-        if (isVert) {
-            const aw = roiLine.activeSide === 'right' ? SAMPLE_W - cut : cut;
-            return Math.max(1, aw * SAMPLE_H);
-        }
-        const ah = roiLine.activeSide === 'bottom' ? SAMPLE_H - cut : cut;
-        return Math.max(1, SAMPLE_W * ah);
+        const len    = isVert ? SAMPLE_W : SAMPLE_H;
+        const cut    = Math.round(roiLine.pos * len);
+        const lo     = Math.max(0, cut - LINE_BAND_HALF);
+        const hi     = Math.min(len, cut + LINE_BAND_HALF);
+        const bandW  = Math.max(1, hi - lo);
+        return isVert ? bandW * SAMPLE_H : SAMPLE_W * bandW;
     }
 
     // ---------- análise de luminância média (dividida por pixels ativos) ----------
@@ -161,17 +173,19 @@
         return 'neutral';
     }
 
-    // ---------- máscara de linha: zera pixels do lado inativo ----------
+    // ---------- máscara de linha: mantém SOMENTE pixels da faixa ao redor da linha ----------
+    // Tudo fora da faixa é zerado — atividade longe da linha é ignorada. Só conta cruzamento.
     function applyLineMask(d) {
         const isVert = roiLine.dir === 'vertical';
-        const cut    = Math.round(roiLine.pos * (isVert ? SAMPLE_W : SAMPLE_H));
+        const len    = isVert ? SAMPLE_W : SAMPLE_H;
+        const cut    = Math.round(roiLine.pos * len);
+        const lo     = Math.max(0, cut - LINE_BAND_HALF);
+        const hi     = Math.min(len, cut + LINE_BAND_HALF);
         for (let row = 0; row < SAMPLE_H; row++) {
             for (let col = 0; col < SAMPLE_W; col++) {
-                const coord    = isVert ? col : row;
-                const inactive = (roiLine.activeSide === 'right' || roiLine.activeSide === 'bottom')
-                    ? coord < cut
-                    : coord >= cut;
-                if (inactive) {
+                const coord  = isVert ? col : row;
+                const inBand = coord >= lo && coord < hi;
+                if (!inBand) {
                     const i = (row * SAMPLE_W + col) * 4;
                     d[i] = d[i+1] = d[i+2] = 0;
                 }
@@ -392,14 +406,20 @@
         const lp     = roiLine.pos;
         const active = roiLine.activeSide;
 
-        // shade inactive side
+        // shade fora da faixa de cruzamento (apenas a faixa fica "ativa")
+        const sampleLen = isVert ? SAMPLE_W : SAMPLE_H;
+        const bandFrac  = LINE_BAND_HALF / sampleLen;
         cx.fillStyle = 'rgba(0,0,0,0.42)';
         if (isVert) {
-            if (active === 'right') cx.fillRect(0, 0, lp * W, H);
-            else                    cx.fillRect(lp * W, 0, (1 - lp) * W, H);
+            const bandLo = Math.max(0, (lp - bandFrac) * W);
+            const bandHi = Math.min(W, (lp + bandFrac) * W);
+            cx.fillRect(0, 0, bandLo, H);
+            cx.fillRect(bandHi, 0, W - bandHi, H);
         } else {
-            if (active === 'bottom') cx.fillRect(0, 0, W, lp * H);
-            else                     cx.fillRect(0, lp * H, W, (1 - lp) * H);
+            const bandLo = Math.max(0, (lp - bandFrac) * H);
+            const bandHi = Math.min(H, (lp + bandFrac) * H);
+            cx.fillRect(0, 0, W, bandLo);
+            cx.fillRect(0, bandHi, W, H - bandHi);
         }
 
         // dashed red line
@@ -412,17 +432,17 @@
         cx.stroke();
         cx.setLineDash([]);
 
-        // arrow on active side
+        // arrow indicando o lado "preferido" (orientação) — apenas dica visual
         cx.fillStyle    = 'rgba(255,100,100,0.9)';
         cx.font         = 'bold 13px sans-serif';
         cx.textAlign    = 'center';
         cx.textBaseline = 'middle';
         if (isVert) {
-            const ax = active === 'right' ? lp * W + (1 - lp) * W * 0.45 : lp * W * 0.45;
-            cx.fillText('►', ax, H / 2);
+            const ax = active === 'right' ? lp * W + (1 - lp) * W * 0.55 : lp * W * 0.45;
+            cx.fillText(active === 'right' ? '►' : '◄', ax, H / 2);
         } else {
-            const ay = active === 'bottom' ? lp * H + (1 - lp) * H * 0.45 : lp * H * 0.45;
-            cx.fillText('▼', W / 2, ay);
+            const ay = active === 'bottom' ? lp * H + (1 - lp) * H * 0.55 : lp * H * 0.45;
+            cx.fillText(active === 'bottom' ? '▼' : '▲', W / 2, ay);
         }
 
         // hint
@@ -430,7 +450,7 @@
         cx.font         = 'bold 8px sans-serif';
         cx.textAlign    = 'center';
         cx.textBaseline = 'alphabetic';
-        cx.fillText('arraste a linha · toque p/ trocar lado', W / 2, H - 5);
+        cx.fillText('arraste a linha · só conta o que cruzar', W / 2, H - 5);
     }
 
     function drawRoiOverlay() {
@@ -750,10 +770,26 @@
         const btnLine = document.getElementById('btnRoiLine');
         const btnDir  = document.getElementById('btnLineDir');
         const btnBw   = document.getElementById('btnRoiBw');
+        const btnSA   = document.getElementById('btnLineSideA');
+        const btnSB   = document.getElementById('btnLineSideB');
         if (btnRect) btnRect.classList.toggle('active', roiType === 'rect');
         if (btnLine) btnLine.classList.toggle('lt-line-active', roiType === 'line');
         if (btnDir)  { btnDir.style.display = roiType === 'line' ? '' : 'none'; btnDir.textContent = roiLine.dir === 'vertical' ? '↕' : '↔'; }
         if (btnBw)   btnBw.classList.toggle('lt-bw-on', !!cfg.grayscale);
+        const isLine = roiType === 'line';
+        const isVert = roiLine.dir === 'vertical';
+        if (btnSA) {
+            btnSA.style.display = isLine ? '' : 'none';
+            btnSA.textContent   = isVert ? '◄' : '▲';
+            btnSA.title         = isVert ? 'Entrada pela esquerda' : 'Entrada por cima';
+            btnSA.classList.toggle('active', isLine && (isVert ? roiLine.activeSide === 'left' : roiLine.activeSide === 'top'));
+        }
+        if (btnSB) {
+            btnSB.style.display = isLine ? '' : 'none';
+            btnSB.textContent   = isVert ? '►' : '▼';
+            btnSB.title         = isVert ? 'Entrada pela direita' : 'Entrada por baixo';
+            btnSB.classList.toggle('active', isLine && (isVert ? roiLine.activeSide === 'right' : roiLine.activeSide === 'bottom'));
+        }
     }
 
     function showPreview(liveStream) {
@@ -798,6 +834,8 @@
                 <button class="lt-roi-type-btn" id="btnRoiRect" type="button" title="Retângulo de interesse">⬚</button>
                 <button class="lt-roi-type-btn" id="btnRoiLine" type="button" title="Linha de gatilho">⊟</button>
                 <button class="lt-roi-type-btn" id="btnLineDir" type="button" title="Girar linha 90°" style="display:none">↕</button>
+                <button class="lt-roi-type-btn" id="btnLineSideA" type="button" title="Entrada pela esquerda" style="display:none">◄</button>
+                <button class="lt-roi-type-btn" id="btnLineSideB" type="button" title="Entrada pela direita" style="display:none">►</button>
                 <button class="lt-roi-type-btn${(cfg.zoom||1)>1?' active':''}" id="btnRoiZoom" type="button" title="Zoom (1x → 2x → 3x)">🔍${cfg.zoom||1}x</button>
                 <button class="lt-roi-type-btn" id="btnRoiBw"   type="button" title="Escala de cinza / Cor">BW</button>
               </div>
@@ -859,6 +897,20 @@
                 roiLine.dir = 'vertical';
                 roiLine.activeSide = 'right';
             }
+            applyRoiTypeBtns();
+            drawRoiOverlay();
+        });
+
+        // orientation buttons — set active side explicitly
+        document.getElementById('btnLineSideA')?.addEventListener('click', () => {
+            if (roiType !== 'line') return;
+            roiLine.activeSide = roiLine.dir === 'vertical' ? 'left' : 'top';
+            applyRoiTypeBtns();
+            drawRoiOverlay();
+        });
+        document.getElementById('btnLineSideB')?.addEventListener('click', () => {
+            if (roiType !== 'line') return;
+            roiLine.activeSide = roiLine.dir === 'vertical' ? 'right' : 'bottom';
             applyRoiTypeBtns();
             drawRoiOverlay();
         });
@@ -1019,7 +1071,7 @@
 
     function applySensButtons() {
         const lvl = cfg.sensLevel ?? 5;
-        if (sensorSensLabel) sensorSensLabel.textContent = 'Sensibilidade - ' + lvl;
+        if (sensorSensLabel) sensorSensLabel.textContent = 'Sensibilidade - ' + lvl + ' (' + (cfg.mode || 'flash') + ')';
         if (btnSensMinus) btnSensMinus.disabled = lvl <= 1;
         if (btnSensPlus)  btnSensPlus.disabled  = lvl >= 10;
     }
@@ -1088,15 +1140,22 @@
 
         btnSensMinus?.addEventListener('click', () => {
             cfg.sensLevel = Math.max(1, (cfg.sensLevel ?? 5) - 1);
+            cfg.sensByMode[cfg.mode] = cfg.sensLevel;
             saveCfg(); applySensButtons();
         });
         btnSensPlus?.addEventListener('click', () => {
             cfg.sensLevel = Math.min(10, (cfg.sensLevel ?? 5) + 1);
+            cfg.sensByMode[cfg.mode] = cfg.sensLevel;
             saveCfg(); applySensButtons();
         });
 
         modeBtns.forEach(btn => {
-            btn.addEventListener('click', () => { cfg.mode = btn.dataset.mode; saveCfg(); applyModeButtons(); });
+            btn.addEventListener('click', () => {
+                cfg.mode = btn.dataset.mode;
+                const saved = cfg.sensByMode && cfg.sensByMode[cfg.mode];
+                if (Number.isInteger(saved) && saved >= 1 && saved <= 10) cfg.sensLevel = saved;
+                saveCfg(); applyModeButtons(); applySensButtons();
+            });
         });
 
         btnAutoStart?.addEventListener('click', () => {
