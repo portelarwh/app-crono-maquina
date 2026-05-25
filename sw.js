@@ -1,18 +1,18 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v5.1.29';
+const CACHE_NAME = 'crono-maquina-v5.1.30';
 const ASSETS = [
   './',
-  './index.html?v=5.1.29',
-  './app.js?v=5.1.29',
-  './theme-init.js?v=5.1.29',
-  './pwa-ui.js?v=5.1.29',
-  './report-enhancements.js?v=5.1.29',
-  './whatsapp-share-fix.js?v=5.1.29',
-  './general-improvements.js?v=5.1.29',
-  './light-trigger.js?v=5.1.29',
-  './styles.css?v=5.1.29',
-  './manifest.json?v=5.1.29',
+  './index.html?v=5.1.30',
+  './app.js?v=5.1.30',
+  './theme-init.js?v=5.1.30',
+  './pwa-ui.js?v=5.1.30',
+  './report-enhancements.js?v=5.1.30',
+  './whatsapp-share-fix.js?v=5.1.30',
+  './general-improvements.js?v=5.1.30',
+  './light-trigger.js?v=5.1.30',
+  './styles.css?v=5.1.30',
+  './manifest.json?v=5.1.30',
   './assets/Icon-192.png',
   './assets/Icon-512.png',
   './assets/lib/html2canvas.min.js',
