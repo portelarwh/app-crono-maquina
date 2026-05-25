@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.30';
+const APP_VERSION='v5.1.31';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
@@ -249,9 +249,10 @@ function deleteEvent(eventId){
   const idx=state.events.findIndex(e=>e.id===eventId);
   if(idx===-1)return;
   state.events.splice(idx,1);
+  selectedIds.delete(eventId);
   render();persist();
 }
-function clearLaps(){if(!state.events.length)return;state.events=[];if(els.lapObs)els.lapObs.value='';render();persist();if(typeof window.resetSensorCount==='function')window.resetSensorCount()}
+function clearLaps(){if(!state.events.length)return;state.events=[];selectedIds.clear();if(els.lapObs)els.lapObs.value='';render();persist();if(typeof window.resetSensorCount==='function')window.resetSensorCount()}
 function deleteShortCycles(){
   const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;
   if(!minMs||!state.events.length)return;
@@ -266,6 +267,21 @@ function deleteShortCycles(){
   }
   if(changed){render();persist()}
 }
+const selectedIds=new Set();
+function toggleSelect(id){if(!id)return;if(selectedIds.has(id))selectedIds.delete(id);else selectedIds.add(id);renderHistory();renderControls()}
+function clearSelection(){if(!selectedIds.size)return;selectedIds.clear();renderHistory();renderControls()}
+function deleteSelected(){if(!selectedIds.size)return;const ids=new Set(selectedIds);state.events=state.events.filter(e=>!ids.has(e.id));selectedIds.clear();render();persist()}
+function selectEventsByCause(cause){
+  if(!cause)return;
+  const norm=String(cause).trim().toLowerCase();
+  const matched=state.events.filter(e=>String(e.cause||'Normal').trim().toLowerCase()===norm);
+  if(!matched.length)return;
+  selectedIds.clear();matched.forEach(e=>selectedIds.add(e.id));
+  renderHistory();renderControls();
+  const first=matched[0]&&els.historyListScreen?.querySelector('[data-event-id="'+CSS.escape(matched[0].id)+'"]');
+  if(first&&typeof first.scrollIntoView==='function')first.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+window.selectEventsByCause=selectEventsByCause;
 function render(){renderTimersOnly();renderMode();renderStats();renderHistory();renderCharts();renderEventTimeline();renderParadasCards();renderOeeSaved();renderPrint();renderControls()}
 function fmtDur(ms){const s=Math.max(0,Math.floor((ms||0)/1000));if(s<60)return `${s}s`;const m=Math.floor(s/60),ss=s%60;if(m<60)return `${m}m ${String(ss).padStart(2,'0')}s`;const h=Math.floor(m/60),mm=m%60;return `${h}h ${String(mm).padStart(2,'0')}m`}
 function renderParadasCards(){
@@ -488,18 +504,28 @@ function renderControls(){
   [els.btnExport,els.btnPNG,els.btnPDF,els.btnWhatsApp].forEach(b=>{if(b)b.disabled=!has});if(els.btnExtract)els.btnExtract.disabled=!has;
   if(els.btnClearLaps)els.btnClearLaps.disabled=!has;
   if(els.btnDeleteShort){const minMs=typeof window.getSensorMinMs==='function'?window.getSensorMinMs():0;els.btnDeleteShort.disabled=!has||!minMs;}
+  const bdSel=document.getElementById('btnDeleteSelected'),selCount=document.getElementById('selectedCount');
+  if(bdSel)bdSel.style.display=selectedIds.size?'':'none';
+  if(selCount)selCount.textContent=selectedIds.size;
 }
 function row(e,i,print=false){
   const lid=escAttr(e.id);
+  const sel=!print&&selectedIds.has(e.id)?' is-selected':'';
   if(e.type==='downtime'){
-    return `<div class="history-row history-downtime"><span class="history-id"></span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS((e.durationMs||0)/1000)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
+    return `<div class="history-row history-downtime${sel}"${!print?` data-action="toggleSelect" data-event-id="${lid}"`:''}><span class="history-id"></span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS((e.durationMs||0)/1000)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
   }
   const qv=escAttr(e.qty??'');
   const idx=cycles().findIndex(c=>c.id===e.id)+1;
   const sec=(e.productiveMs||e.durationMs||0)/1000;
-  return `<div class="history-row history-cycle"><span class="history-id">#${idx}</span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS(sec)}</span>${els.analysisMode.value==='interval'?`<input class="history-qty-input" value="${qv}" placeholder="Qtd" inputmode="decimal" data-event-id="${lid}">`:''}${!print?`<button class="btn-delete" aria-label="Remover ciclo ${idx}" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
+  return `<div class="history-row history-cycle${sel}"${!print?` data-action="toggleSelect" data-event-id="${lid}"`:''}><span class="history-id">#${idx}</span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS(sec)}</span>${els.analysisMode.value==='interval'?`<input class="history-qty-input" value="${qv}" placeholder="Qtd" inputmode="decimal" data-event-id="${lid}">`:''}${!print?`<button class="btn-delete" aria-label="Remover ciclo ${idx}" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
 }
-function renderHistory(){els.historyListScreen.innerHTML=state.events.length?state.events.map((e,i)=>row(e,i,false)).join(''):'<div class="history-row"><span class="history-time">Nenhuma amostra registrada</span></div>';els.historyListPrint.innerHTML=state.events.map((e,i)=>row(e,i,true)).join('')}
+function renderHistory(){
+  const scr=els.historyListScreen;
+  const sc=scr?scr.scrollTop:0;
+  if(scr)scr.innerHTML=state.events.length?state.events.map((e,i)=>row(e,i,false)).join(''):'<div class="history-row"><span class="history-time">Nenhuma amostra registrada</span></div>';
+  if(scr)scr.scrollTop=sc;
+  els.historyListPrint.innerHTML=state.events.map((e,i)=>row(e,i,true)).join('');
+}
 function renderCharts(){
   const s=stats(),sec=s.sec,takt=n(els.takt,0),cyc=cycles();
   const cont=els.chartContainer;
@@ -701,7 +727,7 @@ function load(){
   }catch(e){localStorage.removeItem(STORAGE_KEY)}
 }
 function handleExportWithModal(type){const active=window.hasActiveComparison?.();const doExport=()=>{if(type==='pdf')window.generateRealPDF?.();else if(type==='png')window.generatePNG?.();else shareWhatsApp();};const doComp=()=>{const cd=window.getComparisonStudiesData?.();if(cd)window.generateComparisonPDF?.(cd);else doExport();};if(active&&window.showExportChoiceModal){window.showExportChoiceModal(doExport,doComp);}else{doExport();}}
-const ACTIONS={start:startTimer,sensorStart:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>handleExportWithModal('png'),exportPdf:()=>handleExportWithModal('pdf'),shareWhatsapp:()=>handleExportWithModal('wa'),openGuide:openGuide,closeGuide:closeGuide,openOee:openOee,closeOee:closeOee,saveOee:saveOee,clearOee:clearOee,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId),clearLaps:clearLaps,deleteShortCycles:deleteShortCycles,exportExtract:()=>window.exportExtractPDF?.()};
+const ACTIONS={start:startTimer,sensorStart:startTimer,stop:stopTimer,reset:resetTimer,normal:recordNormal,downtime:recordDowntime,setChartType:setChartType,exportCsv:exportToExcel,exportPng:()=>handleExportWithModal('png'),exportPdf:()=>handleExportWithModal('pdf'),shareWhatsapp:()=>handleExportWithModal('wa'),openGuide:openGuide,closeGuide:closeGuide,openOee:openOee,closeOee:closeOee,saveOee:saveOee,clearOee:clearOee,info:t=>showInfo(t.dataset.info),closeInfo:closeInfo,closeQty:t=>closeQtyModal(t.dataset.confirm==='true'),closeConfirm:t=>closeConfirmModal(t.dataset.confirm==='true'),deleteEvent:t=>deleteEvent(t.dataset.eventId),clearLaps:clearLaps,deleteShortCycles:deleteShortCycles,exportExtract:()=>window.exportExtractPDF?.(),toggleSelect:(t,e)=>{if(e&&e.target&&e.target.closest('input,button'))return;toggleSelect(t.dataset.eventId)},deleteSelected:deleteSelected};
 const debounce=(fn,ms)=>{let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms)}};
 const renderDeb=debounce(render,80);
 const persistDeb=debounce(persist,250);
@@ -718,7 +744,7 @@ function bind(){
     const t=e.target.closest('[data-action]');
     if(!t)return;
     const fn=ACTIONS[t.dataset.action];
-    if(fn)fn(t);
+    if(fn)fn(t,e);
   });
   els.historyListScreen?.addEventListener('change',e=>{
     const t=e.target;

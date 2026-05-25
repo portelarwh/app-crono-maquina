@@ -73,6 +73,11 @@
     let isArmed        = false;
     let discardNext    = false;
     let fromSensor     = false;
+    // Anti-falso-positivo no motion: warm-up descarta artefatos iniciais; streak exige 2 frames consecutivos acima do limiar
+    let warmupUntil    = 0;
+    let motionStreak   = 0;
+    const WARMUP_MS    = 400;
+    const MOTION_MIN_FRAMES = 2;
 
     // preview ao vivo
     let previewVideo = null;
@@ -352,7 +357,14 @@
                 if (prevLum >= 0 && lum - baseline >= SENS_FLASH[sens]) detected = true;
 
             } else if (cfg.mode === 'motion') {
-                if (prevPixels && motionFraction(d, n) >= SENS_MOTION[sens]) detected = true;
+                if (Date.now() < warmupUntil) {
+                    motionStreak = 0;
+                } else if (prevPixels && motionFraction(d, n) >= SENS_MOTION[sens]) {
+                    motionStreak++;
+                    if (motionStreak >= MOTION_MIN_FRAMES) { detected = true; motionStreak = 0; }
+                } else {
+                    motionStreak = 0;
+                }
 
             } else if (cfg.mode === 'color') {
                 const zone = detectColorZone(d, n);
@@ -1004,6 +1016,8 @@
             prevPixels  = null;
             prevZone    = null;
             flashCount  = 0;
+            motionStreak = 0;
+            warmupUntil  = Date.now() + WARMUP_MS;
             updateCountDisplay();
             analyseFrame();
             updateUI(true);
@@ -1096,6 +1110,8 @@
             prevZone   = null;
             prevLum    = -1;
             flashCount = 0;
+            motionStreak = 0;
+            warmupUntil  = Date.now() + WARMUP_MS;
             updateCountDisplay();
             if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
         }
