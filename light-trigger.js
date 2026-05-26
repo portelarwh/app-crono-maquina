@@ -778,15 +778,16 @@
             const exModes = caps.exposureMode || [];
             const wbModes = caps.whiteBalanceMode || [];
             const adv = {};
-            if (exModes.includes('manual'))        adv.exposureMode = lock ? 'manual' : 'continuous-with-automatic-exposure';
+            if (exModes.includes('manual'))        adv.exposureMode = lock ? 'manual' : 'continuous';
             else if (exModes.includes('locked'))   adv.exposureMode = lock ? 'locked' : 'continuous';
-            else                                   adv.exposureMode = lock ? 'manual' : 'continuous-with-automatic-exposure';
+            else                                   adv.exposureMode = lock ? 'manual' : 'continuous';
             if (wbModes.includes('manual'))        adv.whiteBalanceMode = lock ? 'manual' : 'continuous';
             else if (wbModes.includes('locked'))   adv.whiteBalanceMode = lock ? 'locked' : 'continuous';
             await track.applyConstraints({ advanced: [adv] });
-            exposureLocked = lock;
-            updateExposureBtn();
         } catch (_) {}
+        // Atualiza estado fora do try para garantir toggle mesmo quando hardware ignora a constraint
+        exposureLocked = lock;
+        updateExposureBtn();
     }
 
     // ---------- zoom (nativo da câmera, com fallback digital) ----------
