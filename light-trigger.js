@@ -77,7 +77,9 @@
     let warmupUntil    = 0;
     let motionStreak   = 0;
     let prevLumGlobal  = -1; // luminância do frame INTEIRO (não-mascarado) — detecta auto-exposição/AWB
-    const WARMUP_MS    = 700;
+    const WARMUP_MS            = 700;
+    const ANALYSIS_INTERVAL_MS = 45;   // ~22 Hz — limita CPU sem prejudicar detecção
+    let lastAnalysisTs         = 0;
     const MOTION_MIN_FRAMES = 2;
     const MOTION_STRONG_MULT = 2.0; // se sinal ≥ 2× threshold, dispara em 1 frame (cruzamento claro)
 
@@ -293,10 +295,12 @@
     }
 
     // ---------- loop de análise frame-a-frame ----------
-    function analyseFrame() {
+    function analyseFrame(ts) {
         if (!isActive) return;
         rafId = requestAnimationFrame(analyseFrame);
         if (!video || video.readyState < 2) return;
+        if (ts - lastAnalysisTs < ANALYSIS_INTERVAL_MS) return;
+        lastAnalysisTs = ts;
 
         const vW = video.videoWidth  || SAMPLE_W;
         const vH = video.videoHeight || SAMPLE_H;
@@ -356,9 +360,11 @@
             }
         }
 
+        const motionFrac = cfg.mode === 'motion' ? motionFraction(d, n) : 0;
+
         if (sensorBarFill) {
             if (cfg.mode === 'motion') {
-                sensorBarFill.style.width = Math.min(100, motionFraction(d, n) * 500).toFixed(1) + '%';
+                sensorBarFill.style.width = Math.min(100, motionFrac * 500).toFixed(1) + '%';
                 sensorBarFill.dataset.zone = '';
             } else if (cfg.mode === 'color') {
                 const zone = detectColorZone(d, n);
@@ -392,7 +398,7 @@
                     // câmera ajustou exposição/WB — frame inteiro mudou: ignore para não disparar falsamente
                     motionStreak = 0;
                 } else if (prevPixels) {
-                    const frac = motionFraction(d, n);
+                    const frac = motionFrac;
                     if (frac >= thr * MOTION_STRONG_MULT) {
                         detected = true; motionStreak = 0;          // sinal forte: cruzamento claro, dispara já
                     } else if (frac >= thr) {
@@ -730,10 +736,10 @@
         if (!track) return;
         try {
             if (lock) {
-                const dist = track.getSettings?.().focusDistance;
-                const adv  = { focusMode: 'manual' };
-                if (Number.isFinite(dist)) adv.focusDistance = dist;
-                await track.applyConstraints({ advanced: [adv] });
+                const caps  = track.getCapabilities?.() ?? {};
+                const modes = caps.focusMode || [];
+                const mode  = modes.includes('single-shot') ? 'single-shot' : 'manual';
+                await track.applyConstraints({ advanced: [{ focusMode: mode }] });
             } else {
                 await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
             }
@@ -774,9 +780,10 @@
             const adv = {};
             if (exModes.includes('manual'))        adv.exposureMode = lock ? 'manual' : 'continuous-with-automatic-exposure';
             else if (exModes.includes('locked'))   adv.exposureMode = lock ? 'locked' : 'continuous';
+            else                                   adv.exposureMode = lock ? 'manual' : 'continuous-with-automatic-exposure';
             if (wbModes.includes('manual'))        adv.whiteBalanceMode = lock ? 'manual' : 'continuous';
             else if (wbModes.includes('locked'))   adv.whiteBalanceMode = lock ? 'locked' : 'continuous';
-            if (Object.keys(adv).length) await track.applyConstraints({ advanced: [adv] });
+            await track.applyConstraints({ advanced: [adv] });
             exposureLocked = lock;
             updateExposureBtn();
         } catch (_) {}
@@ -906,18 +913,13 @@
         previewVideo.muted     = true;
         previewVideo.autoplay  = true;
 
-        exposureSupported = checkExposureSupport();
-        exposureLocked    = false;
-
         const torchBtn    = torchSupported
             ? `<button class="lt-torch-btn" id="btnLtTorch" type="button" title="Ligar lanterna">🔦 apagada</button>`
             : '';
         const focusBtn    = focusSupported
             ? `<button class="lt-torch-btn" id="btnLtFocus" type="button" title="Travar foco (evita reajuste ao passar objeto)">🔓 foco</button>`
             : '';
-        const exposureBtn = exposureSupported
-            ? `<button class="lt-torch-btn" id="btnLtExposure" type="button" title="Travar exposição (evita auto-exposure)">🔓 exp</button>`
-            : '';
+        const exposureBtn = `<button class="lt-torch-btn" id="btnLtExposure" type="button" title="Travar exposição (evita auto-exposure)">🔓 exp</button>`;
 
         previewWrap = document.createElement('div');
         previewWrap.className = 'lt-preview';
@@ -1114,7 +1116,6 @@
         if (!previewOpen) return;
         const dest = document.getElementById('ltSampleCanvas');
         if (dest && cvs) { const dCtx = dest.getContext('2d'); if (dCtx) dCtx.drawImage(cvs, 0, 0); }
-        if (roiMode === 'idle' && lineMode === 'idle') drawRoiOverlay();
         const camTimer = document.getElementById('ltCameraTimer');
         if (camTimer) {
             const live = document.getElementById('liveTimer');
@@ -1136,7 +1137,7 @@
                     facingMode: { ideal: 'environment' },
                     width:  { ideal: 640 },
                     height: { ideal: 480 },
-                    frameRate: { ideal: 30, max: 60 }
+                    frameRate: { ideal: 24, max: 30 }
                 }
             });
             video              = document.createElement('video');
@@ -1159,9 +1160,10 @@
             flashCount  = 0;
             motionStreak = 0;
             prevLumGlobal = -1;
+            lastAnalysisTs = 0;
             warmupUntil  = Date.now() + WARMUP_MS;
             updateCountDisplay();
-            analyseFrame();
+            rafId = requestAnimationFrame(analyseFrame);
             updateUI(true);
             showPreview(stream);
             if ((cfg.zoom || 1) > 1) applyZoom(cfg.zoom);
@@ -1314,6 +1316,12 @@
                 const saved = cfg.sensByMode && cfg.sensByMode[cfg.mode];
                 if (Number.isInteger(saved) && saved >= 1 && saved <= 10) cfg.sensLevel = saved;
                 saveCfg(); applyModeButtons(); applySensButtons();
+                if (cfg.mode === 'motion' && roiType !== 'line') {
+                    roiType = 'line';
+                    roiLine = { pos: 0.5, dir: 'vertical', activeSide: 'right' };
+                    applyRoiTypeBtns();
+                    if (isActive) drawRoiOverlay();
+                }
             });
         });
 
