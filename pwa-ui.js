@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'v5.1.34';
+var APP_VERSION = 'v5.1.35';
 window.APP_VERSION = APP_VERSION;
 
 let refreshing = false;

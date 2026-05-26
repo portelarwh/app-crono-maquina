@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.1.34';
+const APP_VERSION='v5.1.35';
 window.APP_VERSION=APP_VERSION;
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
