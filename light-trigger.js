@@ -226,6 +226,16 @@
         }
     }
 
+    // ---------- brilho e contraste por software sobre os pixels do canvas ----------
+    function applySoftCalib(d, bright, contrast) {
+        for (let i = 0; i < d.length; i += 4) {
+            for (let c = 0; c < 3; c++) {
+                let v = (d[i + c] - 128) * contrast + 128 + bright;
+                d[i + c] = v < 0 ? 0 : v > 255 ? 255 : v;
+            }
+        }
+    }
+
     // ---------- máscara binária (silhueta): pixel ≥ thr → branco, < thr → preto ----------
     // Elimina cinzas ambíguos; o preview mostra a silhueta exata que o sensor detecta.
     function applyBinaryThreshold(d, thr) {
@@ -332,6 +342,11 @@
 
         const imgData = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H);
         const d       = imgData.data;
+
+        // Ajuste de brilho/contraste por software (constante por frame — não interfere na detecção de AE)
+        const _sBright   = cfg.camCalib?.softBright   ?? 0;
+        const _sContrast = cfg.camCalib?.softContrast ?? 1.0;
+        if (_sBright !== 0 || _sContrast !== 1.0) applySoftCalib(d, _sBright, _sContrast);
 
         // Luminância do FRAME INTEIRO (antes do mask) — detecta mudança global de exposição/WB
         const lumGlobalNow = avgLuminance(d, SAMPLE_W * SAMPLE_H);
@@ -867,7 +882,9 @@
         if (!track) return '';
         const caps     = track.getCapabilities?.() ?? {};
         const settings = track.getSettings?.()     ?? {};
-        const rows = CALIB_DEFS.filter(d => {
+
+        // --- controles de hardware (dependem do dispositivo) ---
+        const hwRows = CALIB_DEFS.filter(d => {
             const c = caps[d.cap];
             return c && typeof c === 'object' && c.min !== undefined;
         }).map(d => {
@@ -883,47 +900,108 @@
             const v = Math.max(min, Math.min(max, val));
             return `<div class="lt-calib-row">
   <div class="lt-calib-lbl"><span>${d.label}</span><span class="lt-calib-val" id="ltCalibV_${d.key}">${d.fmt(v)}</span></div>
-  <input type="range" class="lt-calib-sl" id="ltCalibS_${d.key}" min="${min}" max="${max}" step="${d.step}" value="${v}" data-cap="${d.cap}" data-key="${d.key}" style="accent-color:${d.color}">
+  <input type="range" class="lt-calib-sl" id="ltCalibS_${d.key}" min="${min}" max="${max}" step="${d.step}" value="${v}" data-type="hw" data-cap="${d.cap}" data-key="${d.key}" style="accent-color:${d.color}">
 </div>`;
         });
-        if (!rows.length) return '<div class="lt-calib-none">Dispositivo não expõe controles de câmera</div>';
-        return rows.join('') + `<div style="text-align:right;margin-top:5px"><button class="lt-calib-rst" id="btnCalibReset" type="button">↺ padrão</button></div>`;
+        const hwSection = hwRows.length
+            ? `<div class="lt-calib-sep">Câmera (hardware)</div>${hwRows.join('')}`
+            : '';
+
+        // --- controles de software (funcionam em qualquer dispositivo) ---
+        const sBright   = cfg.camCalib?.softBright   ?? 0;
+        const sContrast = cfg.camCalib?.softContrast ?? 1.0;
+        const swSection = `<div class="lt-calib-sep">Ajuste de imagem (software)</div>
+<div class="lt-calib-row">
+  <div class="lt-calib-lbl"><span>Brilho</span><span class="lt-calib-val" id="ltCalibV_softBright">${sBright >= 0 ? '+' : ''}${sBright}</span></div>
+  <input type="range" class="lt-calib-sl" id="ltCalibS_softBright" min="-80" max="80" step="5" value="${sBright}" data-type="sw" data-key="softBright" style="accent-color:#e67e22">
+</div>
+<div class="lt-calib-row">
+  <div class="lt-calib-lbl"><span>Contraste</span><span class="lt-calib-val" id="ltCalibV_softContrast">${Number(sContrast).toFixed(2)}×</span></div>
+  <input type="range" class="lt-calib-sl" id="ltCalibS_softContrast" min="0.5" max="2.5" step="0.05" value="${sContrast}" data-type="sw" data-key="softContrast" style="accent-color:#2980b9">
+</div>`;
+
+        // --- threshold da máscara M (sempre visível) ---
+        const thr = cfg.binaryThr ?? 160;
+        const maskSection = `<div class="lt-calib-sep">Máscara M — threshold</div>
+<div class="lt-calib-row">
+  <div class="lt-calib-lbl"><span>Threshold${cfg.binaryMode ? '' : ' <span style="opacity:.55">(M desativado)</span>'}</span><span class="lt-calib-val" id="ltCalibV_binaryThr">${thr}</span></div>
+  <input type="range" class="lt-calib-sl" id="ltCalibS_binaryThr" min="0" max="255" step="5" value="${thr}" data-type="mask" data-key="binaryThr" style="accent-color:#b43cdc">
+</div>`;
+
+        return hwSection + swSection + maskSection +
+            `<div style="text-align:right;margin-top:6px"><button class="lt-calib-rst" id="btnCalibReset" type="button">↺ padrão</button></div>`;
     }
 
     function wireCalibPanel(panelEl) {
         if (!cfg.camCalib) cfg.camCalib = {};
         panelEl.querySelectorAll('.lt-calib-sl').forEach(slider => {
-            const cap  = slider.dataset.cap;
-            const key  = slider.dataset.key;
-            const def  = CALIB_DEFS.find(d => d.key === key);
+            const type  = slider.dataset.type;
+            const key   = slider.dataset.key;
+            const cap   = slider.dataset.cap;
             const valEl = panelEl.querySelector(`#ltCalibV_${key}`);
             slider.addEventListener('input', () => {
                 const v = parseFloat(slider.value);
-                cfg.camCalib[key] = v;
-                if (valEl && def) valEl.textContent = def.fmt(v);
-                saveCfg();
-                applyCalib(cap, v);
+                if (type === 'hw') {
+                    const def = CALIB_DEFS.find(d => d.key === key);
+                    cfg.camCalib[key] = v;
+                    if (valEl && def) valEl.textContent = def.fmt(v);
+                    saveCfg();
+                    applyCalib(cap, v);
+                } else if (type === 'sw') {
+                    cfg.camCalib[key] = v;
+                    if (valEl) valEl.textContent = key === 'softBright'
+                        ? (v >= 0 ? '+' : '') + v
+                        : Number(v).toFixed(2) + '×';
+                    saveCfg();
+                } else if (type === 'mask') {
+                    cfg.binaryThr = Math.round(v);
+                    if (valEl) valEl.textContent = Math.round(v);
+                    saveCfg();
+                    // sincroniza slider de overlay se existir
+                    const ovSlider = document.getElementById('ltBinaryThrSlider');
+                    const ovVal    = document.getElementById('ltBinaryThrVal');
+                    if (ovSlider) ovSlider.value = v;
+                    if (ovVal)    ovVal.textContent = Math.round(v);
+                    prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
+                }
             });
         });
+
         panelEl.querySelector('#btnCalibReset')?.addEventListener('click', async () => {
             const track    = stream?.getVideoTracks?.()[0];
             const settings = track?.getSettings?.() ?? {};
-            const adv = {};
+            const hwAdv = {};
             panelEl.querySelectorAll('.lt-calib-sl').forEach(slider => {
-                const key    = slider.dataset.key;
-                const cap    = slider.dataset.cap;
-                const def    = CALIB_DEFS.find(d => d.key === key);
-                const native = settings[cap];
-                const reset  = native !== undefined ? native : parseFloat(slider.getAttribute('value'));
-                slider.value = reset;
-                const valEl  = panelEl.querySelector(`#ltCalibV_${key}`);
-                if (valEl && def) valEl.textContent = def.fmt(reset);
-                adv[cap] = reset;
-                delete cfg.camCalib[key];
+                const type = slider.dataset.type;
+                const key  = slider.dataset.key;
+                const cap  = slider.dataset.cap;
+                const valEl = panelEl.querySelector(`#ltCalibV_${key}`);
+                if (type === 'hw') {
+                    const def    = CALIB_DEFS.find(d => d.key === key);
+                    const native = settings[cap];
+                    const reset  = native !== undefined ? native : (key === 'ev' ? 0 : (Number(slider.min) + Number(slider.max)) / 2);
+                    slider.value = reset;
+                    if (valEl && def) valEl.textContent = def.fmt(reset);
+                    hwAdv[cap] = reset;
+                    delete cfg.camCalib[key];
+                } else if (type === 'sw') {
+                    const reset = key === 'softBright' ? 0 : 1.0;
+                    slider.value = reset;
+                    if (valEl) valEl.textContent = key === 'softBright' ? '+0' : '1.00×';
+                    cfg.camCalib[key] = reset;
+                } else if (type === 'mask') {
+                    slider.value = 160;
+                    if (valEl) valEl.textContent = 160;
+                    cfg.binaryThr = 160;
+                    const ovSlider = document.getElementById('ltBinaryThrSlider');
+                    const ovVal    = document.getElementById('ltBinaryThrVal');
+                    if (ovSlider) ovSlider.value = 160;
+                    if (ovVal)    ovVal.textContent = 160;
+                }
             });
             saveCfg();
-            if (track && Object.keys(adv).length) {
-                try { await track.applyConstraints({ advanced: [adv] }); } catch (_) {}
+            if (track && Object.keys(hwAdv).length) {
+                try { await track.applyConstraints({ advanced: [hwAdv] }); } catch (_) {}
             }
         });
     }
@@ -971,6 +1049,8 @@
           .lt-calib-lbl{font-size:.58rem;color:var(--text-muted);font-weight:700;display:flex;justify-content:space-between;letter-spacing:.02em}
           .lt-calib-sl{width:100%;height:4px;cursor:pointer;display:block;margin:0}
           .lt-calib-none{font-size:.6rem;color:var(--text-muted);text-align:center;padding:4px 0}
+          .lt-calib-sep{font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);opacity:.7;padding:4px 0 2px;border-top:1px solid var(--border);margin-top:4px}
+          .lt-calib-sep:first-child{border-top:none;margin-top:0;padding-top:0}
           .lt-calib-rst{background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:.65rem;padding:2px 8px;cursor:pointer;line-height:1.4}
         `;
         document.head.appendChild(s);
