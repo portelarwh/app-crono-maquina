@@ -22,7 +22,7 @@
     const MODES = ['flash', 'motion', 'color', 'change'];
     // Defaults por modo — motion sobe (7) porque a faixa de cruzamento é estreita; color e change ficam neutros (5).
     const SENS_BY_MODE_DEFAULT = { flash: 5, motion: 7, color: 5, change: 5 };
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, binaryMode: false, binaryThr: 160, minCycleMs: 0, zoom: 1, sensByMode: Object.assign({}, SENS_BY_MODE_DEFAULT) };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, binaryMode: false, binaryThr: 160, minCycleMs: 0, zoom: 1, sensByMode: Object.assign({}, SENS_BY_MODE_DEFAULT), camCalib: {} };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -46,6 +46,7 @@
             if (!Number.isInteger(v) || v < 1 || v > 10) cfg.sensByMode[m] = SENS_BY_MODE_DEFAULT[m];
         });
         cfg.sensByMode[cfg.mode] = cfg.sensLevel;
+        cfg.camCalib = (cfg.camCalib && typeof cfg.camCalib === 'object') ? cfg.camCalib : {};
     } catch (_) {}
 
     function saveCfg() {
@@ -83,10 +84,19 @@
     const MOTION_MIN_FRAMES = 2;
     const MOTION_STRONG_MULT = 2.0; // se sinal ≥ 2× threshold, dispara em 1 frame (cruzamento claro)
 
+    // Controles de calibração de câmera — apenas os suportados pelo dispositivo são exibidos
+    const CALIB_DEFS = [
+        { key: 'ev',         cap: 'exposureCompensation', label: 'EV (exposição)',  step: 0.25, fmt: v => (v >= 0 ? '+' : '') + Number(v).toFixed(2), color: '#8e44ad' },
+        { key: 'brightness', cap: 'brightness',           label: 'Brilho',          step: 1,    fmt: v => Math.round(v),                                color: '#e67e22' },
+        { key: 'contrast',   cap: 'contrast',             label: 'Contraste',       step: 1,    fmt: v => Math.round(v),                                color: '#2980b9' },
+        { key: 'sharpness',  cap: 'sharpness',            label: 'Nitidez',         step: 1,    fmt: v => Math.round(v),                                color: '#27ae60' },
+    ];
+
     // preview ao vivo
-    let previewVideo = null;
-    let previewWrap  = null;
-    let previewOpen  = true;
+    let previewVideo    = null;
+    let previewWrap     = null;
+    let previewOpen     = true;
+    let calibPanelOpen  = false;
 
     // lanterna
     let torchOn        = false;
@@ -828,6 +838,96 @@
         drawRoiOverlay();
     }
 
+    // ---------- calibração de câmera ----------
+    async function applyCalib(cap, value) {
+        const track = stream?.getVideoTracks?.()[0];
+        if (!track) return;
+        try { await track.applyConstraints({ advanced: [{ [cap]: value }] }); } catch (_) {}
+    }
+
+    async function restoreCalibration() {
+        const track = stream?.getVideoTracks?.()[0];
+        if (!track || !cfg.camCalib) return;
+        const caps = track.getCapabilities?.() ?? {};
+        const adv  = {};
+        for (const def of CALIB_DEFS) {
+            const val = cfg.camCalib[def.key];
+            const c   = caps[def.cap];
+            if (val !== undefined && val !== null && c !== undefined) {
+                adv[def.cap] = Math.max(Number(c.min ?? val), Math.min(Number(c.max ?? val), val));
+            }
+        }
+        if (Object.keys(adv).length) {
+            try { await track.applyConstraints({ advanced: [adv] }); } catch (_) {}
+        }
+    }
+
+    function buildCalibPanelHTML() {
+        const track    = stream?.getVideoTracks?.()[0];
+        if (!track) return '';
+        const caps     = track.getCapabilities?.() ?? {};
+        const settings = track.getSettings?.()     ?? {};
+        const rows = CALIB_DEFS.filter(d => {
+            const c = caps[d.cap];
+            return c && typeof c === 'object' && c.min !== undefined;
+        }).map(d => {
+            const c     = caps[d.cap];
+            const min   = Number(c.min);
+            const max   = Number(c.max);
+            const saved = cfg.camCalib?.[d.key];
+            const cur   = settings[d.cap];
+            const val   = saved !== undefined && saved !== null ? saved
+                        : cur  !== undefined                   ? cur
+                        : d.key === 'ev'                       ? 0
+                        : (min + max) / 2;
+            const v = Math.max(min, Math.min(max, val));
+            return `<div class="lt-calib-row">
+  <div class="lt-calib-lbl"><span>${d.label}</span><span class="lt-calib-val" id="ltCalibV_${d.key}">${d.fmt(v)}</span></div>
+  <input type="range" class="lt-calib-sl" id="ltCalibS_${d.key}" min="${min}" max="${max}" step="${d.step}" value="${v}" data-cap="${d.cap}" data-key="${d.key}" style="accent-color:${d.color}">
+</div>`;
+        });
+        if (!rows.length) return '<div class="lt-calib-none">Dispositivo não expõe controles de câmera</div>';
+        return rows.join('') + `<div style="text-align:right;margin-top:5px"><button class="lt-calib-rst" id="btnCalibReset" type="button">↺ padrão</button></div>`;
+    }
+
+    function wireCalibPanel(panelEl) {
+        if (!cfg.camCalib) cfg.camCalib = {};
+        panelEl.querySelectorAll('.lt-calib-sl').forEach(slider => {
+            const cap  = slider.dataset.cap;
+            const key  = slider.dataset.key;
+            const def  = CALIB_DEFS.find(d => d.key === key);
+            const valEl = panelEl.querySelector(`#ltCalibV_${key}`);
+            slider.addEventListener('input', () => {
+                const v = parseFloat(slider.value);
+                cfg.camCalib[key] = v;
+                if (valEl && def) valEl.textContent = def.fmt(v);
+                saveCfg();
+                applyCalib(cap, v);
+            });
+        });
+        panelEl.querySelector('#btnCalibReset')?.addEventListener('click', async () => {
+            const track    = stream?.getVideoTracks?.()[0];
+            const settings = track?.getSettings?.() ?? {};
+            const adv = {};
+            panelEl.querySelectorAll('.lt-calib-sl').forEach(slider => {
+                const key    = slider.dataset.key;
+                const cap    = slider.dataset.cap;
+                const def    = CALIB_DEFS.find(d => d.key === key);
+                const native = settings[cap];
+                const reset  = native !== undefined ? native : parseFloat(slider.getAttribute('value'));
+                slider.value = reset;
+                const valEl  = panelEl.querySelector(`#ltCalibV_${key}`);
+                if (valEl && def) valEl.textContent = def.fmt(reset);
+                adv[cap] = reset;
+                delete cfg.camCalib[key];
+            });
+            saveCfg();
+            if (track && Object.keys(adv).length) {
+                try { await track.applyConstraints({ advanced: [adv] }); } catch (_) {}
+            }
+        });
+    }
+
     // ---------- preview ao vivo ----------
     function injectPreviewStyles() {
         if (document.getElementById('lt-preview-style')) return;
@@ -864,6 +964,14 @@
           .lt-roi-type-btn.lt-line-active{background:rgba(220,60,60,0.75);border-color:#ff4444;color:#fff}
           .lt-roi-type-btn.lt-bw-on{background:rgba(220,220,220,0.82);border-color:#bbb;color:#111}
           .lt-cam-timer{position:absolute;bottom:24px;right:5px;background:rgba(0,0,0,.55);color:#fff;font-family:monospace;font-size:.7rem;font-weight:bold;padding:3px 7px;border-radius:4px;pointer-events:none;line-height:1.4;text-align:right;white-space:nowrap}
+          .lt-torch-btn.lt-calib-on{background:#1a5276;border-color:#2980b9;color:#fff}
+          .lt-calib-panel{padding:7px 8px 5px;display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--border);margin:4px -8px 0;background:var(--surface)}
+          .lt-calib-panel.lt-calib-hidden{display:none}
+          .lt-calib-row{display:flex;flex-direction:column;gap:2px}
+          .lt-calib-lbl{font-size:.58rem;color:var(--text-muted);font-weight:700;display:flex;justify-content:space-between;letter-spacing:.02em}
+          .lt-calib-sl{width:100%;height:4px;cursor:pointer;display:block;margin:0}
+          .lt-calib-none{font-size:.6rem;color:var(--text-muted);text-align:center;padding:4px 0}
+          .lt-calib-rst{background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:.65rem;padding:2px 8px;cursor:pointer;line-height:1.4}
         `;
         document.head.appendChild(s);
     }
@@ -921,6 +1029,7 @@
             ? `<button class="lt-torch-btn" id="btnLtFocus" type="button" title="Travar foco (evita reajuste ao passar objeto)">🔓 foco</button>`
             : '';
         const exposureBtn = `<button class="lt-torch-btn" id="btnLtExposure" type="button" title="Travar exposição (evita auto-exposure)">🔓 exp</button>`;
+        const calibBtn    = `<button class="lt-torch-btn" id="btnLtCalib" type="button" title="Painel de calibração da câmera">⚙ calibrar</button>`;
 
         previewWrap = document.createElement('div');
         previewWrap.className = 'lt-preview';
@@ -930,12 +1039,14 @@
               <span class="lt-preview-dot"></span>Câmera ao vivo
             </span>
             <span style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+              ${calibBtn}
               ${exposureBtn}
               ${focusBtn}
               ${torchBtn}
               <button class="lt-preview-toggle" id="btnLtPreviewToggle" type="button">${previewOpen ? '▲ ocultar' : '▼ mostrar'}</button>
             </span>
           </div>
+          <div class="lt-calib-panel lt-calib-hidden" id="ltCalibPanel"></div>
           <div class="lt-preview-body${previewOpen ? '' : ' lt-collapsed'}" id="ltPreviewBody">
             <div class="lt-vfeed" id="ltVfeed">
               <canvas class="lt-roi-overlay" id="ltRoiOverlay"></canvas>
@@ -1085,6 +1196,20 @@
         document.getElementById('btnLtFocus')?.addEventListener('click', () => setFocusLock(!focusLocked));
         document.getElementById('btnLtExposure')?.addEventListener('click', () => setExposureLock(!exposureLocked));
 
+        // painel de calibração
+        document.getElementById('btnLtCalib')?.addEventListener('click', () => {
+            calibPanelOpen = !calibPanelOpen;
+            const panel = document.getElementById('ltCalibPanel');
+            const btn   = document.getElementById('btnLtCalib');
+            if (!panel) return;
+            if (calibPanelOpen && !panel.children.length) {
+                panel.innerHTML = buildCalibPanelHTML();
+                wireCalibPanel(panel);
+            }
+            panel.classList.toggle('lt-calib-hidden', !calibPanelOpen);
+            if (btn) btn.classList.toggle('lt-calib-on', calibPanelOpen);
+        });
+
         // wira slider caso binaryMode já estava ativo ao abrir
         if (cfg.binaryMode) {
             const ctrl = document.getElementById('ltBinaryCtrl');
@@ -1168,6 +1293,7 @@
             updateUI(true);
             showPreview(stream);
             if ((cfg.zoom || 1) > 1) applyZoom(cfg.zoom);
+            restoreCalibration();
 
         } catch (err) {
             const msg = err.name === 'NotAllowedError'
@@ -1188,6 +1314,7 @@
         prevZone    = null;
         digitalZoomActive = false;
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
+        calibPanelOpen = false;
         hidePreview();
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         torchOn = false; torchSupported = false;
