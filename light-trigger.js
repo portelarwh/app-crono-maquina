@@ -22,7 +22,7 @@
     const MODES = ['flash', 'motion', 'color', 'change'];
     // Defaults por modo — motion sobe (7) porque a faixa de cruzamento é estreita; color e change ficam neutros (5).
     const SENS_BY_MODE_DEFAULT = { flash: 5, motion: 7, color: 5, change: 5 };
-    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, binaryMode: false, binaryThr: 160, minCycleMs: 0, zoom: 1, sensByMode: Object.assign({}, SENS_BY_MODE_DEFAULT), camCalib: {} };
+    const CFG_DEFAULT = { flashesPerLap: 1, sensLevel: 5, cooldownMs: 1100, mode: 'flash', autoStart: false, discardFirst: false, grayscale: false, binaryMode: false, binaryThr: 160, minCycleMs: 0, zoom: 1, sensByMode: Object.assign({}, SENS_BY_MODE_DEFAULT), camCalib: {}, motionBg: true };
 
     let cfg = Object.assign({}, CFG_DEFAULT);
     try {
@@ -78,6 +78,11 @@
     let warmupUntil    = 0;
     let motionStreak   = 0;
     let prevLumGlobal  = -1; // luminância do frame INTEIRO (não-mascarado) — detecta auto-exposição/AWB
+    // Fundo de referência: snapshot da cena vazia. Detecção compara o frame atual com este
+    // fundo (subtração de fundo) em vez de comparar frame-a-frame — mais robusto p/ objeto cruzando.
+    let bgReference  = null;   // Uint8ClampedArray do frame processado (cena vazia)
+    let captureBgNext = false; // pedido de captura do fundo no próximo frame estável
+    let bgArmed      = true;   // exige que o objeto saia (frac baixa) antes de novo disparo
     const WARMUP_MS            = 700;
     const ANALYSIS_INTERVAL_MS = 45;   // ~22 Hz — limita CPU sem prejudicar detecção
     let lastAnalysisTs         = 0;
@@ -172,6 +177,34 @@
     function rgbDist(a, b) {
         const dr = a.r-b.r, dg = a.g-b.g, db = a.b-b.b;
         return Math.sqrt(dr*dr + dg*dg + db*db);
+    }
+
+    // ---------- região visível do frame sob "object-fit:cover" ----------
+    // O vídeo é exibido com object-fit:cover dentro de uma caixa de proporção dispW:dispH.
+    // Isto recorta o frame bruto. Para que o quadrante azul (overlay) corresponda EXATAMENTE
+    // ao que o sensor amostra, calculamos qual sub-retângulo do frame bruto está visível.
+    function coverVisibleRect(vW, vH, dispW, dispH) {
+        const videoAR = vW / vH;
+        const dispAR  = (dispW || 4) / (dispH || 3);
+        if (videoAR > dispAR) {            // vídeo mais largo → corta laterais
+            const visW = vH * dispAR;
+            return { x: (vW - visW) / 2, y: 0, w: visW, h: vH };
+        }
+        const visH = vW / dispAR;          // vídeo mais alto → corta topo/base
+        return { x: 0, y: (vH - visH) / 2, w: vW, h: visH };
+    }
+
+    // ---------- fração de pixels que diferem do FUNDO de referência ----------
+    function bgDiffFraction(d, n) {
+        if (!bgReference || bgReference.length !== d.length) return 0;
+        const pixThr = SENS_PIXEL_THR[(cfg.sensLevel || 5) - 1];
+        let changed = 0;
+        for (let i = 0; i < d.length; i += 4) {
+            if (Math.abs(d[i] - bgReference[i]) + Math.abs(d[i+1] - bgReference[i+1]) + Math.abs(d[i+2] - bgReference[i+2]) > pixThr) {
+                changed++;
+            }
+        }
+        return changed / n;
     }
 
     // ---------- fração de pixels ativos que mudaram vs frame anterior ----------
@@ -325,19 +358,26 @@
         const vW = video.videoWidth  || SAMPLE_W;
         const vH = video.videoHeight || SAMPLE_H;
 
-        const z     = digitalZoomActive ? (cfg.zoom || 1) : 1;
-        const cropW = vW / z;
-        const cropH = vH / z;
-        const cropX = (vW - cropW) / 2;
-        const cropY = (vH - cropH) / 2;
+        // Sub-retângulo do frame bruto que está realmente visível sob object-fit:cover —
+        // garante que o sensor amostre exatamente o que aparece no quadrante azul.
+        const ov    = document.getElementById('ltRoiOverlay');
+        const dispW = ov ? (ov.offsetWidth  || 4) : 4;
+        const dispH = ov ? (ov.offsetHeight || 3) : 3;
+        const vis   = coverVisibleRect(vW, vH, dispW, dispH);
+
+        // zoom digital: encolhe a região visível ao redor do centro
+        const z   = digitalZoomActive ? (cfg.zoom || 1) : 1;
+        const zW  = vis.w / z, zH = vis.h / z;
+        const zX  = vis.x + (vis.w - zW) / 2;
+        const zY  = vis.y + (vis.h - zH) / 2;
 
         if (roiType === 'rect') {
             ctx.drawImage(video,
-                Math.round(cropX + roi.x * cropW), Math.round(cropY + roi.y * cropH),
-                Math.max(1, Math.round(roi.w * cropW)), Math.max(1, Math.round(roi.h * cropH)),
+                Math.round(zX + roi.x * zW), Math.round(zY + roi.y * zH),
+                Math.max(1, Math.round(roi.w * zW)), Math.max(1, Math.round(roi.h * zH)),
                 0, 0, SAMPLE_W, SAMPLE_H);
         } else {
-            ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, SAMPLE_W, SAMPLE_H);
+            ctx.drawImage(video, zX, zY, zW, zH, 0, 0, SAMPLE_W, SAMPLE_H);
         }
 
         const imgData = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H);
@@ -365,6 +405,14 @@
         // devolve os pixels processados ao canvas (para preview)
         ctx.putImageData(imgData, 0, 0);
 
+        // captura do fundo de referência (após warm-up, com a cena estável/vazia)
+        if (captureBgNext && Date.now() >= warmupUntil) {
+            bgReference   = new Uint8ClampedArray(d);
+            captureBgNext = false;
+            bgArmed       = true;
+            updateBgBtn();
+        }
+
         const n    = getActivePixelCount();
         const lum  = avgLuminance(d, n);
         const sens = (cfg.sensLevel || 5) - 1;
@@ -385,7 +433,11 @@
             }
         }
 
-        const motionFrac = cfg.mode === 'motion' ? motionFraction(d, n) : 0;
+        // Em motion: usa subtração de fundo quando há referência (mais robusto), senão frame-a-frame.
+        const usingBg    = cfg.motionBg && !!bgReference;
+        const motionFrac = cfg.mode === 'motion'
+            ? (usingBg ? bgDiffFraction(d, n) : motionFraction(d, n))
+            : 0;
 
         if (sensorBarFill) {
             if (cfg.mode === 'motion') {
@@ -419,6 +471,11 @@
                 const thr = SENS_MOTION[sens];
                 if (Date.now() < warmupUntil) {
                     motionStreak = 0;
+                } else if (usingBg) {
+                    // Subtração de fundo: dispara quando o objeto (≠ fundo) ocupa a faixa.
+                    // Re-arma só quando a faixa volta ao fundo — 1 disparo por cruzamento.
+                    if (motionFrac < thr * 0.5) bgArmed = true;
+                    if (bgArmed && motionFrac >= thr) { detected = true; bgArmed = false; }
                 } else if (globalShift > GLOBAL_LUM_SHIFT_MAX) {
                     // câmera ajustou exposição/WB — frame inteiro mudou: ignore para não disparar falsamente
                     motionStreak = 0;
@@ -741,6 +798,17 @@
         } catch (_) {}
     }
 
+    function updateBgBtn() {
+        const btn = document.getElementById('btnLtBg');
+        if (!btn) return;
+        const has = !!bgReference;
+        btn.classList.toggle('lt-bg-on', has);
+        btn.textContent = has ? '🎯 fundo ✓' : '🎯 fundo';
+        btn.title = has
+            ? 'Fundo capturado — comparando com a cena vazia. Toque para limpar/recapturar.'
+            : 'Capturar fundo de referência (mantenha a cena vazia e toque)';
+    }
+
     function checkTorchSupport() {
         if (!stream) return false;
         const track = stream.getVideoTracks()[0];
@@ -953,6 +1021,7 @@
                         ? (v >= 0 ? '+' : '') + v
                         : Number(v).toFixed(2) + '×';
                     saveCfg();
+                    if (bgReference) captureBgNext = true; // brilho/contraste mudou — fundo obsoleto
                 } else if (type === 'mask') {
                     cfg.binaryThr = Math.round(v);
                     if (valEl) valEl.textContent = Math.round(v);
@@ -963,6 +1032,7 @@
                     if (ovSlider) ovSlider.value = v;
                     if (ovVal)    ovVal.textContent = Math.round(v);
                     prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
+                    if (bgReference) captureBgNext = true; // fundo ficou obsoleto — recaptura
                 }
             });
         });
@@ -1022,6 +1092,7 @@
           .lt-torch-btn.lt-torch-on{background:#f39c12;border-color:#e67e22;color:#fff}
           .lt-torch-btn.lt-focus-on{background:#2980b9;border-color:#3498db;color:#fff}
           .lt-torch-btn.lt-exp-on{background:#8e44ad;border-color:#9b59b6;color:#fff}
+          .lt-torch-btn.lt-bg-on{background:#16a085;border-color:#1abc9c;color:#fff}
           .lt-roi-type-btn.lt-mask-on{background:rgba(180,60,220,0.75);border-color:#b43cdc;color:#fff}
           .lt-binary-ctrl{padding:6px 8px 4px;display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,.55);border-radius:0 0 6px 6px;margin-top:-2px}
           .lt-binary-ctrl label{font-size:.58rem;color:rgba(255,255,255,.8);font-weight:700;text-align:center;display:flex;justify-content:space-between}
@@ -1110,6 +1181,7 @@
             : '';
         const exposureBtn = `<button class="lt-torch-btn" id="btnLtExposure" type="button" title="Travar exposição (evita auto-exposure)">🔓 exp</button>`;
         const calibBtn    = `<button class="lt-torch-btn" id="btnLtCalib" type="button" title="Painel de calibração da câmera">⚙ calibrar</button>`;
+        const bgBtn       = `<button class="lt-torch-btn${bgReference ? ' lt-bg-on' : ''}" id="btnLtBg" type="button" title="Capturar fundo de referência (cena vazia)">${bgReference ? '🎯 fundo ✓' : '🎯 fundo'}</button>`;
 
         previewWrap = document.createElement('div');
         previewWrap.className = 'lt-preview';
@@ -1119,6 +1191,7 @@
               <span class="lt-preview-dot"></span>Câmera ao vivo
             </span>
             <span style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+              ${bgBtn}
               ${calibBtn}
               ${exposureBtn}
               ${focusBtn}
@@ -1245,6 +1318,7 @@
                 existing.remove();
             }
             prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
+            if (bgReference) captureBgNext = true; // fundo ficou obsoleto — recaptura
         });
 
         // Zoom cycle: 1x → 2x → 3x → 1x
@@ -1275,6 +1349,18 @@
         document.getElementById('btnLtTorch')?.addEventListener('click', () => setTorch(!torchOn));
         document.getElementById('btnLtFocus')?.addEventListener('click', () => setFocusLock(!focusLocked));
         document.getElementById('btnLtExposure')?.addEventListener('click', () => setExposureLock(!exposureLocked));
+
+        // Capturar/limpar fundo de referência (subtração de fundo no motion)
+        document.getElementById('btnLtBg')?.addEventListener('click', () => {
+            if (bgReference) {
+                bgReference = null; bgArmed = true; captureBgNext = false;
+                updateBgBtn();
+            } else {
+                captureBgNext = true;           // captura no próximo frame (após warm-up)
+                const btn = document.getElementById('btnLtBg');
+                if (btn) btn.textContent = '🎯 capturando…';
+            }
+        });
 
         // painel de calibração
         document.getElementById('btnLtCalib')?.addEventListener('click', () => {
@@ -1307,6 +1393,7 @@
             if (valEl) valEl.textContent = v;
             saveCfg();
             prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
+            if (bgReference) captureBgNext = true; // fundo ficou obsoleto — recaptura
         });
     }
 
@@ -1367,6 +1454,9 @@
             motionStreak = 0;
             prevLumGlobal = -1;
             lastAnalysisTs = 0;
+            bgReference   = null;
+            bgArmed       = true;
+            captureBgNext = (cfg.mode === 'motion' && cfg.motionBg); // auto-captura fundo após warm-up
             warmupUntil  = Date.now() + WARMUP_MS;
             updateCountDisplay();
             rafId = requestAnimationFrame(analyseFrame);
@@ -1392,6 +1482,7 @@
         lastLapTs   = 0;
         prevPixels  = null;
         prevZone    = null;
+        bgReference = null; captureBgNext = false; bgArmed = true;
         digitalZoomActive = false;
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
         calibPanelOpen = false;
@@ -1464,6 +1555,11 @@
             flashCount = 0;
             motionStreak = 0;
             prevLumGlobal = -1;
+            // ao trocar de modo: recaptura fundo se for motion, senão descarta
+            bgReference   = null;
+            bgArmed       = true;
+            captureBgNext = (cfg.mode === 'motion' && cfg.motionBg);
+            updateBgBtn();
             warmupUntil  = Date.now() + WARMUP_MS;
             updateCountDisplay();
             if (sensorBarFill) { sensorBarFill.style.width = '0%'; sensorBarFill.dataset.zone = ''; }
