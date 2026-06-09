@@ -12,7 +12,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.2.3',
+      version: window.APP_VERSION || 'v5.2.4',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -126,7 +126,7 @@
       + '<p><b>Classificação:</b> '+esc(an.stabilityClass||'—')+'</p>'
       + '<p><b>Conclusão:</b> '+esc(executiveConclusion())+'</p>'
       + '<p><b>Ação recomendada:</b> '+esc(action.replace(/^Ação recomendada:\s*/,''))+'</p>'
-      + '<p class="small"><b>Linha:</b> '+esc(ex.lineName||'—')+' | <b>Turno:</b> '+esc(ex.shiftName||'—')+' | <b>Produto:</b> '+esc(ex.productName||'—')+' | <b>Horas/turno:</b> '+esc(ex.shiftHours||'—')+'</p>'
+      + '<p class="small"><b>Linha:</b> '+esc(ex.lineName||'—')+' | <b>Turno:</b> '+esc(ex.shiftName||'—')+' | <b>Produto:</b> '+esc(ex.productName||'—')+' | <b>Horas/dia:</b> '+esc(ex.shiftHours||'—')+'</p>'
       + '<p class="small"><b>Tempo padrão:</b> base '+esc(std.baseMean?f(std.baseMean,2):'—')+'s + '+esc(std.tolerancePct||0)+'% | amostras usadas '+esc(std.used||0)+'/'+esc(std.total||0)+' | removidas '+esc(std.removed||0)+'</p></section>';
   }
 

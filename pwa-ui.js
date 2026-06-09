@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'v5.2.3';
+var APP_VERSION = 'v5.2.4';
 window.APP_VERSION = APP_VERSION;
 
 let refreshing = false;
@@ -59,6 +59,11 @@ async function clearAllCachesAndUnregister(){
 }
 
 async function checkForUpdate(){
+  // Guarda anti-loop: se acabamos de recarregar por atualização, não verifica de novo.
+  if(sessionStorage.getItem('lt-just-updated')){
+    sessionStorage.removeItem('lt-just-updated');
+    return false;
+  }
   setSplashStatus('Verificando atualizações...', APP_VERSION);
   try{
     var ctrl = new AbortController();
@@ -69,8 +74,12 @@ async function checkForUpdate(){
     var data = await res.json();
     if(data && data.version && data.version !== APP_VERSION){
       setSplashStatus('Atualizando para ' + data.version, APP_VERSION + ' → ' + data.version);
-      await clearAllCachesAndUnregister();
-      await new Promise(r => setTimeout(r, 700));
+      sessionStorage.setItem('lt-just-updated', '1');
+      // Limpa apenas os caches (não desregistra o SW — evita reinstalação e segundo reload)
+      if('caches' in window){
+        try{ var keys=await caches.keys(); await Promise.all(keys.map(k=>caches.delete(k))); }catch(e){}
+      }
+      await new Promise(r=>setTimeout(r,500));
       location.reload();
       return true;
     }

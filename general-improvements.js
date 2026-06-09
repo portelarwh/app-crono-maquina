@@ -117,7 +117,7 @@
       <div class="input-group"><label>Linha</label><input id="lineName" type="text" placeholder="Ex: Linha 1"></div>
       <div class="input-group"><label>Turno</label><input id="shiftName" type="text" placeholder="Ex: 1º turno"></div>
       <div class="input-group"><label>Produto</label><input id="productName" type="text" placeholder="Ex: Produto / código"></div>
-      <div class="input-group extra-shift-hours"><label>Horas/turno</label><input id="shiftHours" type="number" value="8" min="0.1" step="0.1" inputmode="decimal"></div>
+      <div class="input-group extra-shift-hours"><label>Horas/dia</label><input id="shiftHours" type="number" value="8" min="0.1" step="0.1" inputmode="decimal"></div>
       <div class="input-group extra-tolerance full-width"><label>Tolerância para tempo padrão (%)</label><input id="tolerancePct" type="number" value="10" min="0" step="0.5" inputmode="decimal"></div>
     `;
     grid.appendChild(block);
@@ -204,7 +204,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v5.2.3', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v5.2.4', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
       laps, extras, oee: base.oee || null
