@@ -23,5 +23,10 @@ for f in "${FILES[@]}"; do
   sed -i "s/v5\.[0-9]\+\.[0-9]\+/v${NEW}/g; s/5\.[0-9]\+\.[0-9]\+/${NEW}/g" "$f"
 done
 
+# index.html: atualiza SOMENTE as queries ?v=X.Y.Z (o sed genérico corromperia
+# números soltos como coordenadas de path SVG). Mantém index alinhado com o
+# pré-cache do sw.js — sem isso o cache do SW nunca é usado e o offline quebra.
+sed -i "s/?v=[0-9]\+\.[0-9]\+\.[0-9]\+/?v=${NEW}/g" index.html
+
 echo "✓ versão atualizada para v${NEW}"
 grep -h "APP_VERSION\|CACHE_NAME\|\"version\"" app-version.js sw.js version.json | head -5
