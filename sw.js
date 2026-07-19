@@ -1,18 +1,18 @@
 'use strict';
 
-const CACHE_NAME = 'crono-maquina-v5.2.4';
+const CACHE_NAME = 'crono-maquina-v5.2.5';
 const ASSETS = [
   './',
-  './index.html?v=5.2.4',
-  './app.js?v=5.2.4',
-  './theme-init.js?v=5.2.4',
-  './pwa-ui.js?v=5.2.4',
-  './report-enhancements.js?v=5.2.4',
-  './whatsapp-share-fix.js?v=5.2.4',
-  './general-improvements.js?v=5.2.4',
-  './light-trigger.js?v=5.2.4',
-  './styles.css?v=5.2.4',
-  './manifest.json?v=5.2.4',
+  './index.html?v=5.2.5',
+  './app.js?v=5.2.5',
+  './theme-init.js?v=5.2.5',
+  './pwa-ui.js?v=5.2.5',
+  './report-enhancements.js?v=5.2.5',
+  './whatsapp-share-fix.js?v=5.2.5',
+  './general-improvements.js?v=5.2.5',
+  './light-trigger.js?v=5.2.5',
+  './styles.css?v=5.2.5',
+  './manifest.json?v=5.2.5',
   './assets/Icon-192.png',
   './assets/Icon-512.png',
   './assets/lib/html2canvas.min.js',
@@ -42,7 +42,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match('./index.html')));
+    // ignoreSearch: o index é pré-cacheado com query de versão (?v=...) — sem isso o fallback offline falha
+    event.respondWith(fetch(event.request).catch(() => caches.match('./index.html', { ignoreSearch: true })));
     return;
   }
 

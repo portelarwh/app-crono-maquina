@@ -34,7 +34,9 @@
             cfg.sensLevel = idx + 1;
             delete cfg.threshold;
         }
-        if (cfg.sensLevel >= 1 && cfg.sensLevel <= 5 && Number.isInteger(cfg.sensLevel)) {
+        // Migração escala antiga 1–5 → 1–10: só para configs salvas antes de sensByMode existir,
+        // senão níveis 1–5 legítimos seriam re-migrados (dobrados) a cada carregamento.
+        if (saved.sensByMode === undefined && cfg.sensLevel >= 1 && cfg.sensLevel <= 5 && Number.isInteger(cfg.sensLevel)) {
             cfg.sensLevel = cfg.sensLevel * 2 - 1;
         }
         if (!MODES.includes(cfg.mode)) cfg.mode = 'flash';

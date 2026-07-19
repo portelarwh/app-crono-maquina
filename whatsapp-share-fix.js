@@ -94,7 +94,7 @@ function getAction(stats, impact){
   + '• Último: ' + fieldValue('valLastCycle', '—') + '\n'
   + '• Mínimo: ' + num(stats.min, 2) + 's\n'
   + '• Máximo: ' + num(stats.max, 2) + 's\n'
-  + '• Desvio: ' + num(stats.std, 2) + 's\n'
+  + '• Desvio: ' + num(stats.dev, 2) + 's\n'
   + '• Estabilidade: ' + num(stats.stab, 1) + '%\n\n'
 
   + '🏁 *Capacidade*\n'
