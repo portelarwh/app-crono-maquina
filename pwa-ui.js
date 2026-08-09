@@ -3,7 +3,7 @@
 /* ⚠ VERSÃO: fonte única em app-version.js (APP_VERSION / APP_RELEASE_DATE).
    A cada publicação rode ./bump-version.sh X.Y.Z — ele atualiza app-version.js,
    version.json, o CACHE_NAME do sw.js e as queries ?v= do index.html. */
-var APP_VERSION = window.APP_VERSION || 'v5.2.6';
+var APP_VERSION = window.APP_VERSION || 'v5.2.7';
 
 var LAST_CHECK_KEY = 'tc_ultima_verificacao';
 

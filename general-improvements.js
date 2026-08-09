@@ -204,7 +204,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, type: lap.type === 'downtime' ? 'downtime' : 'cycle', durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, productiveMs: Number.isFinite(Number(lap.productiveMs)) ? Number(lap.productiveMs) : null, productiveSec: Number.isFinite(Number(lap.productiveSec)) ? Number(lap.productiveSec) : (Number.isFinite(Number(lap.productiveMs)) ? Number(lap.productiveMs) / 1000 : null), qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, startedAt: lap.startedAt || null, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v5.2.6', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v5.2.7', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       sessionStartTs: base.sessionStartTs || null, sessionEndTs: base.sessionEndTs || null,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
@@ -430,6 +430,36 @@
     btn.addEventListener('click', () => apply(!wrap.classList.contains('collapsed')));
   }
 
-  function init(){ injectStyles(); injectFields(); injectCauseButtons(); injectUndo(); injectPanels(); injectPresetPanel(); patchDataGetter(); bindEvents(); initCauseToggle(); updateAll(); }
+  function initSetupToggle(){
+    const card = $('configForm');
+    const btn  = $('btnToggleSetup');
+    if(!card || !btn || btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    const PREF_KEY = 'setupCollapsed';
+    const chev    = $('setupToggleChev');
+    const summary = $('setupCollapsedSummary');
+    function renderSummary(){
+      if(!summary) return;
+      const equip = ($('equipName')?.value || '').trim();
+      const line  = ($('lineName')?.value || '').trim();
+      summary.textContent = [equip, line].filter(Boolean).join(' · ') || 'toque para configurar';
+    }
+    function apply(collapsed){
+      card.classList.toggle('setup-collapsed', collapsed);
+      if(chev) chev.textContent = collapsed ? '▸' : '▾';
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      btn.title = collapsed ? 'Expandir o setup da medição' : 'Recolher o setup da medição';
+      renderSummary();
+      try{ localStorage.setItem(PREF_KEY, collapsed ? '1' : '0'); }catch(_){}
+    }
+    apply(localStorage.getItem(PREF_KEY) === '1');
+    btn.addEventListener('click', () => apply(!card.classList.contains('setup-collapsed')));
+    // resumo acompanha edições (delegação — lineName é injetado depois)
+    document.addEventListener('input', e => {
+      if(e.target && (e.target.id === 'equipName' || e.target.id === 'lineName')) renderSummary();
+    });
+  }
+
+  function init(){ injectStyles(); injectFields(); injectCauseButtons(); injectUndo(); injectPanels(); injectPresetPanel(); patchDataGetter(); bindEvents(); initCauseToggle(); initSetupToggle(); updateAll(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
