@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
-const APP_VERSION='v5.2.5';
-window.APP_VERSION=APP_VERSION;
+// ⚠ Versão: fonte única em app-version.js (carregado antes deste script). Não redefinir aqui.
+const APP_VERSION=window.APP_VERSION||'v5.2.6';
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null,sessionStartTs:null,sessionEndTs:null};

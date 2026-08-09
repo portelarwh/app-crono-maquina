@@ -4,6 +4,7 @@
   "description": "Cronoanálise de máquina para estudo de tempos, capacidade e estabilidade operacional.",
   "start_url": "./",
   "scope": "./",
+  "id": "./",
   "display": "standalone",
   "background_color": "#0d1117",
   "theme_color": "#121212",

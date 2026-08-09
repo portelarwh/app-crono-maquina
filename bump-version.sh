@@ -28,5 +28,10 @@ done
 # pré-cache do sw.js — sem isso o cache do SW nunca é usado e o offline quebra.
 sed -i "s/?v=[0-9]\+\.[0-9]\+\.[0-9]\+/?v=${NEW}/g" index.html
 
-echo "✓ versão atualizada para v${NEW}"
+# data de publicação: APP_RELEASE_DATE (app-version.js) e "released" (version.json)
+TODAY="$(date +%Y-%m-%d)"
+sed -i "s/APP_RELEASE_DATE = '[0-9-]\+'/APP_RELEASE_DATE = '${TODAY}'/" app-version.js
+sed -i "s/\"released\": \"[0-9-]\+\"/\"released\": \"${TODAY}\"/" version.json
+
+echo "✓ versão atualizada para v${NEW} (${TODAY})"
 grep -h "APP_VERSION\|CACHE_NAME\|\"version\"" app-version.js sw.js version.json | head -5
