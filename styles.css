@@ -392,6 +392,17 @@ body.export-mode .chart-title{
         .btn-toggle-causes:hover { color: var(--text-main); background: var(--surface); }
         .cause-section.collapsed .lap-cause-grid { display: none !important; }
         .cause-section.collapsed .btn-toggle-causes { border-radius: 6px; border-bottom: 1px solid var(--border); }
+
+        /* Setup da medição — card recolhível (#configForm) */
+        .setup-toggle-head { width: 100%; display: flex; align-items: center; gap: 8px; background: transparent; border: none; color: var(--text-main); cursor: pointer; padding: 0 0 10px; font: inherit; text-align: left; -webkit-tap-highlight-color: transparent; }
+        .setup-toggle-title { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); white-space: nowrap; }
+        .setup-toggle-summary { flex: 1; min-width: 0; font-size: .72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; display: none; }
+        .setup-toggle-chev { color: var(--text-muted); font-size: .85rem; flex: none; margin-left: auto; }
+        .setup-toggle-summary + .setup-toggle-chev { margin-left: 0; }
+        /* recolhido: esconde todos os filhos do card (config-grid e painéis injetados), menos o cabeçalho */
+        #configForm.setup-collapsed > :not(.setup-toggle-head) { display: none !important; }
+        #configForm.setup-collapsed .setup-toggle-head { padding-bottom: 0; }
+        #configForm.setup-collapsed .setup-toggle-summary { display: block; }
         .lap-cause-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
