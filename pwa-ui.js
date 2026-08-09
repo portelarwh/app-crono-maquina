@@ -1,7 +1,11 @@
 'use strict';
 
-var APP_VERSION = 'v5.2.5';
-window.APP_VERSION = APP_VERSION;
+/* ⚠ VERSÃO: fonte única em app-version.js (APP_VERSION / APP_RELEASE_DATE).
+   A cada publicação rode ./bump-version.sh X.Y.Z — ele atualiza app-version.js,
+   version.json, o CACHE_NAME do sw.js e as queries ?v= do index.html. */
+var APP_VERSION = window.APP_VERSION || 'v5.2.6';
+
+var LAST_CHECK_KEY = 'tc_ultima_verificacao';
 
 let refreshing = false;
 let started = false;
@@ -34,11 +38,62 @@ function toast(msg){
   setTimeout(()=>el.remove(),1200);
 }
 
+/* ---------- verificação de atualização (registro + timestamp) ---------- */
+function marcarVerificacao(){
+  try{ localStorage.setItem(LAST_CHECK_KEY, new Date().toISOString()); }catch(e){}
+}
+
+function checarAtualizacao(){
+  marcarVerificacao();
+  if(window._swReg && typeof window._swReg.update === 'function'){
+    window._swReg.update().catch(function(){});
+  }
+  renderLastCheck();
+}
+
+/* ---------- aplicação do novo SW ---------- */
+// Um modal aberto significa que o usuário está no meio de algo (informando
+// quantidade, configurando OEE...) — nesse caso não recarrega sozinho.
+function anyBlockingModalOpen(){
+  var ids = ['qtyModal','confirmModal','oeeModal','guideModal','infoModal'];
+  for(var i=0;i<ids.length;i++){
+    var el = document.getElementById(ids[i]);
+    if(el && el.style.display === 'flex') return true;
+  }
+  if(document.getElementById('exportChoiceModal')) return true;
+  return false;
+}
+
+function showUpdateBanner(worker){
+  if(document.getElementById('pwaUpdateBanner')) return;
+  var bar = document.createElement('div');
+  bar.id = 'pwaUpdateBanner';
+  bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:99998;background:#0d1117;color:#fff;border:1px solid #0879e9;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;box-shadow:0 4px 18px rgba(0,0,0,.45)';
+  var txt = document.createElement('span');
+  txt.textContent = 'Nova versão disponível.';
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Atualizar';
+  btn.style.cssText = 'background:#0879e9;border:none;color:#fff;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12.5px';
+  btn.addEventListener('click', function(){
+    try{ worker.postMessage({type:'SKIP_WAITING'}); }catch(e){}
+    bar.remove();
+  });
+  bar.appendChild(txt);
+  bar.appendChild(btn);
+  document.body.appendChild(bar);
+}
+
+function applyOrOffer(worker){
+  if(anyBlockingModalOpen()){ showUpdateBanner(worker); return; }
+  toast('Atualizando...');
+  setTimeout(function(){ worker.postMessage({type:'SKIP_WAITING'}); }, 300);
+}
+
 function watch(worker){
-  worker.addEventListener('statechange',()=>{
-    if(worker.state==='installed' && navigator.serviceWorker.controller){
-      toast('Atualizando...');
-      setTimeout(()=>worker.postMessage({type:'SKIP_WAITING'}),300);
+  worker.addEventListener('statechange', function(){
+    if(worker.state === 'installed' && navigator.serviceWorker.controller){
+      applyOrOffer(worker);
     }
   });
 }
@@ -65,6 +120,7 @@ async function checkForUpdate(){
     return false;
   }
   setSplashStatus('Verificando atualizações...', APP_VERSION);
+  marcarVerificacao();
   try{
     var ctrl = new AbortController();
     var to = setTimeout(()=>ctrl.abort(), 5000);
@@ -98,17 +154,97 @@ function registerServiceWorker(){
 
   navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'})
     .then(reg=>{
+      window._swReg = reg;
+      // SW novo já esperando de uma visita anterior — aplica (ou oferece)
+      if(reg.waiting && navigator.serviceWorker.controller) applyOrOffer(reg.waiting);
       if(reg.installing) watch(reg.installing);
-      reg.addEventListener('updatefound',()=>watch(reg.installing));
+      reg.addEventListener('updatefound',()=>{ if(reg.installing) watch(reg.installing); });
+      marcarVerificacao();
       return reg.update();
     })
     .catch(()=>{});
+}
+
+/* ---------- pop-up "Sobre a versão" ---------- */
+function fmtReleaseDate(iso){ // 'AAAA-MM-DD' → 'DD/MM/AAAA'
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||''));
+  return m ? (m[3]+'/'+m[2]+'/'+m[1]) : (iso || '—');
+}
+
+function renderLastCheck(){
+  var el = document.getElementById('vmLastCheck');
+  if(!el) return;
+  var iso = null;
+  try{ iso = localStorage.getItem(LAST_CHECK_KEY); }catch(e){}
+  var d = iso ? new Date(iso) : null;
+  el.textContent = (d && !isNaN(d)) ? d.toLocaleString('pt-BR') : 'nunca';
+}
+
+function setVmStatus(msg){
+  var s = document.getElementById('vmStatus');
+  if(s){ s.textContent = msg || ''; s.style.display = msg ? 'block' : 'none'; }
+}
+
+function openVersionModal(){
+  var m = document.getElementById('versionModal');
+  if(!m) return;
+  var v = document.getElementById('vmVersion');
+  if(v) v.textContent = window.APP_VERSION || APP_VERSION;
+  var r = document.getElementById('vmReleased');
+  if(r) r.textContent = fmtReleaseDate(window.APP_RELEASE_DATE);
+  renderLastCheck();
+  setVmStatus('');
+  m.style.display = 'flex';
+}
+
+function closeVersionModal(){
+  var m = document.getElementById('versionModal');
+  if(m) m.style.display = 'none';
+}
+
+async function verificarAgoraClick(){
+  marcarVerificacao();
+  renderLastCheck();
+  var reg = window._swReg;
+  if(!reg){ setVmStatus('Service Worker indisponível neste navegador.'); return; }
+  setVmStatus('Verificando…');
+  try{ await reg.update(); }catch(e){}
+  // pequena espera para o updatefound ter tempo de iniciar a instalação
+  await new Promise(r=>setTimeout(r, 800));
+  if(reg.waiting || reg.installing){
+    setVmStatus('Nova versão encontrada! Aplicando...');
+    if(reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
+    // se ainda estiver instalando, watch() aplica assim que terminar
+  }else{
+    setVmStatus('Você já está na versão mais recente disponível no servidor.');
+  }
+}
+
+function wireVersionUI(){
+  var open = function(e){ e.preventDefault(); openVersionModal(); };
+  var av = document.getElementById('appVersion');
+  if(av){
+    av.style.cursor = 'pointer';
+    av.title = 'Ver detalhes da versão';
+    av.setAttribute('role','button');
+    av.addEventListener('click', open);
+  }
+  var sv = document.getElementById('splashVersion');
+  if(sv){ sv.style.cursor = 'pointer'; sv.addEventListener('click', open); }
+  var modal = document.getElementById('versionModal');
+  if(modal) modal.addEventListener('click', function(e){ if(e.target === modal) closeVersionModal(); });
+  var bClose = document.getElementById('btnVersionClose');
+  if(bClose) bClose.addEventListener('click', closeVersionModal);
+  var bCheck = document.getElementById('btnVersionCheck');
+  if(bCheck) bCheck.addEventListener('click', verificarAgoraClick);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeVersionModal(); });
 }
 
 async function bootstrap(){
   if(started) return;
   started = true;
   setSplashVersion();
+  wireVersionUI();
   var updating = await checkForUpdate();
   if(updating) return;
   setSplashStatus('Versão atualizada', APP_VERSION);
@@ -116,6 +252,12 @@ async function bootstrap(){
 }
 
 document.addEventListener('DOMContentLoaded', bootstrap);
+
+// re-verifica quando a aba volta a ficar visível e a cada 30 minutos
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && started) checarAtualizacao();
+});
+setInterval(function(){ if(started) checarAtualizacao(); }, 30*60*1000);
 
 // --- Screen Wake Lock: mantém tela acesa enquanto o app estiver aberto ---
 (function () {
