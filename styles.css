@@ -70,6 +70,8 @@
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
+            /* espaço para a barra fixa do topo (.app-header) */
+            padding-top: calc(62px + env(safe-area-inset-top));
             padding-bottom: 170px;
             transition: background-color 0.2s ease, color 0.2s ease;
             overflow-x: hidden;
@@ -88,7 +90,7 @@
         }
         html[data-theme="light"] .card { border-color: var(--border); }
         
-        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .config-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; }
         .input-group { display: flex; flex-direction: column; }
         .full-width { grid-column: span 2; }
         
@@ -1150,43 +1152,71 @@ body.export-mode .chart-title{
 /* =========================================================
    APP HEADER — Versão + Botão de Tema (canto superior direito)
    ========================================================= */
+/* ============ Header ============
+   Padrão dos apps (mesmo do MES): nome à esquerda, tema e versão à direita,
+   nessa ordem. Nada mais entra aqui — status e indicadores vivem nas telas.
+   Barra presa no topo com fundo translúcido e desfoque: o conteúdo passa por
+   trás, dá para ver que há algo rolando embaixo em vez de tampar. */
 .app-header {
     position: fixed;
-    top: 8px;
-    right: 10px;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 999;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 8px;
-    background: color-mix(in srgb, var(--card-bg) 85%, transparent);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    box-shadow: var(--shadow-card);
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+    background: color-mix(in srgb, var(--bg-color) 72%, transparent);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--border);
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
-.app-version {
-    font-size: 0.72rem;
+/* navegador sem desfoque (ou sem color-mix): volta a ser opaco */
+@supports not (backdrop-filter: blur(2px)) { .app-header { background: var(--bg-color); } }
+@supports not (color: color-mix(in srgb, red 50%, transparent)) { .app-header { background: var(--bg-color); } }
+.app-title {
+    font-size: 17px;
     font-weight: 700;
-    color: var(--text-muted);
-    letter-spacing: 0.3px;
-    user-select: none;
+    color: var(--text-main);
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+.app-version {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-family: var(--font-base);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+    cursor: pointer;
+    flex: none;
+    user-select: none;
+    text-transform: none; /* regra global de button deixaria "V5.2.7" */
+}
+.app-version:active { background: var(--input-bg); }
 .theme-toggle-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     background: var(--input-bg);
     color: var(--text-main);
     border: 1px solid var(--border);
-    font-size: 15px;
+    font-size: 16px;
     cursor: pointer;
     padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
+    flex: none;
     font-family: var(--font-base);
     line-height: 1;
     transition: background-color 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
@@ -1194,6 +1224,7 @@ body.export-mode .chart-title{
 .theme-toggle-btn:hover { transform: scale(1.08); }
 .theme-toggle-btn:active { transform: scale(0.94); }
 body.export-mode .app-header { display: none !important; }
+body.export-mode { padding-top: 8px !important; }
 
 .info-inline { position: static !important; top: auto !important; right: auto !important; margin-left: 6px; display: inline-flex; vertical-align: middle; transform: translateY(-1px); }
 .label-with-info { display: inline-flex; align-items: center; gap: 6px; }
@@ -1310,11 +1341,12 @@ body.export-mode .hist-label{
 @media (min-width: 720px) {
     body {
         padding: 16px 24px;
+        padding-top: calc(68px + env(safe-area-inset-top)); /* barra fixa do topo */
         padding-bottom: 175px;
         max-width: 1180px;
         margin: 0 auto;
     }
-    .config-grid { grid-template-columns: repeat(4, 1fr); }
+    .config-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
     .full-width { grid-column: span 4; }
     .input-group:not(.full-width) { grid-column: span 2; }
     #unitsGroup, #defaultLapQtyGroup, #lapQtyModeGroup,
@@ -1332,7 +1364,8 @@ body.export-mode .hist-label{
         align-items: flex-start;
     }
     .col-1 { flex: 0 0 44%; min-width: 0; }
-    .col-2 { flex: 1 1 auto; min-width: 0; position: sticky; top: 16px; }
+    /* top acompanha a barra fixa: sem isso a coluna gruda por baixo do header */
+    .col-2 { flex: 1 1 auto; min-width: 0; position: sticky; top: calc(78px + env(safe-area-inset-top)); }
 
     .chart-wrapper, .histogram-wrapper { height: 180px !important; }
 
@@ -1350,9 +1383,9 @@ body.export-mode .hist-label{
 
     .history-row { font-size: 0.92rem; }
 
-    .app-header { top: 12px; right: 24px; padding: 6px 12px; gap: 10px; }
-    .app-version { font-size: 0.8rem; }
-    .theme-toggle-btn { width: 32px; height: 32px; font-size: 17px; }
+    .app-header { padding: calc(12px + env(safe-area-inset-top)) 24px 12px; gap: 10px; }
+    .app-title { font-size: 20px; }
+    .app-version { font-size: 12px; padding: 4px 10px; }
 }
 
 /* =========================================================
@@ -1363,6 +1396,7 @@ body.export-mode .hist-label{
     /* --- Container geral --- */
     body {
         padding: 24px 36px;
+        padding-top: calc(74px + env(safe-area-inset-top)); /* barra fixa do topo */
         padding-bottom: 88px; /* action dock compacto substitui o fixed-bottom alto */
         max-width: 1440px;
     }
@@ -1408,7 +1442,7 @@ body.export-mode .hist-label{
     .card { padding: 18px; }
 
     /* --- Config grid: 4 colunas compactas --- */
-    .config-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .config-grid { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
     .full-width { grid-column: span 4; }
     .input-group:not(.full-width) { grid-column: span 2; }
     #unitsGroup, #defaultLapQtyGroup, #lapQtyModeGroup,
@@ -1457,15 +1491,11 @@ body.export-mode .hist-label{
     #equipName, #analystName, #lineName, #shiftName, #productName,
     #studyName, #presetName, #lapObs { text-align: left; padding-left: 10px; }
 
-    /* --- App header — right alinhado ao padding do body --- */
+    /* --- App header — alinhado ao padding do body --- */
     .app-header {
-        top: 14px;
-        right: 36px;
-        padding: 6px 14px;
+        padding: calc(14px + env(safe-area-inset-top)) 36px 14px;
         gap: 12px;
     }
-    .app-version { font-size: 0.78rem; }
-    .theme-toggle-btn { width: 30px; height: 30px; font-size: 16px; }
 
     /* --- Export container --- */
     #exportContainer { width: 100%; max-width: 1440px; margin: 0 auto; }
@@ -1580,7 +1610,7 @@ body.export-mode .hist-label{
 @media (min-width: 1280px) {
     body { padding-left: 48px; padding-right: 48px; }
     .fixed-bottom { padding-left: 48px; padding-right: 48px; }
-    .app-header { right: 48px; }
+    .app-header { padding-left: 48px; padding-right: 48px; }
     .col-1 { flex: 0 0 480px; }
     .live-timer { font-size: 5rem; }
     .chart-wrapper, .histogram-wrapper { height: 290px !important; }
@@ -1594,7 +1624,8 @@ body.export-mode .hist-label{
     body { max-width: 1600px; padding-left: 56px; padding-right: 56px; }
     .fixed-bottom { max-width: 1600px; padding-left: 56px; padding-right: 56px; }
     #exportContainer { max-width: 1600px; }
-    .app-header { right: 56px; }
+    /* acompanha o body centralizado — mesmo padrão do header do MES em telas largas */
+    .app-header { max-width: 1600px; margin: 0 auto; padding-left: 56px; padding-right: 56px; }
     .col-1 { flex: 0 0 520px; }
     .chart-wrapper, .histogram-wrapper { height: 320px !important; }
     .history-container { max-height: 420px; }
