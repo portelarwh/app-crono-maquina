@@ -9,8 +9,8 @@
    Prefira rodar ./bump-version.sh X.Y.Z — ele faz os 3 passos
    e ainda atualiza as queries ?v= do index.html.
    ============================================================ */
-var APP_VERSION = 'v5.2.7';           // fonte única
-var APP_RELEASE_DATE = '2026-08-09';  // data em que esta versão foi publicada
+var APP_VERSION = 'v5.2.8';           // fonte única
+var APP_RELEASE_DATE = '2026-08-23';  // data em que esta versão foi publicada
 
 window.APP_VERSION = APP_VERSION;
 window.APP_RELEASE_DATE = APP_RELEASE_DATE;

@@ -784,20 +784,78 @@
         });
     }
 
+    // ---------- constraints da câmera (estado acumulado) ----------
+    // applyConstraints() SUBSTITUI todo o conjunto de constraints da track: aplicar
+    // torch depois do zoom zerava o zoom, travar exposição apagava a lanterna, e
+    // mexer no brilho derrubava tudo. Guardamos o estado aqui e reenviamos sempre a
+    // união. Cada propriedade vai num ConstraintSet próprio dentro de `advanced`:
+    // o navegador aplica set a set e ignora os que o hardware não suporta — num
+    // único set, uma propriedade sem suporte invalidaria todas as outras.
+    let camAdvanced = {};
+
+    // Formato de captura pedido no getUserMedia. Reenviado junto de cada ajuste porque
+    // applyConstraints também limpa as constraints básicas — sem isto a resolução/fps
+    // ficavam sem trava depois do primeiro ajuste de câmera. facingMode fica de fora
+    // de propósito: a câmera já foi escolhida, reenviá-lo poderia renegociar o device
+    // no meio da medição.
+    const VIDEO_BASE = {
+        width:     { ideal: 640 },
+        height:    { ideal: 480 },
+        frameRate: { ideal: 24, max: 30 }
+    };
+
+    async function applyCamConstraints(patch) {
+        const track = stream?.getVideoTracks?.()[0];
+        if (!track) return false;
+        Object.assign(camAdvanced, patch);
+        const sets = [];
+        for (const key in camAdvanced) {
+            const v = camAdvanced[key];
+            if (v !== null && v !== undefined) sets.push({ [key]: v });
+        }
+        const req = Object.assign({}, VIDEO_BASE);
+        if (sets.length) req.advanced = sets;
+        try { await track.applyConstraints(req); return true; }
+        catch (_) { return false; }
+    }
+
+    // Mudar lanterna/zoom/foco/exposição/brilho altera a imagem inteira. Sem zerar as
+    // referências, o frame seguinte parece "movimento" e dispara uma volta fantasma.
+    function resetDetectionAfterCamChange() {
+        prevPixels    = null;
+        prevLum       = -1;
+        prevLumGlobal = -1;
+        motionStreak  = 0;
+        lumHistory    = [];
+        changeBaseline = null;
+        prevZone      = null;
+        warmupUntil   = Date.now() + WARMUP_MS;
+        if (bgReference || (cfg.mode === 'motion' && cfg.motionBg)) {
+            bgReference   = null;
+            bgArmed       = true;
+            captureBgNext = (cfg.mode === 'motion' && cfg.motionBg);
+            updateBgBtn();
+        }
+    }
+
     async function setTorch(on) {
         if (!stream) return;
         const track = stream.getVideoTracks()[0];
         if (!track) return;
-        try {
-            await track.applyConstraints({ advanced: [{ torch: on }] });
-            torchOn = on;
-            const btn = document.getElementById('btnLtTorch');
-            if (btn) {
-                btn.classList.toggle('lt-torch-on', on);
-                btn.title       = on ? 'Desligar lanterna' : 'Ligar lanterna';
-                btn.textContent = on ? '🔦 acesa' : '🔦 apagada';
-            }
-        } catch (_) {}
+        const ok = await applyCamConstraints({ torch: on });
+        if (!ok) {
+            // hardware recusou — desfaz o estado acumulado para não reenviar torch inválido
+            delete camAdvanced.torch;
+            return;
+        }
+        torchOn = on;
+        resetDetectionAfterCamChange();
+        const btn = document.getElementById('btnLtTorch');
+        if (btn) {
+            btn.classList.toggle('lt-torch-on', on);
+            btn.title       = on ? 'Desligar lanterna' : 'Ligar lanterna';
+            btn.textContent = on ? '🔦 acesa' : '🔦 apagada';
+        }
     }
 
     function updateBgBtn() {
@@ -811,18 +869,24 @@
             : 'Capturar fundo de referência (mantenha a cena vazia e toque)';
     }
 
+    // Alguns navegadores reportam capacidades booleanas como array ([false, true])
+    function capAllowsTrue(v) { return v === true || (Array.isArray(v) && v.includes(true)); }
+
     function checkTorchSupport() {
         if (!stream) return false;
         const track = stream.getVideoTracks()[0];
         const caps  = track?.getCapabilities?.() ?? {};
-        return caps.torch === true;
+        return capAllowsTrue(caps.torch);
     }
 
     function checkFocusSupport() {
         if (!stream) return false;
         const track = stream.getVideoTracks()[0];
         const caps  = track?.getCapabilities?.() ?? {};
-        return Array.isArray(caps.focusMode) && caps.focusMode.includes('manual');
+        // 'single-shot' também trava o foco — exigir só 'manual' escondia o botão
+        // em aparelhos onde a trava funciona.
+        return Array.isArray(caps.focusMode) &&
+               (caps.focusMode.includes('manual') || caps.focusMode.includes('single-shot'));
     }
 
     async function setFocusLock(lock) {
@@ -834,11 +898,12 @@
                 const caps  = track.getCapabilities?.() ?? {};
                 const modes = caps.focusMode || [];
                 const mode  = modes.includes('single-shot') ? 'single-shot' : 'manual';
-                await track.applyConstraints({ advanced: [{ focusMode: mode }] });
+                await applyCamConstraints({ focusMode: mode });
             } else {
-                await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+                await applyCamConstraints({ focusMode: 'continuous' });
             }
             focusLocked = lock;
+            resetDetectionAfterCamChange();
             const btn = document.getElementById('btnLtFocus');
             if (btn) {
                 btn.classList.toggle('lt-focus-on', lock);
@@ -878,10 +943,11 @@
             else                                   adv.exposureMode = lock ? 'manual' : 'continuous';
             if (wbModes.includes('manual'))        adv.whiteBalanceMode = lock ? 'manual' : 'continuous';
             else if (wbModes.includes('locked'))   adv.whiteBalanceMode = lock ? 'locked' : 'continuous';
-            await track.applyConstraints({ advanced: [adv] });
+            await applyCamConstraints(adv);
         } catch (_) {}
         // Atualiza estado fora do try para garantir toggle mesmo quando hardware ignora a constraint
         exposureLocked = lock;
+        resetDetectionAfterCamChange();
         updateExposureBtn();
     }
 
@@ -906,10 +972,8 @@
             const zMin = caps.zoom.min || 1;
             const zMax = caps.zoom.max || 1;
             const target = level === 1 ? zMin : Math.min(zMax, Math.max(zMin, level));
-            try {
-                await track.applyConstraints({ advanced: [{ zoom: target }] });
-                nativeOk = (level === 1) || (target >= level * 0.9);
-            } catch (_) {}
+            nativeOk = await applyCamConstraints({ zoom: target });
+            if (nativeOk) nativeOk = (level === 1) || (target >= level * 0.9);
         }
 
         if (!nativeOk && level > 1) {
@@ -919,15 +983,15 @@
                 previewVideo.style.transform = `scale(${level})`;
             }
         }
+        resetDetectionAfterCamChange();
         updateZoomBtn();
         drawRoiOverlay();
     }
 
     // ---------- calibração de câmera ----------
     async function applyCalib(cap, value) {
-        const track = stream?.getVideoTracks?.()[0];
-        if (!track) return;
-        try { await track.applyConstraints({ advanced: [{ [cap]: value }] }); } catch (_) {}
+        await applyCamConstraints({ [cap]: value });
+        resetDetectionAfterCamChange();
     }
 
     async function restoreCalibration() {
@@ -942,9 +1006,7 @@
                 adv[def.cap] = Math.max(Number(c.min ?? val), Math.min(Number(c.max ?? val), val));
             }
         }
-        if (Object.keys(adv).length) {
-            try { await track.applyConstraints({ advanced: [adv] }); } catch (_) {}
-        }
+        if (Object.keys(adv).length) await applyCamConstraints(adv);
     }
 
     function buildCalibPanelHTML() {
@@ -1073,7 +1135,8 @@
             });
             saveCfg();
             if (track && Object.keys(hwAdv).length) {
-                try { await track.applyConstraints({ advanced: [hwAdv] }); } catch (_) {}
+                await applyCamConstraints(hwAdv);
+                resetDetectionAfterCamChange();
             }
         });
     }
@@ -1428,17 +1491,21 @@
         }
         try {
             stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { ideal: 'environment' },
-                    width:  { ideal: 640 },
-                    height: { ideal: 480 },
-                    frameRate: { ideal: 24, max: 30 }
-                }
+                video: Object.assign({ facingMode: { ideal: 'environment' } }, VIDEO_BASE)
             });
+            camAdvanced = {};   // novo stream: começa sem constraints acumuladas
+
+            // Câmera perdida (outro app assumiu, permissão revogada, cabo/USB): sem isto
+            // o sensor seguia "ligado" analisando um frame congelado.
+            const track0 = stream.getVideoTracks()[0];
+            if (track0) track0.addEventListener('ended', () => { if (isActive) stopSensor(); });
+
             video              = document.createElement('video');
             video.srcObject    = stream;
             video.playsInline  = true;
+            video.setAttribute('playsinline', '');   // iOS antigo exige o atributo, não só a propriedade
             video.muted        = true;
+            video.setAttribute('muted', '');
             await video.play();
 
             cvs        = document.createElement('canvas');
@@ -1486,6 +1553,7 @@
         prevZone    = null;
         bgReference = null; captureBgNext = false; bgArmed = true;
         digitalZoomActive = false;
+        camAdvanced = {};
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
         calibPanelOpen = false;
         hidePreview();
@@ -1668,6 +1736,12 @@
         }
         sensorOutlierInput?.addEventListener('change', commitOutlierInput);
         sensorOutlierInput?.addEventListener('blur',   commitOutlierInput);
+
+        // Ao voltar do segundo plano a câmera esteve parada: o frame anterior está
+        // velho e a diferença contra ele dispararia uma volta fantasma.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && isActive) resetDetectionAfterCamChange();
+        });
 
         applyFplButtons();
         applySensButtons();

@@ -3,7 +3,7 @@
 /* ⚠ VERSÃO: fonte única em app-version.js (APP_VERSION / APP_RELEASE_DATE).
    A cada publicação rode ./bump-version.sh X.Y.Z — ele atualiza app-version.js,
    version.json, o CACHE_NAME do sw.js e as queries ?v= do index.html. */
-var APP_VERSION = window.APP_VERSION || 'v5.2.7';
+var APP_VERSION = window.APP_VERSION || 'v5.2.8';
 
 var LAST_CHECK_KEY = 'tc_ultima_verificacao';
 
@@ -224,9 +224,12 @@ function wireVersionUI(){
   var open = function(e){ e.preventDefault(); openVersionModal(); };
   var av = document.getElementById('appVersion');
   if(av){
-    av.style.cursor = 'pointer';
-    av.title = 'Ver detalhes da versão';
-    av.setAttribute('role','button');
+    // no header atual é um <button> com title próprio; o fallback cobre markup antigo
+    if(av.tagName !== 'BUTTON'){
+      av.style.cursor = 'pointer';
+      av.title = 'Ver detalhes da versão';
+      av.setAttribute('role','button');
+    }
     av.addEventListener('click', open);
   }
   var sv = document.getElementById('splashVersion');
