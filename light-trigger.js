@@ -70,6 +70,8 @@
     let prevPixels     = null;
     let prevZone       = null;
     let onCooldown     = false;
+    let cooldownTimer  = null;
+    let isStarting     = false; // evita 2 getUserMedia simultâneos (toque duplo durante o pedido de permissão)
     let isActive       = false;
     let flashCount     = 0;
     let lastLapTs      = 0;
@@ -86,6 +88,8 @@
     let captureBgNext = false; // pedido de captura do fundo no próximo frame estável
     let bgArmed      = true;   // exige que o objeto saia (frac baixa) antes de novo disparo
     const WARMUP_MS            = 700;
+    const START_WARMUP_MS      = 1500; // ao abrir a câmera o AE/AWB leva mais tempo para estabilizar
+    const BG_ADAPT_ALPHA       = 0.05; // acompanha deriva lenta de iluminação no fundo quando a faixa está vazia
     const ANALYSIS_INTERVAL_MS = 45;   // ~22 Hz — limita CPU sem prejudicar detecção
     let lastAnalysisTs         = 0;
     const MOTION_MIN_FRAMES = 2;
@@ -356,6 +360,11 @@
         if (!video || video.readyState < 2) return;
         if (ts - lastAnalysisTs < ANALYSIS_INTERVAL_MS) return;
         lastAnalysisTs = ts;
+        // Uma exceção pontual (frame inválido, canvas indisponível) não pode derrubar o sensor.
+        try { processFrame(); } catch (err) { console.warn('[LightTrigger] frame ignorado:', err); }
+    }
+
+    function processFrame() {
 
         const vW = video.videoWidth  || SAMPLE_W;
         const vH = video.videoHeight || SAMPLE_H;
@@ -400,7 +409,8 @@
         // Não aplica no modo 'color' pois precisa de info R/G para detectar zonas de cor.
         if (cfg.binaryMode && cfg.mode !== 'color') {
             applyBinaryThreshold(d, Number.isFinite(cfg.binaryThr) ? cfg.binaryThr : 160);
-        } else if (cfg.grayscale) {
+        } else if (cfg.grayscale && cfg.mode !== 'color') {
+            // cinza zera a diferença R/G — no modo cor nunca haveria detecção
             applyGrayscale(d);
         }
 
@@ -461,7 +471,20 @@
             }
         }
 
-        if (!onCooldown) {
+        // Warm-up vale para TODOS os modos: logo após abrir a câmera, ligar lanterna,
+        // mudar zoom/alvo etc. o AE/AWB ainda está ajustando e o salto de brilho/cor
+        // seria lido como evento (volta fantasma). Durante o warm-up só acompanhamos a cena.
+        const warming = Date.now() < warmupUntil;
+        if (warming) {
+            motionStreak = 0;
+            if (cfg.mode === 'change' && changeRGB) changeBaseline = { ...changeRGB };
+            if (cfg.mode === 'color') {
+                const zone = detectColorZone(d, n);
+                if (zone !== 'neutral') prevZone = zone;
+            }
+        }
+
+        if (!onCooldown && !warming) {
             let detected = false;
 
             if (cfg.mode === 'flash') {
@@ -471,9 +494,7 @@
 
             } else if (cfg.mode === 'motion') {
                 const thr = SENS_MOTION[sens];
-                if (Date.now() < warmupUntil) {
-                    motionStreak = 0;
-                } else if (usingBg) {
+                if (usingBg) {
                     // Subtração de fundo: dispara quando o objeto (≠ fundo) ocupa a faixa.
                     // Re-arma só quando a faixa volta ao fundo — 1 disparo por cruzamento.
                     if (motionFrac < thr * 0.5) bgArmed = true;
@@ -507,12 +528,24 @@
                 if (cfg.mode === 'change') changeBaseline = null;
                 onCooldown = true;
                 triggerEvent();
-                setTimeout(() => {
+                if (cooldownTimer) clearTimeout(cooldownTimer);
+                cooldownTimer = setTimeout(() => {
+                    cooldownTimer = null;
                     onCooldown   = false;
                     // ao sair do cooldown, descarta o frame anterior para evitar diff contra um baseline desatualizado
                     prevPixels   = null;
                     motionStreak = 0;
                 }, cfg.cooldownMs);
+            }
+        }
+
+        // Fundo adaptativo: com a faixa vazia, acompanha devagar a deriva de iluminação
+        // (luz do dia, lâmpada aquecendo). Sem isto o fundo "envelhece", a fração fica
+        // acima do limiar para sempre e o sensor para de contar sem aviso.
+        if (usingBg && !warming && bgReference && bgReference.length === d.length &&
+            motionFrac < SENS_MOTION[sens] * 0.5) {
+            for (let i = 0; i < d.length; i++) {
+                bgReference[i] += (d[i] - bgReference[i]) * BG_ADAPT_ALPHA;
             }
         }
 
@@ -687,6 +720,7 @@
                     roiLine.pos = roiLine.dir === 'vertical'
                         ? Math.max(0.05, Math.min(0.95, cur.x))
                         : Math.max(0.05, Math.min(0.95, cur.y));
+                    resetDetectionAfterCamChange(); // linha mudou de lugar — referências antigas não valem
                     drawRoiOverlay();
                 }
                 return;
@@ -719,8 +753,10 @@
                 roi.x = Math.max(0, Math.min(1 - 0.04, x1));
                 roi.y = Math.max(0, Math.min(1 - 0.04, y1));
                 roi.w = Math.min(newW, 1 - roi.x);
-                roi.h = roi.w / AR;
+                roi.h = Math.min(roi.w / AR, 1 - roi.y);
             }
+            // alvo mudou — o frame anterior/fundo eram de outra região e gerariam disparo falso
+            resetDetectionAfterCamChange();
             drawRoiOverlay();
         });
 
@@ -759,7 +795,7 @@
             overlayCanvas.setPointerCapture(e.pointerId);
         });
 
-        overlayCanvas.addEventListener('pointerup', () => {
+        function endPointer() {
             if (roiType === 'line') {
                 if (lineMode === 'flip' && lineDragStart) {
                     // set active side to the side that was tapped
@@ -778,10 +814,16 @@
             if (roiMode === 'drawing' && (roi.w < 0.06 || roi.h < 0.06)) {
                 roi = { x: 0, y: 0, w: 1, h: 1 };
             }
+            const wasEditing = roiMode !== 'idle';
             roiMode = 'idle'; roiStart = null; roiAnchor = null; roiSnap = null;
+            if (wasEditing) resetDetectionAfterCamChange();
             drawRoiOverlay();
             setCursor(roiHitTest(0.5, 0.5, overlayCanvas.offsetWidth, overlayCanvas.offsetHeight));
-        });
+        }
+        overlayCanvas.addEventListener('pointerup', endPointer);
+        // Toque interrompido (gesto do sistema, rolagem): sem isto o ROI ficava "preso"
+        // em modo de edição e seguia o cursor/dedo sem botão pressionado.
+        overlayCanvas.addEventListener('pointercancel', endPointer);
     }
 
     // ---------- constraints da câmera (estado acumulado) ----------
@@ -1085,7 +1127,7 @@
                         ? (v >= 0 ? '+' : '') + v
                         : Number(v).toFixed(2) + '×';
                     saveCfg();
-                    if (bgReference) captureBgNext = true; // brilho/contraste mudou — fundo obsoleto
+                    resetDetectionAfterCamChange(); // brilho/contraste mudou — histórico e fundo obsoletos
                 } else if (type === 'mask') {
                     cfg.binaryThr = Math.round(v);
                     if (valEl) valEl.textContent = Math.round(v);
@@ -1095,8 +1137,7 @@
                     const ovVal    = document.getElementById('ltBinaryThrVal');
                     if (ovSlider) ovSlider.value = v;
                     if (ovVal)    ovVal.textContent = Math.round(v);
-                    prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
-                    if (bgReference) captureBgNext = true; // fundo ficou obsoleto — recaptura
+                    resetDetectionAfterCamChange(); // fundo/histórico obsoletos
                 }
             });
         });
@@ -1134,10 +1175,8 @@
                 }
             });
             saveCfg();
-            if (track && Object.keys(hwAdv).length) {
-                await applyCamConstraints(hwAdv);
-                resetDetectionAfterCamChange();
-            }
+            if (track && Object.keys(hwAdv).length) await applyCamConstraints(hwAdv);
+            resetDetectionAfterCamChange(); // ajustes de software também mudam a imagem
         });
     }
 
@@ -1314,6 +1353,7 @@
             applyRoiTypeBtns();
             const lbl = document.getElementById('ltVfeedLabel');
             if (lbl) lbl.textContent = 'vídeo · arraste para definir alvo';
+            resetDetectionAfterCamChange();
             drawRoiOverlay();
         });
 
@@ -1324,7 +1364,7 @@
             applyRoiTypeBtns();
             const lbl = document.getElementById('ltVfeedLabel');
             if (lbl) lbl.textContent = 'linha · arraste · toque p/ trocar lado';
-            prevPixels = null; prevZone = null; prevLum = -1; changeBaseline = null;
+            resetDetectionAfterCamChange();
             drawRoiOverlay();
         });
 
@@ -1338,6 +1378,7 @@
                 roiLine.activeSide = 'right';
             }
             applyRoiTypeBtns();
+            resetDetectionAfterCamChange();
             drawRoiOverlay();
         });
 
@@ -1360,6 +1401,7 @@
             cfg.grayscale = !cfg.grayscale;
             saveCfg();
             applyRoiTypeBtns();
+            resetDetectionAfterCamChange(); // pixels mudam de cor p/ cinza — evita disparo falso
         });
 
         // Mask (binary threshold) toggle
@@ -1382,8 +1424,7 @@
             } else if (!cfg.binaryMode && existing) {
                 existing.remove();
             }
-            prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
-            if (bgReference) captureBgNext = true; // fundo ficou obsoleto — recaptura
+            resetDetectionAfterCamChange(); // imagem processada mudou — fundo/histórico obsoletos
         });
 
         // Zoom cycle: 1x → 2x → 3x → 1x
@@ -1399,6 +1440,7 @@
             } else {
                 roi = { x: 0, y: 0, w: 1, h: 1 };
             }
+            resetDetectionAfterCamChange();
             drawRoiOverlay();
         });
 
@@ -1457,8 +1499,7 @@
             cfg.binaryThr = v;
             if (valEl) valEl.textContent = v;
             saveCfg();
-            prevPixels = null; prevLumGlobal = -1; motionStreak = 0;
-            if (bgReference) captureBgNext = true; // fundo ficou obsoleto — recaptura
+            resetDetectionAfterCamChange(); // threshold mudou — fundo/histórico obsoletos
         });
     }
 
@@ -1484,15 +1525,22 @@
 
     // ---------- iniciar câmera ----------
     async function startSensor() {
-        if (isActive) return;
+        if (isActive || isStarting) return;
         if (!navigator.mediaDevices?.getUserMedia) {
             alert('Câmera não suportada neste dispositivo.\nUtilize HTTPS e um navegador moderno.');
             return;
         }
+        isStarting = true;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: Object.assign({ facingMode: { ideal: 'environment' } }, VIDEO_BASE)
-            });
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: Object.assign({ facingMode: { ideal: 'environment' } }, VIDEO_BASE)
+                });
+            } catch (err) {
+                // Aparelho não aceita o formato pedido (ex.: frameRate.max) — tenta o mínimo.
+                if (err?.name !== 'OverconstrainedError') throw err;
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+            }
             camAdvanced = {};   // novo stream: começa sem constraints acumuladas
 
             // Câmera perdida (outro app assumiu, permissão revogada, cabo/USB): sem isto
@@ -1512,7 +1560,10 @@
             cvs.width  = SAMPLE_W;
             cvs.height = SAMPLE_H;
             ctx        = cvs.getContext('2d', { willReadFrequently: true });
+            if (!ctx) throw new Error('canvas 2D indisponível');
 
+            if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; }
+            onCooldown  = false;
             isActive    = true;
             isArmed     = false;
             discardNext = false;
@@ -1526,7 +1577,9 @@
             bgReference   = null;
             bgArmed       = true;
             captureBgNext = (cfg.mode === 'motion' && cfg.motionBg); // auto-captura fundo após warm-up
-            warmupUntil  = Date.now() + WARMUP_MS;
+            warmupUntil  = Date.now() + START_WARMUP_MS;
+            lumHistory    = [];
+            changeBaseline = null;
             updateCountDisplay();
             rafId = requestAnimationFrame(analyseFrame);
             updateUI(true);
@@ -1535,10 +1588,23 @@
             restoreCalibration();
 
         } catch (err) {
-            const msg = err.name === 'NotAllowedError'
+            // Falhou depois de abrir o stream (ex.: video.play): libera a câmera,
+            // senão o LED/câmera ficava preso até recarregar a página.
+            if (!isActive) {
+                if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+                video = cvs = ctx = null;
+            }
+            const name = err?.name;
+            const msg = (name === 'NotAllowedError' || name === 'SecurityError')
                 ? 'Permissão negada.\nLibere o acesso à câmera nas configurações do navegador.'
-                : 'Não foi possível acessar a câmera:\n' + (err.message || String(err));
+                : name === 'NotReadableError'
+                ? 'A câmera está em uso por outro aplicativo.\nFeche-o e tente novamente.'
+                : (name === 'NotFoundError' || name === 'OverconstrainedError')
+                ? 'Nenhuma câmera compatível foi encontrada neste dispositivo.'
+                : 'Não foi possível acessar a câmera:\n' + (err?.message || String(err));
             alert(msg);
+        } finally {
+            isStarting = false;
         }
     }
 
@@ -1555,6 +1621,8 @@
         digitalZoomActive = false;
         camAdvanced = {};
         if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
+        if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; }
+        onCooldown = false;
         calibPanelOpen = false;
         hidePreview();
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
@@ -1701,6 +1769,7 @@
 
         btnAutoStart?.addEventListener('click', () => {
             cfg.autoStart = !cfg.autoStart;
+            if (!cfg.autoStart && isArmed) { isArmed = false; updateArmedUI(); }
             saveCfg();
             applyOptionButtons();
         });
@@ -1713,15 +1782,16 @@
         document.addEventListener('click', e => {
             const action = e.target?.closest('[data-action]')?.dataset?.action;
 
-            if (action === 'reset' && isActive) stopSensor();
-
             if (action === 'start' && !fromSensor && isActive) {
                 if (cfg.autoStart && !isArmed) {
                     e.stopPropagation();
                     isArmed = true;
                     updateArmedUI();
-                } else if (!cfg.autoStart && cfg.discardFirst) {
-                    discardNext = true;
+                } else {
+                    // 2º toque com o sensor armado = início manual. Sem desarmar, o 1º evento
+                    // do sensor era consumido como "início" (já em andamento) e a volta se perdia.
+                    if (isArmed) { isArmed = false; updateArmedUI(); }
+                    if (cfg.discardFirst) discardNext = true;
                 }
             }
         }, true);
@@ -1737,10 +1807,19 @@
         sensorOutlierInput?.addEventListener('change', commitOutlierInput);
         sensorOutlierInput?.addEventListener('blur',   commitOutlierInput);
 
+        // Zerar medição desliga o sensor — só quando o zerar é confirmado (antes,
+        // cancelar o modal de confirmação também desligava a câmera).
+        document.addEventListener('crono:reset', () => { if (isActive) stopSensor(); });
+
         // Ao voltar do segundo plano a câmera esteve parada: o frame anterior está
         // velho e a diferença contra ele dispararia uma volta fantasma.
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && isActive) resetDetectionAfterCamChange();
+            if (document.visibilityState !== 'visible' || !isActive) return;
+            // iOS/Android pausam o <video> em segundo plano e não retomam sozinhos:
+            // o sensor ficava "ligado" analisando um frame congelado.
+            if (video && video.paused) video.play().catch(() => {});
+            if (previewVideo && previewVideo.paused) previewVideo.play().catch(() => {});
+            resetDetectionAfterCamChange();
         });
 
         applyFplButtons();
