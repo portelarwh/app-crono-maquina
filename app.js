@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 // ⚠ Versão: fonte única em app-version.js (carregado antes deste script). Não redefinir aqui.
-const APP_VERSION=window.APP_VERSION||'v5.2.8';
+const APP_VERSION=window.APP_VERSION||'v5.2.9';
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null,sessionStartTs:null,sessionEndTs:null};
@@ -131,7 +131,7 @@ function stopTimer(){
   stopTick();render();persist();
 }
 let confirmCb=null;function resetTimer(){if(state.events.length||totalMs()>0||state.running||state.mode!=='idle'){openConfirm('Zerar medição','Deseja zerar todos os tempos, amostras e histórico?',doReset);return}doReset()}
-function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,oee:null,sessionStartTs:null,sessionEndTs:null});if(els.lapObs)els.lapObs.value='';render();persist()}
+function doReset(){stopTick();Object.assign(state,{running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,oee:null,sessionStartTs:null,sessionEndTs:null});if(els.lapObs)els.lapObs.value='';render();persist();document.dispatchEvent(new Event('crono:reset'))}
 window.loadStudyIntoState=function(study){
   const d=study.data;
   if(!d||!Array.isArray(d.laps))return;
