@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 // ⚠ Versão: fonte única em app-version.js (carregado antes deste script). Não redefinir aqui.
-const APP_VERSION=window.APP_VERSION||'v5.4.1';
+const APP_VERSION=window.APP_VERSION||'v5.5.0';
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null,sessionStartTs:null,sessionEndTs:null};
@@ -24,6 +24,22 @@ function fmtClock(ms,cent=false){ms=Math.max(0,Math.floor(ms||0));const s=Math.f
 const OT=window.OperixTime||null;
 function fmtS(s){const v=Number.isFinite(s)?s:0;return OT?OT.fmt(v):`${v.toFixed(2)}s`}
 function fmtS1(s){const v=Number.isFinite(s)?s:0;return OT?OT.fmt(v,{delta:-1,space:false}):`${v.toFixed(1)}s`}
+/* Leitura contínua (cronometragem contínua): total do cronômetro no instante do registro.
+   Eventos novos gravam cumMs (exato, pausas excluídas). Estudos antigos sem cumMs são
+   reconstruídos pelo intervalo entre horários de registro (aproximação: uma pausa entre
+   dois registros antigos entra no acumulado). */
+function cumMap(){
+  const m=new Map();let last=0,lastEnd=null;
+  for(const e of state.events){
+    let c;
+    if(Number.isFinite(e.cumMs))c=e.cumMs;
+    else if(lastEnd&&e.endedAt&&e.endedAt>=lastEnd)c=last+(e.endedAt-lastEnd);
+    else if(!lastEnd&&state.sessionStartTs&&e.endedAt&&e.endedAt>=state.sessionStartTs)c=e.endedAt-state.sessionStartTs;
+    else c=last+(e.durationMs||0);
+    c=Math.max(c,last);m.set(e.id,c);last=c;if(e.endedAt)lastEnd=e.endedAt;
+  }
+  return m;
+}
 function fmtHHMMSS(ts){var d=new Date(ts||0),h=d.getHours(),m=d.getMinutes(),s=d.getSeconds();return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function totalMs(now=Date.now()){return state.running&&state.startedAt?state.totalElapsedMs+(now-state.startedAt):state.totalElapsedMs}
 function lapMs(now=Date.now()){if(!state.currentCycle)return 0;let v=state.currentCycle.productiveAccumMs||0;if(state.mode==='running_normal'&&state.running&&state.lastSegmentStartMs)v+=now-state.lastSegmentStartMs;return v}
@@ -80,8 +96,10 @@ function getCronoMachineData(){
       lapQtyMode:els.lapQtyMode?.value||'durante'
     },
     stats:s,
-    laps:state.events.map((e,index)=>({
+    laps:(cm=>state.events.map((e,index)=>({
       index:index+1,
+      cumMs:cm.get(e.id)??null,
+      cumSec:Number.isFinite(cm.get(e.id))?cm.get(e.id)/1000:null,
       id:e.id,
       type:e.type,
       cause:e.cause||'Normal',
@@ -94,7 +112,7 @@ function getCronoMachineData(){
       obs:e.obs||'',
       startedAt:e.startedAt||null,
       endedAt:e.endedAt||null
-    })),
+    })))(cumMap()),
     oee:state.oee
   };
 }
@@ -152,7 +170,8 @@ window.loadStudyIntoState=function(study){
     qty:Number.isFinite(Number(lap.rawQty))&&lap.rawQty!==null?Number(lap.rawQty):null,
     obs:typeof lap.obs==='string'?lap.obs:'',
     startedAt:Number(lap.startedAt)||null,
-    endedAt:Number(lap.endedAt)||null
+    endedAt:Number(lap.endedAt)||null,
+    ...(Number.isFinite(Number(lap.cumMs))&&lap.cumMs!==null?{cumMs:Math.max(0,Number(lap.cumMs))}:{})
   }));
   const f=d.form||{};
   ['equipName','analystName','analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode'].forEach(k=>{
@@ -169,7 +188,7 @@ function closeActiveDowntime(now){
   let dur=dt.accumMs||0;
   if(state.running&&dt.startMs)dur+=now-dt.startMs;
   if(dur>=300){
-    state.events.push({id:dt.id,type:'downtime',cause:dt.cause,durationMs:dur,startedAt:dt.firstStartMs||dt.startMs||now,endedAt:now});
+    state.events.push({id:dt.id,type:'downtime',cause:dt.cause,durationMs:dur,startedAt:dt.firstStartMs||dt.startMs||now,endedAt:now,cumMs:totalMs(now)});
   }
   state.activeDowntime=null;
   return dur;
@@ -191,23 +210,24 @@ function closeCycle(now){
   if(state.lastSegmentStartMs){state.currentCycle.productiveAccumMs+=now-state.lastSegmentStartMs}
   const productiveMs=state.currentCycle.productiveAccumMs;
   const durationMs=now-state.currentCycle.startMs;
+  const cumMs=totalMs(now);
   let q=n(els.units,1)||1;
   if(els.analysisMode.value==='interval'){
     const d=n(els.defaultLapQty,NaN);
     q=Number.isFinite(d)&&d>0?d:null;
     if(els.lapQtyMode.value==='durante'){
       if(state.pendingCycle){els.qtyModalInput.focus();return}
-      state.pendingCycle={durationMs,productiveMs,startMs:state.currentCycle.startMs,endedAt:now};
+      state.pendingCycle={durationMs,productiveMs,startMs:state.currentCycle.startMs,endedAt:now,cumMs};
       els.qtyModalInput.value=q||'';
       els.qtyModal.style.display='flex';
       els.qtyModalInput.focus();
       return;
     }
   }
-  finalizeCycle({durationMs,productiveMs,startMs:state.currentCycle.startMs,endedAt:now,q});
+  finalizeCycle({durationMs,productiveMs,startMs:state.currentCycle.startMs,endedAt:now,q,cumMs});
 }
-function finalizeCycle({durationMs,productiveMs,startMs,endedAt,q}){
-  state.events.push({id:id(),type:'cycle',cause:'Normal',durationMs:Math.max(0,durationMs),productiveMs:Math.max(0,productiveMs),qty:q,obs:(els.lapObs?.value||'').trim(),startedAt:startMs,endedAt});
+function finalizeCycle({durationMs,productiveMs,startMs,endedAt,q,cumMs}){
+  state.events.push({id:id(),type:'cycle',cause:'Normal',durationMs:Math.max(0,durationMs),productiveMs:Math.max(0,productiveMs),qty:q,obs:(els.lapObs?.value||'').trim(),startedAt:startMs,endedAt,...(Number.isFinite(cumMs)?{cumMs}:{})});
   state.currentCycle={startMs:endedAt,productiveAccumMs:0};
   state.lastSegmentStartMs=endedAt;
   if(els.lapObs)els.lapObs.value='';
@@ -530,18 +550,21 @@ function renderControls(){
   if(bdSel)bdSel.style.display=selectedIds.size?'':'none';
   if(selCount)selCount.textContent=selectedIds.size;
 }
+let _cumCache=null; // Map id→leitura contínua, recalculado a cada renderHistory
+function cumCell(e){const c=_cumCache?_cumCache.get(e.id):NaN;return Number.isFinite(c)?`<span class="history-cum" title="Leitura contínua (acumulado do cronômetro)">${fmtS(c/1000)}</span>`:''}
 function row(e,i,print=false){
   const lid=escAttr(e.id);
   const sel=!print&&selectedIds.has(e.id)?' is-selected':'';
   if(e.type==='downtime'){
-    return `<div class="history-row history-downtime${sel}"${!print?` data-action="toggleSelect" data-event-id="${lid}"`:''}><span class="history-id"></span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS((e.durationMs||0)/1000)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
+    return `<div class="history-row history-downtime${sel}"${!print?` data-action="toggleSelect" data-event-id="${lid}"`:''}><span class="history-id"></span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS((e.durationMs||0)/1000)}${cumCell(e)}</span>${!print?`<button class="btn-delete" aria-label="Remover parada" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
   }
   const qv=escAttr(e.qty??'');
   const idx=cycles().findIndex(c=>c.id===e.id)+1;
   const sec=(e.productiveMs||e.durationMs||0)/1000;
-  return `<div class="history-row history-cycle${sel}"${!print?` data-action="toggleSelect" data-event-id="${lid}"`:''}><span class="history-id">#${idx}</span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS(sec)}</span>${els.analysisMode.value==='interval'?`<input class="history-qty-input" value="${qv}" placeholder="Qtd" inputmode="decimal" data-event-id="${lid}">`:''}${!print?`<button class="btn-delete" aria-label="Remover ciclo ${idx}" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
+  return `<div class="history-row history-cycle${sel}"${!print?` data-action="toggleSelect" data-event-id="${lid}"`:''}><span class="history-id">#${idx}</span>${e.endedAt?`<span class="history-clock">${fmtHHMMSS(e.endedAt)}</span>`:''}<span class="history-time">${fmtS(sec)}${cumCell(e)}</span>${els.analysisMode.value==='interval'?`<input class="history-qty-input" value="${qv}" placeholder="Qtd" inputmode="decimal" data-event-id="${lid}">`:''}${!print?`<button class="btn-delete" aria-label="Remover ciclo ${idx}" data-action="deleteEvent" data-event-id="${lid}">×</button>`:''}</div>`;
 }
 function renderHistory(){
+  _cumCache=cumMap();
   const scr=els.historyListScreen;
   const sc=scr?scr.scrollTop:0;
   if(scr)scr.innerHTML=state.events.length?state.events.map((e,i)=>row(e,i,false)).join(''):'<div class="history-row"><span class="history-time">Nenhuma amostra registrada</span></div>';
@@ -645,7 +668,8 @@ function exportToExcel(){
   rows.push(['Tempo total medido',fmtClock(totalMs(),false)]);
   rows.push([]);
   rows.push(['EVENTOS REGISTRADOS']);
-  rows.push(['#','ID','Tipo','Causa','Horário','Início','Fim','Duração total (s)','Tempo produtivo (s)',...(dec?[`Duração total (${tu})`,`Tempo produtivo (${tu})`]:[]),'Quantidade','Observação']);
+  const cmCsv=cumMap();
+  rows.push(['#','ID','Tipo','Causa','Horário','Início','Fim','Duração total (s)','Tempo produtivo (s)','Leitura contínua (s)',...(dec?[`Duração total (${tu})`,`Tempo produtivo (${tu})`,`Leitura contínua (${tu})`]:[]),'Quantidade','Observação']);
   state.events.forEach((e,i)=>{
     rows.push([
       i+1,
@@ -657,7 +681,8 @@ function exportToExcel(){
       tsFull(e.endedAt),
       f((e.durationMs||0)/1000,2),
       e.type==='cycle'&&Number.isFinite(e.productiveMs)?f(e.productiveMs/1000,2):'',
-      ...(dec?[fTn((e.durationMs||0)/1000),e.type==='cycle'&&Number.isFinite(e.productiveMs)?fTn(e.productiveMs/1000):'']:[]),
+      Number.isFinite(cmCsv.get(e.id))?f(cmCsv.get(e.id)/1000,2):'',
+      ...(dec?[fTn((e.durationMs||0)/1000),e.type==='cycle'&&Number.isFinite(e.productiveMs)?fTn(e.productiveMs/1000):'',Number.isFinite(cmCsv.get(e.id))?fTn(cmCsv.get(e.id)/1000):'']:[]),
       e.type==='cycle'?qty(e):'',
       (e.obs||'').replace(/[\r\n]+/g,' ')
     ]);
@@ -791,7 +816,7 @@ function load(){
       state.lastSegmentStartMs=null;
       state.activeDowntime=data.state.activeDowntime&&typeof data.state.activeDowntime==='object'?{id:typeof data.state.activeDowntime.id==='string'?data.state.activeDowntime.id:id(),cause:typeof data.state.activeDowntime.cause==='string'?data.state.activeDowntime.cause.slice(0,50):'Microparada',startMs:null,firstStartMs:Number(data.state.activeDowntime.firstStartMs)||Number(data.state.activeDowntime.startMs)||null,accumMs:Math.max(0,Number(data.state.activeDowntime.accumMs)||0)}:null;
       const arr=Array.isArray(data.state.events)?data.state.events:[];
-      state.events=arr.filter(e=>e&&typeof e==='object').map(e=>({id:typeof e.id==='string'&&/^[A-Za-z0-9._-]{1,64}$/.test(e.id)?e.id:id(),type:e.type==='downtime'?'downtime':'cycle',cause:typeof e.cause==='string'?e.cause.slice(0,50):'Normal',durationMs:Math.max(0,Number(e.durationMs)||0),productiveMs:Number.isFinite(Number(e.productiveMs))?Math.max(0,Number(e.productiveMs)):undefined,qty:Number.isFinite(Number(e.qty))?Number(e.qty):null,obs:typeof e.obs==='string'?e.obs.slice(0,200):'',startedAt:Number(e.startedAt)||null,endedAt:Number(e.endedAt)||null}));
+      state.events=arr.filter(e=>e&&typeof e==='object').map(e=>({id:typeof e.id==='string'&&/^[A-Za-z0-9._-]{1,64}$/.test(e.id)?e.id:id(),type:e.type==='downtime'?'downtime':'cycle',cause:typeof e.cause==='string'?e.cause.slice(0,50):'Normal',durationMs:Math.max(0,Number(e.durationMs)||0),productiveMs:Number.isFinite(Number(e.productiveMs))?Math.max(0,Number(e.productiveMs)):undefined,qty:Number.isFinite(Number(e.qty))?Number(e.qty):null,obs:typeof e.obs==='string'?e.obs.slice(0,200):'',startedAt:Number(e.startedAt)||null,endedAt:Number(e.endedAt)||null,...(Number.isFinite(Number(e.cumMs))&&e.cumMs!==null?{cumMs:Math.max(0,Number(e.cumMs))}:{})}));
       state.sessionStartTs=Number(data.state.sessionStartTs)||null;
       state.sessionEndTs=Number(data.state.sessionEndTs)||null;
       state.oee=sanitizeOee(data.state.oee);

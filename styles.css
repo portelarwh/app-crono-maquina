@@ -2086,3 +2086,8 @@ body.export-mode #splashScreen { display: none !important; }
 .oee-aux-grid > div.oee-warn strong { color: var(--yellow); }
 .oee-aux-grid > div.oee-bad strong { color: var(--red); }
 .oee-saved-energy { color: var(--yellow); }
+
+/* v5.5.0 — leitura contínua no histórico (acumulado do cronômetro, estilo cronoanálise contínua) */
+.history-cum { display: block; font-family: var(--font-mono); font-size: .72rem; font-weight: 500; color: var(--text-muted); white-space: nowrap; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.history-cum::before { content: 'Σ '; opacity: .7; }
+.export-mode .history-cum { font-size: 7pt !important; }

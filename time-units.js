@@ -9,18 +9,20 @@
    a unidade nunca altera cálculos de capacidade, OEE ou tempo padrão.
 
    Unidades:
-     s    → segundos (padrão)                    12,35 s
-     cmin → minutos centesimais (1 min = 100)    20,58 cmin
-     min  → minutos decimais                     0,206 min
+     s    → segundos, 1/100 s (padrão)           12,35 s
+     cmin → minutos centesimais, 1/100 min       20,58 cmin
+     min  → minutos decimais, 1/1.000 min        0,206 min
+     h    → horas decimais, 1/100.000 h          0,00343 h
 
    Carregado ANTES do app.js (o app usa OperixTime nos renders).
    ============================================================ */
 (function(){
   var KEY = 'operix_crono_maquina_timefmt_v1';
   var UNITS = {
-    s:    { factor: 1,       digits: 2, suffix: 's',    label: 'Segundos (s)' },
-    cmin: { factor: 100/60,  digits: 2, suffix: 'cmin', label: 'Minutos centesimais (cmin)' },
-    min:  { factor: 1/60,    digits: 3, suffix: 'min',  label: 'Minutos decimais (min)' }
+    s:    { factor: 1,       digits: 2, suffix: 's',    label: 'Segundos — 1/100 s' },
+    cmin: { factor: 100/60,  digits: 2, suffix: 'cmin', label: 'Minutos centesimais — 1/100 min (cmin)' },
+    min:  { factor: 1/60,    digits: 3, suffix: 'min',  label: 'Minutos decimais — 1/1.000 min' },
+    h:    { factor: 1/3600,  digits: 5, suffix: 'h',    label: 'Horas decimais — 1/100.000 h' }
   };
 
   function read(){
@@ -68,10 +70,10 @@
     if(current === 's') return null; // o app usa o relógio tradicional
     return fmt(ms / 1000);
   }
-  /** Tempo total: minutos decimais (2 casas) quando em modo decimal */
+  /** Tempo total (leitura contínua): mesma unidade e resolução do modo decimal */
   function clockTotal(ms){
     if(current === 's') return null;
-    return (Math.max(0, ms || 0) / 60000).toFixed(2) + ' min';
+    return fmt(Math.max(0, ms || 0) / 1000);
   }
 
   window.OperixTime = {
