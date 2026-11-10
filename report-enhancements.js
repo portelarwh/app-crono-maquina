@@ -16,7 +16,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.4.1',
+      version: window.APP_VERSION || 'v5.5.0',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -29,6 +29,7 @@
         idx: lap.index || i + 1,
         time: Number(lap.durationSec) || 0,
         productiveTime: Number.isFinite(Number(lap.productiveSec)) ? Number(lap.productiveSec) : null,
+        cumTime: Number.isFinite(Number(lap.cumSec)) && lap.cumSec !== null ? Number(lap.cumSec) : null,
         qty: lap.qty,
         obs: lap.obs || '',
         cause: lap.cause || 'Normal',
@@ -398,9 +399,9 @@
       var over = !isDt && x.takt > 0 && a.time > x.takt;
       var prod = (!isDt && a.productiveTime != null) ? fsn(a.productiveTime) : '—';
       var qtyTxt = a.qty != null ? esc(f(Number(a.qty),2)) : '—';
-      return '<tr class="'+(isDt?'rowDt':'')+'"><td><b>'+a.idx+'</b></td><td class="cellClk">'+esc(clk(a.endedAt))+'</td><td>'+(isDt?'Parada':'Ciclo')+'</td><td class="'+(over?'overTakt':'')+'">'+fsn(a.time)+'</td><td>'+prod+'</td><td>'+qtyTxt+'</td><td>'+esc(a.cause||'Normal')+'</td><td>'+esc(a.obs||'—')+'</td></tr>';
+      return '<tr class="'+(isDt?'rowDt':'')+'"><td><b>'+a.idx+'</b></td><td class="cellClk">'+esc(clk(a.endedAt))+'</td><td>'+(isDt?'Parada':'Ciclo')+'</td><td class="'+(over?'overTakt':'')+'">'+fsn(a.time)+'</td><td>'+prod+'</td><td>'+(a.cumTime != null ? fsn(a.cumTime) : '—')+'</td><td>'+qtyTxt+'</td><td>'+esc(a.cause||'Normal')+'</td><td>'+esc(a.obs||'—')+'</td></tr>';
     }).join('');
-    return '<section class="panel samples"><h3>'+esc(title||'Amostras coletadas')+'</h3><table><thead><tr><th>#</th><th>Hora</th><th>Tipo</th><th>Total ('+tsuf()+')</th><th>Produtivo ('+tsuf()+')</th><th>Qtd</th><th>Causa</th><th>Observação</th></tr></thead><tbody>'+rows+'</tbody></table><p>Valores acima do Takt Time em vermelho. Linhas de parada com fundo rosa claro.</p></section>';
+    return '<section class="panel samples"><h3>'+esc(title||'Amostras coletadas')+'</h3><table><thead><tr><th>#</th><th>Hora</th><th>Tipo</th><th>Total ('+tsuf()+')</th><th>Produtivo ('+tsuf()+')</th><th>Contínua ('+tsuf()+')</th><th>Qtd</th><th>Causa</th><th>Observação</th></tr></thead><tbody>'+rows+'</tbody></table><p>Valores acima do Takt Time em vermelho. Linhas de parada com fundo rosa claro.</p></section>';
   }
 
   function css(extra){

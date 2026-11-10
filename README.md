@@ -28,7 +28,8 @@ Aplicação web (Vanilla JS, PWA) para cronoanálise industrial: medição de ci
 - Curva de controle com LSC/LIC e linha de takt; histograma de distribuição em 5 bins.
 - Edição inline da quantidade por amostra; observação opcional por lap; remoção individual.
 - **Atalho:** `Enter` em "Equipamento" ou "Analista" inicia o timer (precisa do equipamento preenchido).
-- **Cronômetro decimal**: exibição em segundos, **minutos centesimais (cmin)** ou **minutos decimais** — só muda a exibição/exportação; dados gravados em ms.
+- **Cronômetro decimal**: exibição em **1/100 s**, **1/100 min (cmin)**, **1/1.000 min** ou **1/100.000 h** — só muda a exibição/exportação; dados gravados em ms.
+- **Leitura contínua**: cada registro mostra o tempo individual e o acumulado do cronômetro (Σ), como na cronometragem contínua; pausas não entram no acumulado.
 - **Energia**: potência operando/parada (W ou kW) + tarifa → Wh/peça, Wh/ciclo, % de energia em paradas, kWh e R$ por turno.
 - **Energia × OEE**: energia perdida por Disponibilidade, Performance e Qualidade, eficiência energética, Wh/peça boa vs. ideal e custo da perda por turno.
 - **Velocidade de esteira (calibração)**: cronometra uma marca entre duas referências em vários ajustes do acionamento (W, Hz, % ou rpm), ajusta a curva ajuste → m/min (R²), converte nos dois sentidos e calcula o ajuste necessário para o takt (passo entre peças ÷ takt).
@@ -55,4 +56,4 @@ python3 -m http.server 8000
 
 ## Status
 
-🚀 v5.4.1 — em produção
+🚀 v5.5.0 — em produção
