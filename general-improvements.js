@@ -25,6 +25,8 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
   function formatNumber(value, digits = 1){ return parseNumber(value, 0).toFixed(digits).replace('.', ','); }
+  // tempo na unidade de exibição (s/cmin/min) — ver time-units.js; delta ajusta casas decimais
+  function formatTime(sec, delta = 0){ const OT = window.OperixTime; return OT ? OT.fmt(parseNumber(sec, 0), { comma: true, delta }) : formatNumber(sec, 2 + delta) + 's'; }
   function escapeHtml(value){
     return String(value ?? '').replace(/[&<>\"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[char]));
   }
@@ -204,7 +206,7 @@
       return { index: Number(lap.index) || index + 1, id: lap.id || `lap_${index + 1}`, type: lap.type === 'downtime' ? 'downtime' : 'cycle', durationMs: Number(lap.durationMs) || 0, durationSec: Number(lap.durationSec) || (Number(lap.durationMs) || 0) / 1000, productiveMs: Number.isFinite(Number(lap.productiveMs)) ? Number(lap.productiveMs) : null, productiveSec: Number.isFinite(Number(lap.productiveSec)) ? Number(lap.productiveSec) : (Number.isFinite(Number(lap.productiveMs)) ? Number(lap.productiveMs) / 1000 : null), qty: Number.isFinite(Number(lap.qty)) ? Number(lap.qty) : null, rawQty: lap.rawQty ?? lap.qty ?? null, obs: lap.obs || '', cause, startedAt: lap.startedAt || null, endedAt: lap.endedAt || null };
     }) : [];
     return {
-      version: base.version || window.APP_VERSION || 'v5.2.10', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
+      version: base.version || window.APP_VERSION || 'v5.4.1', running: !!base.running, totalElapsedMs: Number(base.totalElapsedMs) || 0,
       sessionStartTs: base.sessionStartTs || null, sessionEndTs: base.sessionEndTs || null,
       form: { equipName: form.equipName || '', analystName: form.analystName || '', analysisMode: form.analysisMode || 'cycle', analysisModeLabel: form.analysisModeLabel || (form.analysisMode === 'interval' ? 'Produção por intervalo' : 'Tempo por ciclo'), units: parseNumber(form.units, 1), defaultLapQty: parseNumber(form.defaultLapQty, 0), timeUnit: String(form.timeUnit || '3600'), timeUnitLabel: form.timeUnitLabel || (String(form.timeUnit || '3600') === '60' ? 'un/min' : 'un/h'), takt: parseNumber(form.takt, 0), target: parseNumber(form.target, 0), lapQtyMode: form.lapQtyMode || 'durante' },
       stats: { sec: Array.isArray(stats.sec) ? stats.sec.map(Number).filter(Number.isFinite) : laps.map(lap => lap.durationSec).filter(Number.isFinite), t: parseNumber(stats.t, laps.reduce((sum, lap) => sum + lap.durationSec, 0)), q: parseNumber(stats.q, laps.reduce((sum, lap) => sum + (Number(lap.qty) || 0), 0)), cap: parseNumber(stats.cap, 0), av: parseNumber(stats.av, 0), dev: parseNumber(stats.dev, 0), min: parseNumber(stats.min, 0), max: parseNumber(stats.max, 0), stab: parseNumber(stats.stab, 100), eff: stats.eff === null || stats.eff === undefined ? null : parseNumber(stats.eff, 0) },
@@ -244,12 +246,12 @@
   function getData(){ patchDataGetter(); return typeof window.getCronoMachineData === 'function' ? window.getCronoMachineData() : null; }
 
   function renderImpact(data){ const i = data?.impact || {}; const isGain = i.target && (i.gap||0) >= 0; const setCard=(id,val,goodWhen)=>{const el=$(id); if(!el)return; const card=el.parentElement; el.textContent=val; if(card){card.classList.remove('cardGood','cardBad'); if(i.target){card.classList.add(goodWhen?'cardGood':'cardBad');}}}; const lblH=$('lblHourImpact'), lblS=$('lblShiftImpact'); if(lblH) lblH.textContent = isGain ? 'Ganho/h' : 'Perda/h'; if(lblS) lblS.textContent = isGain ? 'Ganho/turno' : 'Perda/turno'; setCard('valCapacityGap', i.target?`${formatNumber(i.gap,1)} ${i.unitLabel} (${formatNumber(i.gapPct,1)}%)`:'--', isGain); if(isGain){ setCard('valLossHour', `${formatNumber(i.gainPerHour||0,0)} un/h`, true); setCard('valLossShift', `${formatNumber(i.gainPerShift||0,0)} un/turno`, true); } else { setCard('valLossHour', i.target?`${formatNumber(i.lossPerHour||0,0)} un/h`:'--', (i.lossPerHour||0)<=0); setCard('valLossShift', i.target?`${formatNumber(i.lossPerShift||0,0)} un/turno`:'--', (i.lossPerShift||0)<=0); } }
-  function renderStandard(data){ const box = $('stdTimeBox'); if(!box) return; const s = data?.standardTime || {}; const newHtml = s.total ? `<strong>${formatNumber(s.standardSec,2)}s</strong><span>Base ${formatNumber(s.baseMean,2)}s + ${formatNumber(s.tolerancePct,1)}% | usadas ${s.used}/${s.total}</span>` : '<span>Sem amostras</span>'; if(box.innerHTML !== newHtml) box.innerHTML = newHtml; }
+  function renderStandard(data){ const box = $('stdTimeBox'); if(!box) return; const s = data?.standardTime || {}; const newHtml = s.total ? `<strong>${formatTime(s.standardSec)}</strong><span>Base ${formatTime(s.baseMean)} + ${formatNumber(s.tolerancePct,1)}% | usadas ${s.used}/${s.total}</span>` : '<span>Sem amostras</span>'; if(box.innerHTML !== newHtml) box.innerHTML = newHtml; }
   function renderPareto(data){
     const box = $('paretoBox'); if(!box) return;
     const rows = (data?.pareto || []).slice(0,5);
     const newHtml = rows.length
-      ? rows.map((row, index) => `<div class="pareto-line" data-cause="${escapeHtml(row.cause)}" title="Clique para selecionar etapas com causa '${escapeHtml(row.cause)}'"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatNumber(row.lossSec,1)}s</span></div>`).join('')
+      ? rows.map((row, index) => `<div class="pareto-line" data-cause="${escapeHtml(row.cause)}" title="Clique para selecionar etapas com causa '${escapeHtml(row.cause)}'"><b>${index+1}. ${escapeHtml(row.cause)}</b><div class="pareto-track"><div class="pareto-bar" style="width:${Math.max(2, row.percent)}%"></div></div><span>${formatTime(row.lossSec,-1)}</span></div>`).join('')
       : 'Sem dados';
     if(box.innerHTML !== newHtml) box.innerHTML = newHtml;
     if(!box.dataset.clickWired){
@@ -320,7 +322,7 @@
   function saveStudy(){ const data = getData(); if(!data || !data.laps.length){ alert('Registre ao menos uma amostra antes de salvar o estudo.'); return; } const name = $('studyName')?.value || `${data.form.equipName || 'Estudo'} - ${nowLabel()}`; const study = { id: `study_${Date.now()}`, name, savedAt: nowLabel(), data }; const list = getStudies(); list.unshift(study); setStudies(list.slice(0,30)); if($('studyName')) $('studyName').value = ''; renderStudyOptions(); alert('Estudo salvo com sucesso.'); }
   function findStudy(id){ return getStudies().find(study => study.id === id); }
 
-  const PRESET_FORM_FIELDS = ['equipName','analystName','analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours','tolerancePct'];
+  const PRESET_FORM_FIELDS = ['equipName','analystName','analysisMode','units','defaultLapQty','timeUnit','takt','target','lapQtyMode','lineName','shiftName','productName','shiftHours','tolerancePct','timeDisplayUnit','energyPowerRun','energyPowerIdle','energyPowerUnit','energyTariff'];
   function collectPresetData(){ const d = {}; PRESET_FORM_FIELDS.forEach(id => { const el = $(id); if(el) d[id] = el.value; }); return d; }
   function renderPresetOptions(){
     const sel = $('presetSelect');
@@ -380,13 +382,14 @@
     const unitLbl = b.form?.timeUnitLabel || 'un/h';
     const plainText = [
       `Comparativo: ${nameA} × ${nameB}`,
-      `Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s`,
+      `Ciclo médio: ${formatTime(a.stats?.av)} → ${formatTime(b.stats?.av)} | ganho: ${formatTime(cycleGain)}`,
+      ...(a.energy?.configured && b.energy?.configured ? [`Energia/peça: ${formatNumber(a.energy.whPerPiece,2)} → ${formatNumber(b.energy.whPerPiece,2)} Wh`] : []),
       `Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${unitLbl} | ganho: ${formatNumber(capGain,1)}`,
       `Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%`,
       `Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno`
     ].join('\n');
     output.dataset.copyText = plainText;
-    output.innerHTML = `<b>Comparativo:</b> ${escapeHtml(nameA)} × ${escapeHtml(nameB)}<br>Ciclo médio: ${formatNumber(a.stats?.av,2)}s → ${formatNumber(b.stats?.av,2)}s | ganho: ${formatNumber(cycleGain,2)}s<br>Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(unitLbl)} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno<div class="comp-actions"><button id="btnCopyComparison" type="button" class="btn-comp-action">⎘ Copiar texto</button><button id="btnComparisonPDF" type="button" class="btn-comp-action btn-comp-pdf">📊 PDF Comparativo</button></div>`;
+    output.innerHTML = `<b>Comparativo:</b> ${escapeHtml(nameA)} × ${escapeHtml(nameB)}<br>Ciclo médio: ${formatTime(a.stats?.av)} → ${formatTime(b.stats?.av)} | ganho: ${formatTime(cycleGain)}<br>${a.energy?.configured && b.energy?.configured ? `Energia/peça: ${formatNumber(a.energy.whPerPiece,2)} → ${formatNumber(b.energy.whPerPiece,2)} Wh<br>` : ''}Capacidade: ${formatNumber(a.stats?.cap,1)} → ${formatNumber(b.stats?.cap,1)} ${escapeHtml(unitLbl)} | ganho: ${formatNumber(capGain,1)}<br>Estabilidade: ${formatNumber(a.stats?.stab,1)}% → ${formatNumber(b.stats?.stab,1)}%<br>Redução de perda/turno: ${formatNumber(lossRed,0)} un/turno<div class="comp-actions"><button id="btnCopyComparison" type="button" class="btn-comp-action">⎘ Copiar texto</button><button id="btnComparisonPDF" type="button" class="btn-comp-action btn-comp-pdf">📊 PDF Comparativo</button></div>`;
   }
 
   window.hasActiveComparison = function(){ const r = $('compareResult'); return !!(r && r.textContent.trim() && !/Nenhum comparativo|Selecione/i.test(r.textContent)); };

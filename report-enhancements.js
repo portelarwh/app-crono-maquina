@@ -6,13 +6,17 @@
   function $(id){ return document.getElementById(id); }
   function esc(x){ return String(x == null ? '' : x).replace(/[&<>\"]/g,function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]; }); }
   function f(n,d){ return (isFinite(Number(n)) ? Number(n) : 0).toFixed(d == null ? 2 : d).replace('.',','); }
-  function fs(n){ return f(n,2) + 's'; }
+  // tempo na unidade de exibição (s/cmin/min) — ver time-units.js
+  function OT(){ return window.OperixTime || null; }
+  function fs(n,delta){ var o = OT(); return o ? o.fmt(isFinite(Number(n)) ? Number(n) : 0, {comma:true, delta:delta||0}) : f(n,2+(delta||0)) + 's'; }
+  function fsn(n){ var o = OT(); return o ? o.fmt(isFinite(Number(n)) ? Number(n) : 0, {comma:true, bare:true}) : f(n,2); }
+  function tsuf(){ var o = OT(); return o ? o.suffix() : 's'; }
   function fallbackUnit(){ return $('timeUnit') && $('timeUnit').value === '60' ? 'un/min' : 'un/h'; }
 
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.2.10',
+      version: window.APP_VERSION || 'v5.4.1',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -76,7 +80,7 @@
     var x = st(s), eff = x.eff == null ? '--' : f(x.eff,1);
     var d = data(), oeeO = d.oee, hasOee = oeeO && Number.isFinite(Number(oeeO.oee));
     return '<section class="kpiGrid">'
-      + kpi('Takt Time',x.takt ? f(x.takt,2) : '—',x.takt ? 's' : '')
+      + kpi('Takt Time',x.takt ? fsn(x.takt) : '—',x.takt ? tsuf() : '')
       + kpi('Ciclo Médio',fs(x.mean),'')
       + kpi('Mediana',fs(x.med),'')
       + kpi('Eficiência',eff,eff === '--' ? '' : '%',x.eff > 110 ? 'alert' : '')
@@ -87,7 +91,7 @@
   }
 
   function aux(title,value){ return '<div class="aux"><div class="auxTitle">'+esc(title)+'</div><div class="auxValue">'+esc(value)+'</div></div>'; }
-  function auxiliary(s){ var x = st(s); return '<section class="auxBlock"><div class="sectionLabel">Indicadores auxiliares</div><div class="auxGrid">'+aux('Amostras (N)',x.n)+aux('Último ciclo',s.length?fs(s[s.length-1].time):'0,00s')+aux('Mínimo',fs(x.min))+aux('Máximo',fs(x.max))+aux('Desvio padrão',fs(x.sd))+'</div></section>'; }
+  function auxiliary(s){ var x = st(s); return '<section class="auxBlock"><div class="sectionLabel">Indicadores auxiliares</div><div class="auxGrid">'+aux('Amostras (N)',x.n)+aux('Último ciclo',s.length?fs(s[s.length-1].time):fs(0))+aux('Mínimo',fs(x.min))+aux('Máximo',fs(x.max))+aux('Desvio padrão',fs(x.sd))+'</div></section>'; }
 
   function criticalSampleIndexes(){
     var s = samples(), x = st(s), threshold = x.takt > 0 ? x.takt : x.mean;
@@ -122,12 +126,34 @@
       + '<div class="'+cardCls+'"><b>Gap</b><strong>'+(i.target?f(i.gap,1)+' ('+f(i.gapPct,1)+'%)':'—')+'</strong></div>'
       + '<div class="'+cardCls+'"><b>'+hourLabel+'</b><strong>'+hourValue+' un/h</strong></div>'
       + '<div class="'+cardCls+'"><b>'+shiftLabel+'</b><strong>'+shiftValue+' un</strong></div>'
-      + '<div><b>Tempo padrão</b><strong>'+esc(std.standardSec?f(std.standardSec,2):'—')+'s</strong></div></div>'
+      + '<div><b>Tempo padrão</b><strong>'+esc(std.standardSec?fs(std.standardSec):'—')+'</strong></div></div>'
       + '<p><b>Classificação:</b> '+esc(an.stabilityClass||'—')+'</p>'
       + '<p><b>Conclusão:</b> '+esc(executiveConclusion())+'</p>'
       + '<p><b>Ação recomendada:</b> '+esc(action.replace(/^Ação recomendada:\s*/,''))+'</p>'
       + '<p class="small"><b>Linha:</b> '+esc(ex.lineName||'—')+' | <b>Turno:</b> '+esc(ex.shiftName||'—')+' | <b>Produto:</b> '+esc(ex.productName||'—')+' | <b>Horas/dia:</b> '+esc(ex.shiftHours||'—')+'</p>'
-      + '<p class="small"><b>Tempo padrão:</b> base '+esc(std.baseMean?f(std.baseMean,2):'—')+'s + '+esc(std.tolerancePct||0)+'% | amostras usadas '+esc(std.used||0)+'/'+esc(std.total||0)+' | removidas '+esc(std.removed||0)+'</p></section>';
+      + energyLine(d.energy)
+      + conveyorLine(d.conveyor)
+      + '<p class="small"><b>Tempo padrão:</b> base '+esc(std.baseMean?fs(std.baseMean):'—')+' + '+esc(std.tolerancePct||0)+'% | amostras usadas '+esc(std.used||0)+'/'+esc(std.total||0)+' | removidas '+esc(std.removed||0)+'</p></section>';
+  }
+
+  // calibração de esteira (só se houver leituras)
+  function conveyorLine(c){
+    if(!c || !c.points || !c.points.length) return '';
+    var r = c.regression;
+    return '<p class="small"><b>Esteira:</b> '+c.points.length+' leitura(s)'
+      + (r ? ' | v = '+esc(f(r.a,4))+'·'+esc(c.unit)+(r.b>=0?' + ':' − ')+esc(f(Math.abs(r.b),3))+' m/min (R² '+esc(f(r.r2,3))+', faixa '+esc(f(r.xmin,1))+'–'+esc(f(r.xmax,1))+' '+esc(c.unit)+')' : '')
+      + (isFinite(c.currentSpeed) ? ' | atual: '+esc(f(c.currentSpeed,2))+' m/min @ '+esc(f(c.setpoint,1))+' '+esc(c.unit) : '')
+      + (isFinite(c.taktSpeed) ? ' | takt exige '+esc(f(c.taktSpeed,2))+' m/min → ajuste '+esc(isFinite(c.taktSetpoint)?f(c.taktSetpoint,1):'—')+' '+esc(c.unit) : '')
+      + '</p>';
+  }
+
+  // linha de energia no diagnóstico (só aparece se a potência foi informada)
+  function energyLine(en){
+    if(!en || !en.configured) return '';
+    var wh = function(v){ return isFinite(v) ? (v >= 1000 ? f(v/1000,3)+' kWh' : f(v,2)+' Wh') : '—'; };
+    return '<p class="small"><b>Energia:</b> '+esc(wh(en.whPerPiece))+'/peça | '+esc(wh(en.whPerCycle))+'/ciclo | medido '+esc(f(en.totalKwh,3))+' kWh ('+esc(f(en.idlePct,1))+'% em paradas) | '+esc(f(en.kwhPerShift,1))+' kWh/turno'
+      + (en.tariff > 0 ? ' | R$ '+esc(f(en.costPerShift,2))+'/turno · R$ '+esc(isFinite(en.costPerPiece)?f(en.costPerPiece,4):'—')+'/peça' : '')
+      + ' | P = '+esc(f(en.powerRunKw,2))+' kW (parada '+esc(f(en.powerIdleKw,2))+' kW)</p>';
   }
 
   function chart(s){
@@ -148,7 +174,7 @@
     for(var i = refs.length - 2; i >= 0; i--){ if(refs[i].labelB < 6) refs[i].labelB = 6; }
     var lines = refs.map(function(r){ return '<div class="refLine '+r.c+'" style="bottom:'+r.b+'%"></div>'; }).join('');
     var tags = refs.map(function(r){ return '<div class="refTag '+r.c+'" style="bottom:'+r.labelB+'%">'+esc(r.l)+'</div>'; }).join('');
-    return '<section class="panel chartPanel control"><h2>Curva de Controle</h2><div class="yLabel">Tempo (s)</div><div class="chartBox">'+grid+lines+'<div class="bars">'+bars+'</div><div class="refTags">'+tags+'</div></div><div class="legend"><span class="g"></span> dentro takt <span class="r"></span> acima takt <span class="p"></span> fora controle</div></section>';
+    return '<section class="panel chartPanel control"><h2>Curva de Controle</h2><div class="yLabel">Tempo ('+tsuf()+')</div><div class="chartBox">'+grid+lines+'<div class="bars">'+bars+'</div><div class="refTags">'+tags+'</div></div><div class="legend"><span class="g"></span> dentro takt <span class="r"></span> acima takt <span class="p"></span> fora controle</div></section>';
   }
 
   function hist(s){
@@ -181,6 +207,17 @@
       + '</div>';
   }
 
+  // Energia × OEE: perda energética por componente (só se a potência foi informada)
+  function oeeEnergyLine(e){
+    if(!e) return '';
+    var kwh = function(v){ return isFinite(v) ? (v < 1 ? f(v*1000,1)+' Wh' : f(v,3)+' kWh') : '—'; };
+    var parts = e.losses.map(function(l){ return l.name+' '+kwh(l.kwh)+' ('+f(l.pct,1)+'%)'; }).join(' · ');
+    return '<p class="small"><b>Energia × OEE:</b> eficiência energética '+esc(isFinite(e.energyEfficiency)?f(e.energyEfficiency*100,1)+'%':'—')
+      + ' | '+esc(isFinite(e.whPerGood)?f(e.whPerGood,2):'—')+' Wh/peça boa (ideal '+esc(isFinite(e.whIdealPerPiece)?f(e.whIdealPerPiece,2):'—')+')'
+      + ' | perdas: '+esc(parts)
+      + ' | <b>'+esc(f(e.lossKwhPerShift,2))+' kWh/turno'+(e.tariff>0?' · R$ '+esc(f(e.lossCostPerShift,2)):'')+'</b></p>';
+  }
+
   function oeeBlock(){
     var o = data().oee;
     if(!o || !isFinite(Number(o.oee))) return '';
@@ -200,6 +237,7 @@
       + '<div><b>Falhas</b><strong>'+esc(String(o.failureCount||0))+'</strong></div>'
       + '<div><b>Qtd. real</b><strong>'+esc(f(o.actualQty,1))+'</strong></div>'
       + '</div>'
+      + oeeEnergyLine(data().energy && data().energy.oee)
       + (o.diagnosis ? '<p class="small"><b>Diagnóstico:</b> '+esc(String(o.diagnosis).replace(/<[^>]+>/g,''))+'</p>' : '')
       + '</section>';
   }
@@ -224,7 +262,7 @@
     if(!rows.length) return '<section class="panel paretoPanel compact"><h2>Pareto de perdas</h2><p class="paretoNote">Sem paradas registradas.</p></section>';
     var html = rows.map(function(r,i){
       var attn = String(r.cause).toLowerCase() !== 'normal';
-      return '<div class="paretoRow '+(attn?'isAttention':'isNormal')+'"><div class="paretoLabel">'+(i+1)+'. '+esc(r.cause)+'<small>'+f(r.lossSec,1)+'s</small></div><div class="paretoTrack"><div class="paretoBar" style="width:'+Math.max(2,Math.min(100,r.percent))+'%"></div></div><div class="paretoVal">'+f(r.percent,1)+'%</div></div>';
+      return '<div class="paretoRow '+(attn?'isAttention':'isNormal')+'"><div class="paretoLabel">'+(i+1)+'. '+esc(r.cause)+'<small>'+fs(r.lossSec,-1)+'</small></div><div class="paretoTrack"><div class="paretoBar" style="width:'+Math.max(2,Math.min(100,r.percent))+'%"></div></div><div class="paretoVal">'+f(r.percent,1)+'%</div></div>';
     }).join('');
     return '<section class="panel paretoPanel compact"><h2>Pareto de perdas</h2>'+html+'</section>';
   }
@@ -266,7 +304,7 @@
     for(var i=refs.length-2;i>=0;i--){ if(refs[i].labelB<6) refs[i].labelB=6; }
     var lines = refs.map(function(r){ return '<div class="refLine '+r.c+'" style="bottom:'+r.b+'%"></div>'; }).join('');
     var tags = refs.map(function(r){ return '<div class="refTag '+r.c+'" style="bottom:'+r.labelB+'%">'+esc(r.l)+'</div>'; }).join('');
-    return '<section class="panel chartPanel control"><h2>'+esc(titleText||'Curva de Controle')+'</h2><div class="yLabel">Tempo (s)</div><div class="chartBox">'+grid+lines+'<div class="bars">'+bars+'</div><div class="refTags">'+tags+'</div></div><div class="legend"><span class="g"></span> dentro takt <span class="r"></span> acima takt <span class="p"></span> fora controle</div></section>';
+    return '<section class="panel chartPanel control"><h2>'+esc(titleText||'Curva de Controle')+'</h2><div class="yLabel">Tempo ('+tsuf()+')</div><div class="chartBox">'+grid+lines+'<div class="bars">'+bars+'</div><div class="refTags">'+tags+'</div></div><div class="legend"><span class="g"></span> dentro takt <span class="r"></span> acima takt <span class="p"></span> fora controle</div></section>';
   }
   var COMP_CSS = '.compKpi{padding:7px 9px;margin:6px 0}.compKpi h2,.compSum h2{font-size:13px;margin:0 0 6px}'
     + '.ckt{width:100%;border-collapse:collapse;font-size:9.5px}'
@@ -288,7 +326,7 @@
     }
     return '<section class="panel compKpi"><h2>Comparativo de desempenho</h2>'
       +'<table class="ckt"><thead><tr><th>Indicador</th><th>'+esc(nameA)+'</th><th>'+esc(nameB)+'</th><th>Variação</th></tr></thead><tbody>'
-      +crow('Ciclo médio',f(sA.av,2)+'s',f(sB.av,2)+'s','s',true)
+      +crow('Ciclo médio',fs(sA.av),fs(sB.av),(OT()&&OT().isDecimal()?' ':'')+tsuf(),true)
       +crow('Capacidade',f(sA.cap,0),f(sB.cap,0),' '+ul,false)
       +crow('Estabilidade',f(sA.stab,1)+'%',f(sB.stab,1)+'%','pp',false)
       +crow('N° ciclos',String(sA.n||0),String(sB.n||0),'',false)
@@ -300,15 +338,15 @@
     var sA=dA.stats||{}, sB=dB.stats||{}, ul=(dA.form&&dA.form.timeUnitLabel)||'un/h';
     var avA=Number(sA.av)||0, avB=Number(sB.av)||0, capA=Number(sA.cap)||0, capB=Number(sB.cap)||0, stabA=Number(sA.stab)||0, stabB=Number(sB.stab)||0;
     var iA=dA.impact||{}, iB=dB.impact||{}, parts=[];
-    if(avA>0&&avB>0){ var cg=avA-avB, cp=avA?Math.abs(cg)/avA*100:0; if(Math.abs(cg)>0.05) parts.push(cg>0?'O ciclo médio reduziu de '+fs(avA)+' para '+fs(avB)+', ganho de '+f(cg,2)+'s ('+f(cp,1)+'%).':'O ciclo médio aumentou de '+fs(avA)+' para '+fs(avB)+', variação de '+f(-cg,2)+'s ('+f(cp,1)+'%).'); }
+    if(avA>0&&avB>0){ var cg=avA-avB, cp=avA?Math.abs(cg)/avA*100:0; if(Math.abs(cg)>0.05) parts.push(cg>0?'O ciclo médio reduziu de '+fs(avA)+' para '+fs(avB)+', ganho de '+fs(cg)+' ('+f(cp,1)+'%).':'O ciclo médio aumentou de '+fs(avA)+' para '+fs(avB)+', variação de '+fs(-cg)+' ('+f(cp,1)+'%).'); }
     if(capA>0&&capB>0){ var kg=capB-capA, kp=capA?Math.abs(kg)/capA*100:0; if(Math.abs(kg)>0.5) parts.push(kg>0?'Capacidade aumentou +'+f(kg,0)+' '+ul+' (+'+f(kp,1)+'%).':'Capacidade reduziu '+f(kg,0)+' '+ul+' (-'+f(kp,1)+'%).'); }
     if(stabA>0){ var sg=stabB-stabA; if(Math.abs(sg)>1) parts.push(sg>0?'Estabilidade melhorou '+f(sg,1)+'pp ('+f(stabA,1)+'% → '+f(stabB,1)+'%).':'Estabilidade piorou '+f(-sg,1)+'pp ('+f(stabA,1)+'% → '+f(stabB,1)+'%).'); }
     if(iA.target){ var lg=(iA.lossPerShift||0)-(iB.lossPerShift||0); if(Math.abs(lg)>0.5) parts.push(lg>0?'Redução de perda/turno de '+f(lg,0)+' un.':'Aumento de perda/turno de '+f(-lg,0)+' un.'); }
     if(!parts.length) parts.push('Dados insuficientes para conclusão automática.');
     return '<section class="panel compSum"><h2>Resumo executivo</h2>'
       +'<p>'+parts.join(' ')+'</p>'
-      +'<p class="small"><b>'+esc(nameA)+'</b>: '+f(sA.n||0,0)+' ciclos · média '+f(avA,2)+'s · cap. '+f(capA,0)+' '+ul+' · estab. '+f(stabA,1)+'%</p>'
-      +'<p class="small"><b>'+esc(nameB)+'</b>: '+f(sB.n||0,0)+' ciclos · média '+f(avB,2)+'s · cap. '+f(capB,0)+' '+ul+' · estab. '+f(stabB,1)+'%</p>'
+      +'<p class="small"><b>'+esc(nameA)+'</b>: '+f(sA.n||0,0)+' ciclos · média '+fs(avA)+' · cap. '+f(capA,0)+' '+ul+' · estab. '+f(stabA,1)+'%</p>'
+      +'<p class="small"><b>'+esc(nameB)+'</b>: '+f(sB.n||0,0)+' ciclos · média '+fs(avB)+' · cap. '+f(capB,0)+' '+ul+' · estab. '+f(stabB,1)+'%</p>'
       +'</section>';
   }
   function comparisonReport(doc, compData){
@@ -358,11 +396,11 @@
     var rows = s.map(function(a){
       var isDt = a.type === 'downtime';
       var over = !isDt && x.takt > 0 && a.time > x.takt;
-      var prod = (!isDt && a.productiveTime != null) ? f(a.productiveTime,2) : '—';
+      var prod = (!isDt && a.productiveTime != null) ? fsn(a.productiveTime) : '—';
       var qtyTxt = a.qty != null ? esc(f(Number(a.qty),2)) : '—';
-      return '<tr class="'+(isDt?'rowDt':'')+'"><td><b>'+a.idx+'</b></td><td class="cellClk">'+esc(clk(a.endedAt))+'</td><td>'+(isDt?'Parada':'Ciclo')+'</td><td class="'+(over?'overTakt':'')+'">'+f(a.time,2)+'</td><td>'+prod+'</td><td>'+qtyTxt+'</td><td>'+esc(a.cause||'Normal')+'</td><td>'+esc(a.obs||'—')+'</td></tr>';
+      return '<tr class="'+(isDt?'rowDt':'')+'"><td><b>'+a.idx+'</b></td><td class="cellClk">'+esc(clk(a.endedAt))+'</td><td>'+(isDt?'Parada':'Ciclo')+'</td><td class="'+(over?'overTakt':'')+'">'+fsn(a.time)+'</td><td>'+prod+'</td><td>'+qtyTxt+'</td><td>'+esc(a.cause||'Normal')+'</td><td>'+esc(a.obs||'—')+'</td></tr>';
     }).join('');
-    return '<section class="panel samples"><h3>'+esc(title||'Amostras coletadas')+'</h3><table><thead><tr><th>#</th><th>Hora</th><th>Tipo</th><th>Total (s)</th><th>Produtivo (s)</th><th>Qtd</th><th>Causa</th><th>Observação</th></tr></thead><tbody>'+rows+'</tbody></table><p>Valores acima do Takt Time em vermelho. Linhas de parada com fundo rosa claro.</p></section>';
+    return '<section class="panel samples"><h3>'+esc(title||'Amostras coletadas')+'</h3><table><thead><tr><th>#</th><th>Hora</th><th>Tipo</th><th>Total ('+tsuf()+')</th><th>Produtivo ('+tsuf()+')</th><th>Qtd</th><th>Causa</th><th>Observação</th></tr></thead><tbody>'+rows+'</tbody></table><p>Valores acima do Takt Time em vermelho. Linhas de parada com fundo rosa claro.</p></section>';
   }
 
   function css(extra){
@@ -517,7 +555,7 @@
       tags += '<text x="'+(pL+innerW+3)+'" y="'+(Number(taktY)+3.5).toFixed(1)+'" font-size="6.8" font-weight="bold" fill="#b25a00">Takt '+fs(x.takt)+'</text>';
     }
     return '<section class="panel chartPanel control"><h2>Curva de Controle</h2>'
-      + '<div class="yLabel">Tempo (s)</div>'
+      + '<div class="yLabel">Tempo ('+tsuf()+')</div>'
       + '<div style="overflow-x:auto;border-left:2px solid #07183a;border-bottom:2px solid #07183a;margin-left:8px;padding-right:2px">'
       + '<svg viewBox="0 0 '+W+' '+H+'" style="width:'+W+'px;height:160px;display:block">'
       + '<path d="'+path+'" fill="none" stroke="#118bee" stroke-width="1.8"/>'
@@ -554,7 +592,7 @@
       '.paretoPanel.compact .paretoTrack{height:12px!important}'
     ].join('');
     var allBadges = '<section class="kpiGrid">'
-      + kpi('Takt Time', x.takt ? f(x.takt,2) : '—', x.takt ? 's' : '')
+      + kpi('Takt Time', x.takt ? fsn(x.takt) : '—', x.takt ? tsuf() : '')
       + kpi('Ciclo Médio', fs(x.mean), '')
       + kpi('Mediana', fs(x.med), '')
       + kpi('Eficiência', eff, eff === '--' ? '' : '%', x.eff != null && x.eff > 110 ? 'alert' : '')

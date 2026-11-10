@@ -2069,3 +2069,20 @@ body.export-mode #splashScreen { display: none !important; }
     70%  { width: 80%; }
     100% { width: 100%; }
 }
+
+/* v5.3.0 — tempo decimal (cmin/min): mantém valor + unidade na mesma linha */
+.history-time { white-space: nowrap; }
+
+/* v5.3.1 — Energia × OEE (modal + cartão salvo) */
+.oee-energy-empty { font-size: .72rem; color: var(--text-muted); text-align: center; padding: 6px; }
+.oee-energy-row { display: grid; grid-template-columns: 92px 1fr auto; gap: 2px 8px; align-items: center; font-size: .72rem; margin: 6px 0; color: var(--text-main); }
+.oee-energy-row small { grid-column: 2 / -1; font-size: .6rem; color: var(--text-muted); }
+.oee-energy-row.top span, .oee-energy-row.top b { color: #ff5d6c; }
+.oee-energy-track { height: 8px; background: rgba(127,127,127,.18); border-radius: 8px; overflow: hidden; }
+.oee-energy-track > div { height: 100%; background: #ffb92e; }
+.oee-energy-row.top .oee-energy-track > div { background: #ff5d6c; }
+.oee-energy-foot { font-size: .68rem; color: var(--text-main); border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; line-height: 1.4; }
+.oee-aux-grid > div.oee-good strong { color: var(--green); }
+.oee-aux-grid > div.oee-warn strong { color: var(--yellow); }
+.oee-aux-grid > div.oee-bad strong { color: var(--red); }
+.oee-saved-energy { color: var(--yellow); }

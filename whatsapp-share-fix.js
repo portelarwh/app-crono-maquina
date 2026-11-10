@@ -8,6 +8,28 @@
     return Number.isFinite(n) ? n.toFixed(digits == null ? 1 : digits) : '—';
   }
 
+  // tempo na unidade de exibição (s/cmin/min) — ver time-units.js
+  function tm(sec){
+    var OT = window.OperixTime, n = Number(sec);
+    if(!Number.isFinite(n)) return '—';
+    return OT ? OT.fmt(n) : n.toFixed(2) + 's';
+  }
+
+  function energyBlock(en){
+    if(!en || !en.configured) return '';
+    var wh = function(v){ return Number.isFinite(v) ? (v >= 1000 ? num(v/1000, 3) + ' kWh' : num(v, 2) + ' Wh') : '—'; };
+    return '⚡ *Energia*\n'
+      + '• Por peça: ' + wh(en.whPerPiece) + '\n'
+      + '• Por ciclo: ' + wh(en.whPerCycle) + '\n'
+      + '• Em paradas: ' + num(en.idlePct, 1) + '%\n'
+      + '• Projeção/turno: ' + num(en.kwhPerShift, 1) + ' kWh'
+      + (en.tariff > 0 ? ' (R$ ' + num(en.costPerShift, 2) + ')' : '') + '\n'
+      + (en.oee ? '• Efic. energética (OEE): ' + (Number.isFinite(en.oee.energyEfficiency) ? num(en.oee.energyEfficiency * 100, 1) + '%' : '—') + '\n'
+        + '• Perda/turno: ' + num(en.oee.lossKwhPerShift, 1) + ' kWh' + (en.oee.tariff > 0 ? ' (R$ ' + num(en.oee.lossCostPerShift, 2) + ')' : '')
+        + (en.oee.topLoss ? ' — maior: ' + en.oee.topLoss : '') + '\n' : '')
+      + '\n';
+  }
+
   function clean(value, fallback){
     var text = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
     return text || fallback || '—';
@@ -90,11 +112,11 @@ function getAction(stats, impact){
   + '• Amostras: ' + samples + '\n\n'
 
   + '⏱️ *Indicadores de Ciclo*\n'
-  + '• Médio: ' + num(stats.av, 2) + 's\n'
+  + '• Médio: ' + tm(stats.av) + '\n'
   + '• Último: ' + fieldValue('valLastCycle', '—') + '\n'
-  + '• Mínimo: ' + num(stats.min, 2) + 's\n'
-  + '• Máximo: ' + num(stats.max, 2) + 's\n'
-  + '• Desvio: ' + num(stats.dev, 2) + 's\n'
+  + '• Mínimo: ' + tm(stats.min) + '\n'
+  + '• Máximo: ' + tm(stats.max) + '\n'
+  + '• Desvio: ' + tm(stats.dev) + '\n'
   + '• Estabilidade: ' + num(stats.stab, 1) + '%\n\n'
 
   + '🏁 *Capacidade*\n'
@@ -105,9 +127,11 @@ function getAction(stats, impact){
   + '• Perda/turno: ' + (impact.target ? (num(impact.lossPerShift, 0) + ' un') : '—') + '\n\n'
 
   + '📐 *Referência de Processo*\n'
-  + '• Tempo padrão: ' + (standardTime.standardSec ? (num(standardTime.standardSec, 2) + 's') : '—') + '\n'
-  + '• Takt Time: ' + (takt === 'Não definido' || takt === '—' ? '—' : takt + 's') + '\n'
+  + '• Tempo padrão: ' + (standardTime.standardSec ? tm(standardTime.standardSec) : '—') + '\n'
+  + '• Takt Time: ' + (takt === 'Não definido' || takt === '—' ? '—' : tm(parseFloat(String(takt).replace(',', '.')))) + '\n'
   + '• Peças/ciclo: ' + fieldValue('units', '1') + '\n\n'
+
+  + energyBlock(data.energy)
 
   + '📌 *Conclusão*\n'
   + getConclusion(stats, impact) + '\n\n'
