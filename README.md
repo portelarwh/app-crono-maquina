@@ -11,6 +11,7 @@ Aplicação web (Vanilla JS, PWA) para cronoanálise industrial: medição de ci
 ├── time-units.js          # unidade de exibição do tempo (s / cmin / min)
 ├── app.js                 # estado, timer, render, persistência
 ├── energy.js              # potência (W/kW) → kWh/peça, kWh/turno, custo
+├── conveyor.js            # calibração de esteira: ajuste (W/Hz/%/rpm) → m/min
 ├── pwa-ui.js              # splash, registro do SW, carregamento do engine A4
 ├── report-enhancements.js # geração de PNG/PDF em layout A4
 ├── sw.js                  # service worker (offline + precache)
@@ -30,6 +31,7 @@ Aplicação web (Vanilla JS, PWA) para cronoanálise industrial: medição de ci
 - **Cronômetro decimal**: exibição em segundos, **minutos centesimais (cmin)** ou **minutos decimais** — só muda a exibição/exportação; dados gravados em ms.
 - **Energia**: potência operando/parada (W ou kW) + tarifa → Wh/peça, Wh/ciclo, % de energia em paradas, kWh e R$ por turno.
 - **Energia × OEE**: energia perdida por Disponibilidade, Performance e Qualidade, eficiência energética, Wh/peça boa vs. ideal e custo da perda por turno.
+- **Velocidade de esteira (calibração)**: cronometra uma marca entre duas referências em vários ajustes do acionamento (W, Hz, % ou rpm), ajusta a curva ajuste → m/min (R²), converte nos dois sentidos e calcula o ajuste necessário para o takt (passo entre peças ÷ takt).
 - Suporte a **separador decimal vírgula** (PT-BR) em todos os campos numéricos.
 - Exportações: **CSV** (UTF-8 com BOM, vírgula decimal), **PNG**, **PDF A4** (com paginação automática para >20 amostras), compartilhamento direto via **WhatsApp** / `navigator.share` quando disponível.
 - Alternância de tema **claro / escuro** com `prefers-color-scheme` como padrão e persistência em `localStorage`.
@@ -53,4 +55,4 @@ python3 -m http.server 8000
 
 ## Status
 
-🚀 v5.3.1 — em produção
+🚀 v5.4.0 — em produção

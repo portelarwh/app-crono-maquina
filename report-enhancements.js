@@ -16,7 +16,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.3.1',
+      version: window.APP_VERSION || 'v5.4.0',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -132,7 +132,19 @@
       + '<p><b>Ação recomendada:</b> '+esc(action.replace(/^Ação recomendada:\s*/,''))+'</p>'
       + '<p class="small"><b>Linha:</b> '+esc(ex.lineName||'—')+' | <b>Turno:</b> '+esc(ex.shiftName||'—')+' | <b>Produto:</b> '+esc(ex.productName||'—')+' | <b>Horas/dia:</b> '+esc(ex.shiftHours||'—')+'</p>'
       + energyLine(d.energy)
+      + conveyorLine(d.conveyor)
       + '<p class="small"><b>Tempo padrão:</b> base '+esc(std.baseMean?fs(std.baseMean):'—')+' + '+esc(std.tolerancePct||0)+'% | amostras usadas '+esc(std.used||0)+'/'+esc(std.total||0)+' | removidas '+esc(std.removed||0)+'</p></section>';
+  }
+
+  // calibração de esteira (só se houver leituras)
+  function conveyorLine(c){
+    if(!c || !c.points || !c.points.length) return '';
+    var r = c.regression;
+    return '<p class="small"><b>Esteira:</b> '+c.points.length+' leitura(s)'
+      + (r ? ' | v = '+esc(f(r.a,4))+'·'+esc(c.unit)+(r.b>=0?' + ':' − ')+esc(f(Math.abs(r.b),3))+' m/min (R² '+esc(f(r.r2,3))+', faixa '+esc(f(r.xmin,1))+'–'+esc(f(r.xmax,1))+' '+esc(c.unit)+')' : '')
+      + (isFinite(c.currentSpeed) ? ' | atual: '+esc(f(c.currentSpeed,2))+' m/min @ '+esc(f(c.setpoint,1))+' '+esc(c.unit) : '')
+      + (isFinite(c.taktSpeed) ? ' | takt exige '+esc(f(c.taktSpeed,2))+' m/min → ajuste '+esc(isFinite(c.taktSetpoint)?f(c.taktSetpoint,1):'—')+' '+esc(c.unit) : '')
+      + '</p>';
   }
 
   // linha de energia no diagnóstico (só aparece se a potência foi informada)

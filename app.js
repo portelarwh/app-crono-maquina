@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 // ⚠ Versão: fonte única em app-version.js (carregado antes deste script). Não redefinir aqui.
-const APP_VERSION=window.APP_VERSION||'v5.3.1';
+const APP_VERSION=window.APP_VERSION||'v5.4.0';
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null,sessionStartTs:null,sessionEndTs:null};
@@ -740,6 +740,21 @@ function exportToExcel(){
       rows.push(['Custo por turno (R$)',f(en.costPerShift,2)]);
       rows.push(['Custo de energia em paradas/turno (R$)',f(en.idleCostPerShift,2)]);
     }
+  }
+  const cv=d?.conveyor||null;
+  if(cv&&cv.points.length){
+    rows.push([]);
+    rows.push(['VELOCIDADE DE ESTEIRA (calibração)']);
+    rows.push(['#','Ajuste ('+cv.unit+')','Tempo (s)','Distância (m)','Velocidade (m/min)']);
+    cv.points.forEach((p,i)=>rows.push([i+1,f(p.setpoint,2),f(p.sec,3),f(p.dist,3),f(p.speed,3)]));
+    const rg=cv.regression;
+    if(rg){
+      rows.push(['Curva','v = '+f(rg.a,5)+' × ajuste '+(rg.b>=0?'+ ':'− ')+f(Math.abs(rg.b),4)+' (m/min)']);
+      rows.push(['R²',f(rg.r2,4)]);
+      rows.push(['Faixa calibrada',f(rg.xmin,1)+' a '+f(rg.xmax,1)+' '+cv.unit]);
+    }
+    if(Number.isFinite(cv.setpoint))rows.push(['Velocidade no ajuste atual ('+f(cv.setpoint,1)+' '+cv.unit+')',Number.isFinite(cv.currentSpeed)?f(cv.currentSpeed,3)+' m/min':'—']);
+    if(Number.isFinite(cv.taktSpeed)){rows.push(['Velocidade exigida pelo takt',f(cv.taktSpeed,3)+' m/min']);rows.push(['Ajuste necessário p/ o takt',Number.isFinite(cv.taktSetpoint)?f(cv.taktSetpoint,1)+' '+cv.unit:'—']);}
   }
   const pareto=d?.pareto||[];
   if(pareto.length){
