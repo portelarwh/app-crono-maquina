@@ -2069,3 +2069,6 @@ body.export-mode #splashScreen { display: none !important; }
     70%  { width: 80%; }
     100% { width: 100%; }
 }
+
+/* v5.3.0 — tempo decimal (cmin/min): mantém valor + unidade na mesma linha */
+.history-time { white-space: nowrap; }

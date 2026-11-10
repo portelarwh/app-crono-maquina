@@ -8,7 +8,9 @@ Aplicação web (Vanilla JS, PWA) para cronoanálise industrial: medição de ci
 ├── index.html
 ├── styles.css
 ├── theme-init.js          # alternância de tema (carregado no <head>)
+├── time-units.js          # unidade de exibição do tempo (s / cmin / min)
 ├── app.js                 # estado, timer, render, persistência
+├── energy.js              # potência (W/kW) → kWh/peça, kWh/turno, custo
 ├── pwa-ui.js              # splash, registro do SW, carregamento do engine A4
 ├── report-enhancements.js # geração de PNG/PDF em layout A4
 ├── sw.js                  # service worker (offline + precache)
@@ -25,6 +27,8 @@ Aplicação web (Vanilla JS, PWA) para cronoanálise industrial: medição de ci
 - Curva de controle com LSC/LIC e linha de takt; histograma de distribuição em 5 bins.
 - Edição inline da quantidade por amostra; observação opcional por lap; remoção individual.
 - **Atalho:** `Enter` em "Equipamento" ou "Analista" inicia o timer (precisa do equipamento preenchido).
+- **Cronômetro decimal**: exibição em segundos, **minutos centesimais (cmin)** ou **minutos decimais** — só muda a exibição/exportação; dados gravados em ms.
+- **Energia**: potência operando/parada (W ou kW) + tarifa → Wh/peça, Wh/ciclo, % de energia em paradas, kWh e R$ por turno.
 - Suporte a **separador decimal vírgula** (PT-BR) em todos os campos numéricos.
 - Exportações: **CSV** (UTF-8 com BOM, vírgula decimal), **PNG**, **PDF A4** (com paginação automática para >20 amostras), compartilhamento direto via **WhatsApp** / `navigator.share` quando disponível.
 - Alternância de tema **claro / escuro** com `prefers-color-scheme` como padrão e persistência em `localStorage`.
@@ -48,4 +52,4 @@ python3 -m http.server 8000
 
 ## Status
 
-🚀 v5.0.0 — em produção
+🚀 v5.3.0 — em produção

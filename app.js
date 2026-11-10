@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 // ⚠ Versão: fonte única em app-version.js (carregado antes deste script). Não redefinir aqui.
-const APP_VERSION=window.APP_VERSION||'v5.2.10';
+const APP_VERSION=window.APP_VERSION||'v5.3.0';
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null,sessionStartTs:null,sessionEndTs:null};
@@ -20,7 +20,10 @@ function pn(s){const v=parseFloat(String(s??'').trim().replace(',','.'));return 
 function escAttr(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function id(){return (crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`)}
 function fmtClock(ms,cent=false){ms=Math.max(0,Math.floor(ms||0));const s=Math.floor(ms/1000),m=Math.floor(s/60),ss=s%60,c=Math.floor(ms%1000/10);return cent?`${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}.${String(c).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`}
-function fmtS(s){return `${(Number.isFinite(s)?s:0).toFixed(2)}s`}
+// Unidade de exibição (s/cmin/min) — fonte: time-units.js. Dados seguem em ms/s.
+const OT=window.OperixTime||null;
+function fmtS(s){const v=Number.isFinite(s)?s:0;return OT?OT.fmt(v):`${v.toFixed(2)}s`}
+function fmtS1(s){const v=Number.isFinite(s)?s:0;return OT?OT.fmt(v,{delta:-1,space:false}):`${v.toFixed(1)}s`}
 function fmtHHMMSS(ts){var d=new Date(ts||0),h=d.getHours(),m=d.getMinutes(),s=d.getSeconds();return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function totalMs(now=Date.now()){return state.running&&state.startedAt?state.totalElapsedMs+(now-state.startedAt):state.totalElapsedMs}
 function lapMs(now=Date.now()){if(!state.currentCycle)return 0;let v=state.currentCycle.productiveAccumMs||0;if(state.mode==='running_normal'&&state.running&&state.lastSegmentStartMs)v+=now-state.lastSegmentStartMs;return v}
@@ -159,7 +162,7 @@ window.loadStudyIntoState=function(study){
 };
 function tick(){stopTick();let last=0;const loop=t=>{if(!state.running)return;if(t-last>=100){renderTimersOnly();last=t}state.tickId=requestAnimationFrame(loop)};state.tickId=requestAnimationFrame(loop)}
 function stopTick(){if(state.tickId){cancelAnimationFrame(state.tickId);state.tickId=null}}
-function renderTimersOnly(){if(els.liveTimer)els.liveTimer.textContent=fmtClock(lapMs(),true);if(els.totalTimer)els.totalTimer.textContent=fmtClock(totalMs(),false);if(els.downtimeIndicator&&state.mode==='downtime_active'&&state.activeDowntime){els.downtimeIndicator.textContent=`⏸ ${state.activeDowntime.cause} · ${fmtClock(activeDowntimeDurationMs(),false)}`};if(els.sessionTimesDisplay){if(state.sessionStartTs){const e=!state.running&&state.sessionEndTs?fmtHHMMSS(state.sessionEndTs):'em andamento';els.sessionTimesDisplay.textContent=fmtHHMMSS(state.sessionStartTs)+' → '+e;}else{els.sessionTimesDisplay.textContent='';}}}
+function renderTimersOnly(){if(els.liveTimer){const lt=OT&&OT.clockLap(lapMs());els.liveTimer.textContent=lt||fmtClock(lapMs(),true);els.liveTimer.classList.toggle('live-timer-decimal',!!lt)}if(els.totalTimer){const tt=OT&&OT.clockTotal(totalMs());els.totalTimer.textContent=tt||fmtClock(totalMs(),false)}if(els.downtimeIndicator&&state.mode==='downtime_active'&&state.activeDowntime){els.downtimeIndicator.textContent=`⏸ ${state.activeDowntime.cause} · ${fmtClock(activeDowntimeDurationMs(),false)}`};if(els.sessionTimesDisplay){if(state.sessionStartTs){const e=!state.running&&state.sessionEndTs?fmtHHMMSS(state.sessionEndTs):'em andamento';els.sessionTimesDisplay.textContent=fmtHHMMSS(state.sessionStartTs)+' → '+e;}else{els.sessionTimesDisplay.textContent='';}}}
 function closeActiveDowntime(now){
   if(!state.activeDowntime)return 0;
   const dt=state.activeDowntime;
@@ -467,10 +470,10 @@ function renderEventTimeline(){
     const sec=(seg.durationMs||0)/1000;
     const isProd=seg.type==='productive';
     const isFirstOfCycle=i>0&&timeline[i-1].cycleId!==seg.cycleId;
-    const tip=`${isProd?'Normal':seg.cause}: ${sec.toFixed(2)}s`;
+    const tip=`${isProd?'Normal':seg.cause}: ${fmtS(sec)}`;
     const pct=Math.max(4,sec/max*100);
     const showLbl=pct>22;
-    const lbl=showLbl?`<span class="evt-dur-label">${sec.toFixed(1)}s</span>`:'';
+    const lbl=showLbl?`<span class="evt-dur-label">${fmtS1(sec)}</span>`:'';
     const icon=!isProd?'<span class="evt-bar-icon" aria-label="Parada">⚠</span>':'';
     return `<div class="evt-bar ${isProd?'evt-bar-prod':'evt-bar-dt'}${isFirstOfCycle?' evt-cycle-sep':''}" style="height:${pct}%" title="${escAttr(tip)}">${icon}${lbl}</div>`;
   }).join('');
@@ -547,19 +550,19 @@ function renderCharts(){
     const pathD=points.map((p,i)=>`${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
     const taktY=takt?yOf(takt):null;
     const avgY=yOf(s.av);
-    cont.innerHTML=`<svg class="chart-svg" viewBox="0 0 ${totalW} ${H}" preserveAspectRatio="none" style="width:${totalW}px;height:100%;display:block">${taktY!==null?`<line x1="0" y1="${taktY.toFixed(1)}" x2="${totalW}" y2="${taktY.toFixed(1)}" class="svg-takt-line"/>`:''}<line x1="0" y1="${avgY.toFixed(1)}" x2="${totalW}" y2="${avgY.toFixed(1)}" class="svg-avg-line" stroke-dasharray="4 3"/><path d="${pathD}" class="svg-line-curve"/>${points.map(p=>`<circle cx="${p.x}" cy="${p.y.toFixed(1)}" r="3.5" class="svg-point ${p.over?'over-takt':'under-takt'}"></circle>`).join('')}${points.map(p=>p.hasDt?`<text x="${p.x}" y="${Math.max(11,p.y-8).toFixed(1)}" text-anchor="middle" class="svg-warn"><title>Ciclo com ${(p.dt/1000).toFixed(1)}s de parada interna</title>⚠</text>`:'').join('')}</svg>${takt?`<span class="chart-axis-label takt-axis-label" style="bottom:${Math.min(98,(takt/max)*100)}%">TAKT ${takt}s</span>`:''}<span class="chart-axis-label avg-axis-label" style="bottom:${Math.min(98,(s.av/max)*100)}%">MÉDIA ${s.av.toFixed(1)}s</span>`;
+    cont.innerHTML=`<svg class="chart-svg" viewBox="0 0 ${totalW} ${H}" preserveAspectRatio="none" style="width:${totalW}px;height:100%;display:block">${taktY!==null?`<line x1="0" y1="${taktY.toFixed(1)}" x2="${totalW}" y2="${taktY.toFixed(1)}" class="svg-takt-line"/>`:''}<line x1="0" y1="${avgY.toFixed(1)}" x2="${totalW}" y2="${avgY.toFixed(1)}" class="svg-avg-line" stroke-dasharray="4 3"/><path d="${pathD}" class="svg-line-curve"/>${points.map(p=>`<circle cx="${p.x}" cy="${p.y.toFixed(1)}" r="3.5" class="svg-point ${p.over?'over-takt':'under-takt'}"></circle>`).join('')}${points.map(p=>p.hasDt?`<text x="${p.x}" y="${Math.max(11,p.y-8).toFixed(1)}" text-anchor="middle" class="svg-warn"><title>Ciclo com ${fmtS1(p.dt/1000)} de parada interna</title>⚠</text>`:'').join('')}</svg>${takt?`<span class="chart-axis-label takt-axis-label" style="bottom:${Math.min(98,(takt/max)*100)}%">TAKT ${fmtS1(takt)}</span>`:''}<span class="chart-axis-label avg-axis-label" style="bottom:${Math.min(98,(s.av/max)*100)}%">MÉDIA ${fmtS1(s.av)}</span>`;
   }else{
-    cont.innerHTML=sec.map((v,i)=>{const hasDt=dt[i]>0;const tip=hasDt?`Ciclo com ${(dt[i]/1000).toFixed(1)}s de parada interna`:'';return `<div class="chart-bar ${takt&&v>takt?'over-takt':'under-takt'}${hasDt?' has-downtime':''}" style="height:${Math.max(4,v/max*100)}%"${tip?` title="${escAttr(tip)}"`:''}>${hasDt?'<span class="bar-warning" aria-label="Ciclo com parada interna">⚠</span>':''}<span class="sample-label">${i+1}</span></div>`}).join('')+(takt?`<div class="takt-line" style="bottom:${Math.min(100,takt/max*100)}%"><span class="takt-label">TAKT ${takt}s</span></div>`:'')+`<div class="avg-line" style="bottom:${Math.min(100,s.av/max*100)}%"><span class="avg-label">MÉDIA ${s.av.toFixed(1)}s</span></div>`;
+    cont.innerHTML=sec.map((v,i)=>{const hasDt=dt[i]>0;const tip=hasDt?`Ciclo com ${fmtS1(dt[i]/1000)} de parada interna`:'';return `<div class="chart-bar ${takt&&v>takt?'over-takt':'under-takt'}${hasDt?' has-downtime':''}" style="height:${Math.max(4,v/max*100)}%"${tip?` title="${escAttr(tip)}"`:''}>${hasDt?'<span class="bar-warning" aria-label="Ciclo com parada interna">⚠</span>':''}<span class="sample-label">${i+1}</span></div>`}).join('')+(takt?`<div class="takt-line" style="bottom:${Math.min(100,takt/max*100)}%"><span class="takt-label">TAKT ${fmtS1(takt)}</span></div>`:'')+`<div class="avg-line" style="bottom:${Math.min(100,s.av/max*100)}%"><span class="avg-label">MÉDIA ${fmtS1(s.av)}</span></div>`;
   }
   requestAnimationFrame(()=>{if(wasAtEnd)cont.scrollLeft=cont.scrollWidth;else cont.scrollLeft=prevL});
   document.querySelectorAll('.chart-toggle-btn').forEach(b=>b.classList.toggle('active',b.dataset.chartType===chartType));
   const bins=5,min=s.min,range=Math.max(0.01,s.max-min),counts=Array(bins).fill(0);
   sec.forEach(v=>{let ix=Math.floor((v-min)/range*bins);if(ix>=bins)ix=bins-1;counts[ix]++});
   const mc=Math.max(...counts,1);
-  els.histogramContainer.innerHTML=counts.map((c,i)=>`<div class="hist-col"><span class="hist-label">${c}</span><div class="hist-bar" style="height:${Math.max(2,c/mc*100)}%"></div><span class="hist-x-label">${(min+range/bins*i).toFixed(1)}</span></div>`).join('');
+  els.histogramContainer.innerHTML=counts.map((c,i)=>`<div class="hist-col"><span class="hist-label">${c}</span><div class="hist-bar" style="height:${Math.max(2,c/mc*100)}%"></div><span class="hist-x-label">${OT?OT.fmt(min+range/bins*i,{delta:-1,bare:true}):(min+range/bins*i).toFixed(1)}</span></div>`).join('');
 }
 function setChartType(t){const ct=t?.dataset?.chartType;if(ct!=='bars'&&ct!=='line')return;state.chartType=ct;render();persist()}
-function renderPrint(){const s=stats(),mode=els.analysisMode.value==='interval'?'Produção por intervalo':'Tempo por ciclo';els.printDate.textContent=new Date().toLocaleDateString('pt-BR');els.printAnalyst.textContent=els.analystName.value||'—';els.printEquipName.textContent=els.equipName.value||'—';els.printAnalysisMode.textContent=mode;els.printUnits.textContent=els.units.value||'—';els.printTimeUnit.textContent=els.timeUnit.value==='3600'?'un/h':'un/min';els.printTakt.textContent=els.takt.value?`${els.takt.value}s`:'—';els.printTarget.textContent=els.target.value||'—';const cycCount=cycles().length;els.printExecutiveSummary.textContent=cycCount?`Foram coletados ${cycCount} ciclos, com tempo médio de ${s.av.toFixed(2)}s e capacidade estimada de ${s.cap.toFixed(1)} ${els.timeUnit.value==='3600'?'un/h':'un/min'}. Índice de estabilidade: ${s.stab.toFixed(1)}%.`:'Sem amostras registradas.'}
+function renderPrint(){const s=stats(),mode=els.analysisMode.value==='interval'?'Produção por intervalo':'Tempo por ciclo';els.printDate.textContent=new Date().toLocaleDateString('pt-BR');els.printAnalyst.textContent=els.analystName.value||'—';els.printEquipName.textContent=els.equipName.value||'—';els.printAnalysisMode.textContent=mode;els.printUnits.textContent=els.units.value||'—';els.printTimeUnit.textContent=els.timeUnit.value==='3600'?'un/h':'un/min';els.printTakt.textContent=n(els.takt,0)>0?fmtS(n(els.takt,0)):'—';els.printTarget.textContent=els.target.value||'—';const cycCount=cycles().length;els.printExecutiveSummary.textContent=cycCount?`Foram coletados ${cycCount} ciclos, com tempo médio de ${fmtS(s.av)} e capacidade estimada de ${s.cap.toFixed(1)} ${els.timeUnit.value==='3600'?'un/h':'un/min'}. Índice de estabilidade: ${s.stab.toFixed(1)}%.`:'Sem amostras registradas.'}
 function syncTargets(source){
   const u=n(els.units,1)||1, base=n(els.timeUnit,3600);
   if(source==='takt'){
@@ -602,6 +605,11 @@ function exportToExcel(){
   const fmtPct=v=>Number.isFinite(Number(v))?(Number(v)*100).toFixed(1).replace('.',',')+'%':'';
   const tsFull=ms=>ms?new Date(ms).toLocaleString('pt-BR'):'';
   const clk=ms=>ms?new Date(ms).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
+  // tempo na unidade de exibição (s/cmin/min); colunas em segundos são mantidas p/ rastreabilidade
+  const dec=!!(OT&&OT.isDecimal()),tu=OT?OT.suffix():'s';
+  const fT=v=>OT?OT.fmt(v,{comma:true}):f(v,2)+'s';
+  const fTn=v=>OT?OT.fmt(v,{comma:true,bare:true}):f(v,2);
+  const en=d?.energy||null;
   const rows=[];
   rows.push(['CRONOANÁLISE MÁQUINA — RELATÓRIO COMPLETO']);
   rows.push([]);
@@ -618,7 +626,7 @@ function exportToExcel(){
   rows.push(['Tempo total medido',fmtClock(totalMs(),false)]);
   rows.push([]);
   rows.push(['EVENTOS REGISTRADOS']);
-  rows.push(['#','ID','Tipo','Causa','Horário','Início','Fim','Duração total (s)','Tempo produtivo (s)','Quantidade','Observação']);
+  rows.push(['#','ID','Tipo','Causa','Horário','Início','Fim','Duração total (s)','Tempo produtivo (s)',...(dec?[`Duração total (${tu})`,`Tempo produtivo (${tu})`]:[]),'Quantidade','Observação']);
   state.events.forEach((e,i)=>{
     rows.push([
       i+1,
@@ -630,6 +638,7 @@ function exportToExcel(){
       tsFull(e.endedAt),
       f((e.durationMs||0)/1000,2),
       e.type==='cycle'&&Number.isFinite(e.productiveMs)?f(e.productiveMs/1000,2):'',
+      ...(dec?[fTn((e.durationMs||0)/1000),e.type==='cycle'&&Number.isFinite(e.productiveMs)?fTn(e.productiveMs/1000):'']:[]),
       e.type==='cycle'?qty(e):'',
       (e.obs||'').replace(/[\r\n]+/g,' ')
     ]);
@@ -639,17 +648,18 @@ function exportToExcel(){
   rows.push(['Tipo de análise',form.analysisModeLabel||'—']);
   rows.push(['Peças/ciclo',form.units||'—']);
   rows.push(['Unidade de capacidade',unitLabel]);
-  rows.push(['Takt Time',(form.takt||0)>0?f(form.takt,2)+'s':'—']);
+  rows.push(['Takt Time',(form.takt||0)>0?fT(form.takt):'—']);
+  rows.push(['Unidade de tempo',OT?OT.UNITS[OT.getUnit()].label:'Segundos (s)']);
   rows.push(['Meta',(form.target||0)>0?f(form.target,1)+' '+unitLabel:'—']);
   rows.push([]);
   rows.push(['INDICADORES (badges do app)']);
   rows.push(['Indicador','Valor']);
   rows.push(['N ciclos',cycles().length]);
-  rows.push(['Ciclo médio',f(s.av,2)+'s']);
-  rows.push(['Mediana',f(s.med,2)+'s']);
-  rows.push(['Mínimo',f(s.min,2)+'s']);
-  rows.push(['Máximo',f(s.max,2)+'s']);
-  rows.push(['Desvio padrão',f(s.dev,2)+'s']);
+  rows.push(['Ciclo médio',fT(s.av)]);
+  rows.push(['Mediana',fT(s.med)]);
+  rows.push(['Mínimo',fT(s.min)]);
+  rows.push(['Máximo',fT(s.max)]);
+  rows.push(['Desvio padrão',fT(s.dev)]);
   rows.push(['Capacidade',f(s.cap,1)+' '+unitLabel]);
   rows.push(['Eficiência',s.eff===null?'—':f(s.eff,1)+'%']);
   rows.push(['Estabilidade',f(s.stab,1)+'%']);
@@ -683,13 +693,31 @@ function exportToExcel(){
     rows.push(['Refugo',Number.isFinite(oee.scrapQty)?oee.scrapQty:'']);
     rows.push(['Retrabalho',Number.isFinite(oee.reworkQty)?oee.reworkQty:'']);
   }
+  if(en&&en.configured){
+    rows.push([]);
+    rows.push(['ENERGIA']);
+    rows.push(['Indicador','Valor']);
+    rows.push(['Potência operando',f(en.powerRunKw*1000,0)+' W ('+f(en.powerRunKw,3)+' kW)']);
+    rows.push(['Potência em parada',f(en.powerIdleKw*1000,0)+' W ('+f(en.powerIdleKw,3)+' kW)']);
+    rows.push(['Energia medida (kWh)',f(en.totalKwh,4)]);
+    rows.push(['Energia em paradas (kWh)',f(en.idleKwh,4)+' ('+f(en.idlePct,1)+'%)']);
+    rows.push(['Energia por ciclo médio (Wh)',f(en.whPerCycle,2)]);
+    rows.push(['Energia por peça (Wh/peça)',Number.isFinite(en.whPerPiece)?f(en.whPerPiece,2):'—']);
+    rows.push(['Projeção por turno (kWh)',f(en.kwhPerShift,2)]);
+    if(en.tariff>0){
+      rows.push(['Tarifa (R$/kWh)',f(en.tariff,4)]);
+      rows.push(['Custo por peça (R$)',Number.isFinite(en.costPerPiece)?f(en.costPerPiece,4):'—']);
+      rows.push(['Custo por turno (R$)',f(en.costPerShift,2)]);
+      rows.push(['Custo de energia em paradas/turno (R$)',f(en.idleCostPerShift,2)]);
+    }
+  }
   const pareto=d?.pareto||[];
   if(pareto.length){
     rows.push([]);
     rows.push(['PARETO DE PERDAS']);
-    rows.push(['Causa','Eventos','Perda (s)','% do total','% acumulado']);
+    rows.push(['Causa','Eventos','Perda (s)',...(dec?[`Perda (${tu})`]:[]),'% do total','% acumulado']);
     pareto.forEach(r=>{
-      rows.push([r.cause,r.count,f(r.lossSec,1),f(r.percent,1)+'%',f(r.cumulativePct,1)+'%']);
+      rows.push([r.cause,r.count,f(r.lossSec,1),...(dec?[fTn(r.lossSec)]:[]),f(r.percent,1)+'%',f(r.cumulativePct,1)+'%']);
     });
   }
   const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(';')).join('\r\n');
@@ -697,7 +725,7 @@ function exportToExcel(){
 }
 function downloadBlob(content,name,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),100)}
 function showLibError(){alert('Biblioteca de exportação não carregada. Verifique sua conexão com a internet e recarregue a página.')}
-async function shareWhatsApp(){if(typeof window.html2canvas!=='function'){showLibError();return}const restoreBtn=(()=>{const b=els.btnWhatsApp;if(!b)return()=>{};const t=b.textContent;b.disabled=true;b.textContent='⏳ Gerando...';return()=>{b.textContent=t;b.disabled=!(state.events.length>0)}})();const s=stats();const cycCount=cycles().length;const unitLabel=els.timeUnit.value==='3600'?'un/h':'un/min';const data=typeof window.getCronoMachineData==='function'?window.getCronoMachineData():null;const impact=data?.impact||{};const std=data?.standardTime||{};const ex=data?.extras||{};const f=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):'—';const oee=data?.oee||state.oee||null;const oeeLine=oee&&Number.isFinite(Number(oee.oee))?`\nOEE: ${f(Number(oee.oee)*100,1)}% (D ${f(Number(oee.availability)*100,1)}% · P ${f(Number(oee.performance)*100,1)}% · Q ${f(Number(oee.quality)*100,1)}%)${Number.isFinite(Number(oee.mtbfMs))?` · MTBF ${fmtMtMs(Number(oee.mtbfMs))}`:''}${Number.isFinite(Number(oee.mttrMs))?` · MTTR ${fmtMtMs(Number(oee.mttrMs))}`:''}`:'';const text=`Resumo Executivo — Cronoanálise Máquina\n\nEquipamento: ${(els.equipName.value||'').trim()||'-'}\nLinha/Turno/Produto: ${ex.lineName||'-'} / ${ex.shiftName||'-'} / ${ex.productName||'-'}\nCiclos: ${cycCount}\nCiclo médio: ${s.av.toFixed(2)}s\nCapacidade: ${s.cap.toFixed(1)} ${unitLabel}\nEstabilidade: ${s.stab.toFixed(1)}%\nGap: ${impact.target?`${f(impact.gap,1)} (${f(impact.gapPct,1)}%) ${unitLabel}`:'—'}\n${impact.target&&(impact.gap||0)>=0?`Ganho/h: ${f(impact.gainPerHour||0,0)} un/h\nGanho/turno: ${f(impact.gainPerShift||0,0)} un`:`Perda/h: ${impact.target?`${f(impact.lossPerHour||0,0)} un/h`:'—'}\nPerda/turno: ${impact.target?`${f(impact.lossPerShift||0,0)} un`:'—'}`}\nTempo padrão: ${std.standardSec?`${f(std.standardSec,2)}s`:'—'}${oeeLine}`;renderPrint();try{const canvas=await html2canvas($('exportContainer'),{scale:2,backgroundColor:'#ffffff',onclone:function(doc){doc.documentElement.removeAttribute('data-theme');doc.body.classList.add('export-mode')}});const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));const file=new File([blob],'crono.png',{type:'image/png'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Crono Máquina',text})}else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='crono-maquina.png';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),100);window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer')}}catch(e){if(e.name!=='AbortError')console.error('Erro WhatsApp:',e)}finally{restoreBtn()}}
+async function shareWhatsApp(){if(typeof window.html2canvas!=='function'){showLibError();return}const restoreBtn=(()=>{const b=els.btnWhatsApp;if(!b)return()=>{};const t=b.textContent;b.disabled=true;b.textContent='⏳ Gerando...';return()=>{b.textContent=t;b.disabled=!(state.events.length>0)}})();const s=stats();const cycCount=cycles().length;const unitLabel=els.timeUnit.value==='3600'?'un/h':'un/min';const data=typeof window.getCronoMachineData==='function'?window.getCronoMachineData():null;const impact=data?.impact||{};const std=data?.standardTime||{};const ex=data?.extras||{};const f=(v,d=1)=>Number.isFinite(Number(v))?Number(v).toFixed(d):'—';const oee=data?.oee||state.oee||null;const oeeLine=oee&&Number.isFinite(Number(oee.oee))?`\nOEE: ${f(Number(oee.oee)*100,1)}% (D ${f(Number(oee.availability)*100,1)}% · P ${f(Number(oee.performance)*100,1)}% · Q ${f(Number(oee.quality)*100,1)}%)${Number.isFinite(Number(oee.mtbfMs))?` · MTBF ${fmtMtMs(Number(oee.mtbfMs))}`:''}${Number.isFinite(Number(oee.mttrMs))?` · MTTR ${fmtMtMs(Number(oee.mttrMs))}`:''}`:'';const text=`Resumo Executivo — Cronoanálise Máquina\n\nEquipamento: ${(els.equipName.value||'').trim()||'-'}\nLinha/Turno/Produto: ${ex.lineName||'-'} / ${ex.shiftName||'-'} / ${ex.productName||'-'}\nCiclos: ${cycCount}\nCiclo médio: ${fmtS(s.av)}\nCapacidade: ${s.cap.toFixed(1)} ${unitLabel}\nEstabilidade: ${s.stab.toFixed(1)}%\nGap: ${impact.target?`${f(impact.gap,1)} (${f(impact.gapPct,1)}%) ${unitLabel}`:'—'}\n${impact.target&&(impact.gap||0)>=0?`Ganho/h: ${f(impact.gainPerHour||0,0)} un/h\nGanho/turno: ${f(impact.gainPerShift||0,0)} un`:`Perda/h: ${impact.target?`${f(impact.lossPerHour||0,0)} un/h`:'—'}\nPerda/turno: ${impact.target?`${f(impact.lossPerShift||0,0)} un`:'—'}`}\nTempo padrão: ${std.standardSec?fmtS(std.standardSec):'—'}${oeeLine}${data?.energy?.configured&&Number.isFinite(data.energy.whPerPiece)?`\nEnergia: ${f(data.energy.whPerPiece,2)} Wh/peça · ${f(data.energy.kwhPerShift,1)} kWh/turno`:''}`;renderPrint();try{const canvas=await html2canvas($('exportContainer'),{scale:2,backgroundColor:'#ffffff',onclone:function(doc){doc.documentElement.removeAttribute('data-theme');doc.body.classList.add('export-mode')}});const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));const file=new File([blob],'crono.png',{type:'image/png'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Crono Máquina',text})}else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='crono-maquina.png';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),100);window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer')}}catch(e){if(e.name!=='AbortError')console.error('Erro WhatsApp:',e)}finally{restoreBtn()}}
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({state:{running:state.running,startedAt:state.startedAt,totalElapsedMs:state.totalElapsedMs,mode:state.mode,currentCycle:state.currentCycle,activeDowntime:state.activeDowntime,events:state.events,chartType:state.chartType,oee:state.oee,oeeConfig:state.oeeConfig,sessionStartTs:state.sessionStartTs,sessionEndTs:state.sessionEndTs},form:{equipName:els.equipName.value,analystName:els.analystName.value,analysisMode:els.analysisMode.value,units:els.units.value,defaultLapQty:els.defaultLapQty.value,timeUnit:els.timeUnit.value,takt:els.takt.value,target:els.target.value,lapQtyMode:els.lapQtyMode.value}}))}catch(e){console.warn('[Crono] Falha ao salvar dados locais:',e)}}
 function load(){
   try{
@@ -785,6 +813,8 @@ function bind(){
 }
 function init(){if(els.appVersion)els.appVersion.textContent=APP_VERSION;load();prevTimeUnit=els.timeUnit?.value||'3600';bind();render();dismissSplash()}try{init()}catch(e){console.error('[Crono] Falha na inicialização:',e);dismissSplash();}
 window.getCronoMachineData=getCronoMachineData;
+window.cronoRender=render;
+document.addEventListener('operix:timeunit',()=>{try{render()}catch(e){console.error(e)}});
 window.renderAppControls=renderControls;
 window.recordLapFromSensor=recordNormal;
 })();
