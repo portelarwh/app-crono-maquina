@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 // ⚠ Versão: fonte única em app-version.js (carregado antes deste script). Não redefinir aqui.
-const APP_VERSION=window.APP_VERSION||'v5.4.0';
+const APP_VERSION=window.APP_VERSION||'v5.4.1';
 const STORAGE_KEY='operix_crono_maquina_v400';
 const $=id=>document.getElementById(id);
 const state={running:false,startedAt:null,totalElapsedMs:0,mode:'idle',currentCycle:null,lastSegmentStartMs:null,activeDowntime:null,events:[],tickId:null,pendingCycle:null,chartType:'bars',oee:null,oeeConfig:null,sessionStartTs:null,sessionEndTs:null};
@@ -298,7 +298,10 @@ function renderParadasCards(){
   const rows=Object.values(grouped).sort((a,b)=>b.totalMs-a.totalMs);
   cont.innerHTML=rows.map(r=>{const pct=total>0?(r.totalMs/total*100):0;return `<div class="parada-card"><div class="parada-card-cause">${escAttr(r.cause)}</div><div class="parada-card-time">${fmtDur(r.totalMs)}</div><div class="parada-card-pct">${pct.toFixed(1)}% · ${r.count}x</div></div>`}).join('');
 }
-const OEE_DEFAULT_CFG={failureCauses:['Falha de máquina'],plannedDowntimeCauses:['Setup']};
+// 'Falha' é o nome real do botão de parada (general-improvements.js → CAUSES).
+// 'Falha de máquina' fica por compatibilidade com eventos de versões antigas.
+const OEE_DEFAULT_CFG={failureCauses:['Falha','Falha de máquina'],plannedDowntimeCauses:['Setup']};
+const OEE_LEGACY_FAILURE_DEFAULT=['Falha de máquina'];
 function oeeConfigGet(){if(!state.oeeConfig)state.oeeConfig={failureCauses:[...OEE_DEFAULT_CFG.failureCauses],plannedDowntimeCauses:[...OEE_DEFAULT_CFG.plannedDowntimeCauses]};return state.oeeConfig}
 function fmtMtMs(ms){if(!Number.isFinite(ms))return'--';const s=Math.max(0,Math.floor(ms/1000));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return `${h}h ${String(m).padStart(2,'0')}m`;if(m>0)return `${m}m ${String(ss).padStart(2,'0')}s`;return `${ss}s`}
 function oeePct(v){return Number.isFinite(v)?`${(v*100).toFixed(1)}%`:'--'}
@@ -795,7 +798,10 @@ function load(){
       const cfg=data.state.oeeConfig;
       if(cfg&&typeof cfg==='object'){
         const arrStr=v=>Array.isArray(v)?v.filter(c=>typeof c==='string').slice(0,20):null;
-        const fc=arrStr(cfg.failureCauses),pc=arrStr(cfg.plannedDowntimeCauses);
+        let fc=arrStr(cfg.failureCauses);const pc=arrStr(cfg.plannedDowntimeCauses);
+        // migração: config salva ainda com o padrão antigo (que nunca casava com o botão 'Falha')
+        // passa para o novo padrão. Listas personalizadas pelo usuário não são tocadas.
+        if(fc&&fc.length===OEE_LEGACY_FAILURE_DEFAULT.length&&fc.every((c,i)=>c===OEE_LEGACY_FAILURE_DEFAULT[i]))fc=[...OEE_DEFAULT_CFG.failureCauses];
         state.oeeConfig={failureCauses:fc||[...OEE_DEFAULT_CFG.failureCauses],plannedDowntimeCauses:pc||[...OEE_DEFAULT_CFG.plannedDowntimeCauses]};
       }
     }
