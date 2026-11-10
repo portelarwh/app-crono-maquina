@@ -23,7 +23,11 @@
       + '• Por ciclo: ' + wh(en.whPerCycle) + '\n'
       + '• Em paradas: ' + num(en.idlePct, 1) + '%\n'
       + '• Projeção/turno: ' + num(en.kwhPerShift, 1) + ' kWh'
-      + (en.tariff > 0 ? ' (R$ ' + num(en.costPerShift, 2) + ')' : '') + '\n\n';
+      + (en.tariff > 0 ? ' (R$ ' + num(en.costPerShift, 2) + ')' : '') + '\n'
+      + (en.oee ? '• Efic. energética (OEE): ' + (Number.isFinite(en.oee.energyEfficiency) ? num(en.oee.energyEfficiency * 100, 1) + '%' : '—') + '\n'
+        + '• Perda/turno: ' + num(en.oee.lossKwhPerShift, 1) + ' kWh' + (en.oee.tariff > 0 ? ' (R$ ' + num(en.oee.lossCostPerShift, 2) + ')' : '')
+        + (en.oee.topLoss ? ' — maior: ' + en.oee.topLoss : '') + '\n' : '')
+      + '\n';
   }
 
   function clean(value, fallback){

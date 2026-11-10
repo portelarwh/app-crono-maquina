@@ -29,6 +29,7 @@ Aplicação web (Vanilla JS, PWA) para cronoanálise industrial: medição de ci
 - **Atalho:** `Enter` em "Equipamento" ou "Analista" inicia o timer (precisa do equipamento preenchido).
 - **Cronômetro decimal**: exibição em segundos, **minutos centesimais (cmin)** ou **minutos decimais** — só muda a exibição/exportação; dados gravados em ms.
 - **Energia**: potência operando/parada (W ou kW) + tarifa → Wh/peça, Wh/ciclo, % de energia em paradas, kWh e R$ por turno.
+- **Energia × OEE**: energia perdida por Disponibilidade, Performance e Qualidade, eficiência energética, Wh/peça boa vs. ideal e custo da perda por turno.
 - Suporte a **separador decimal vírgula** (PT-BR) em todos os campos numéricos.
 - Exportações: **CSV** (UTF-8 com BOM, vírgula decimal), **PNG**, **PDF A4** (com paginação automática para >20 amostras), compartilhamento direto via **WhatsApp** / `navigator.share` quando disponível.
 - Alternância de tema **claro / escuro** com `prefers-color-scheme` como padrão e persistência em `localStorage`.
@@ -52,4 +53,4 @@ python3 -m http.server 8000
 
 ## Status
 
-🚀 v5.3.0 — em produção
+🚀 v5.3.1 — em produção

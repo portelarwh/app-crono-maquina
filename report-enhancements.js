@@ -16,7 +16,7 @@
   function data(){
     if (typeof window.getCronoMachineData === 'function') return window.getCronoMachineData();
     return {
-      version: window.APP_VERSION || 'v5.3.0',
+      version: window.APP_VERSION || 'v5.3.1',
       form: {equipName:'—',analystName:'—',analysisModeLabel:'—',units:1,timeUnitLabel:fallbackUnit(),takt:0,target:0},
       stats: {}, laps: [], extras: {}, impact: {}, standardTime: {}, pareto: [], comparison: {}, analysis: {}
     };
@@ -195,6 +195,17 @@
       + '</div>';
   }
 
+  // Energia × OEE: perda energética por componente (só se a potência foi informada)
+  function oeeEnergyLine(e){
+    if(!e) return '';
+    var kwh = function(v){ return isFinite(v) ? (v < 1 ? f(v*1000,1)+' Wh' : f(v,3)+' kWh') : '—'; };
+    var parts = e.losses.map(function(l){ return l.name+' '+kwh(l.kwh)+' ('+f(l.pct,1)+'%)'; }).join(' · ');
+    return '<p class="small"><b>Energia × OEE:</b> eficiência energética '+esc(isFinite(e.energyEfficiency)?f(e.energyEfficiency*100,1)+'%':'—')
+      + ' | '+esc(isFinite(e.whPerGood)?f(e.whPerGood,2):'—')+' Wh/peça boa (ideal '+esc(isFinite(e.whIdealPerPiece)?f(e.whIdealPerPiece,2):'—')+')'
+      + ' | perdas: '+esc(parts)
+      + ' | <b>'+esc(f(e.lossKwhPerShift,2))+' kWh/turno'+(e.tariff>0?' · R$ '+esc(f(e.lossCostPerShift,2)):'')+'</b></p>';
+  }
+
   function oeeBlock(){
     var o = data().oee;
     if(!o || !isFinite(Number(o.oee))) return '';
@@ -214,6 +225,7 @@
       + '<div><b>Falhas</b><strong>'+esc(String(o.failureCount||0))+'</strong></div>'
       + '<div><b>Qtd. real</b><strong>'+esc(f(o.actualQty,1))+'</strong></div>'
       + '</div>'
+      + oeeEnergyLine(data().energy && data().energy.oee)
       + (o.diagnosis ? '<p class="small"><b>Diagnóstico:</b> '+esc(String(o.diagnosis).replace(/<[^>]+>/g,''))+'</p>' : '')
       + '</section>';
   }

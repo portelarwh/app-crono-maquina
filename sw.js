@@ -5,22 +5,22 @@
    Prefira rodar ./bump-version.sh X.Y.Z — ele atualiza tudo de uma vez.
    Todos os caminhos aqui são RELATIVOS (GitHub Pages de projeto serve num
    subcaminho — caminhos absolutos '/...' dariam 404). */
-const CACHE_NAME = 'crono-maquina-v5.3.0';
+const CACHE_NAME = 'crono-maquina-v5.3.1';
 const ASSETS = [
   './',
-  './index.html?v=5.3.0',
-  './app-version.js?v=5.3.0',
-  './app.js?v=5.3.0',
-  './theme-init.js?v=5.3.0',
-  './pwa-ui.js?v=5.3.0',
-  './report-enhancements.js?v=5.3.0',
-  './whatsapp-share-fix.js?v=5.3.0',
-  './general-improvements.js?v=5.3.0',
-  './time-units.js?v=5.3.0',
-  './energy.js?v=5.3.0',
-  './light-trigger.js?v=5.3.0',
-  './styles.css?v=5.3.0',
-  './manifest.json?v=5.3.0',
+  './index.html?v=5.3.1',
+  './app-version.js?v=5.3.1',
+  './app.js?v=5.3.1',
+  './theme-init.js?v=5.3.1',
+  './pwa-ui.js?v=5.3.1',
+  './report-enhancements.js?v=5.3.1',
+  './whatsapp-share-fix.js?v=5.3.1',
+  './general-improvements.js?v=5.3.1',
+  './time-units.js?v=5.3.1',
+  './energy.js?v=5.3.1',
+  './light-trigger.js?v=5.3.1',
+  './styles.css?v=5.3.1',
+  './manifest.json?v=5.3.1',
   './assets/Icon-192.png',
   './assets/Icon-512.png',
   './assets/lib/html2canvas.min.js',

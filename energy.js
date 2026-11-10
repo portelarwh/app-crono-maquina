@@ -95,6 +95,61 @@
     };
   }
 
+  /* ---------- Energia × OEE (pura, sem DOM) ----------
+     Distribui a energia do escopo do OEE pelas mesmas perdas do OEE:
+       Paradas planejadas  = P_parada × paradas planejadas   (fora do OEE, informativo)
+       Perda Disponib.     = P_parada × paradas não planejadas (máquina ligada sem produzir)
+       Perda Performance   = E_rodando × (1 − P)              (energia de peças que deixaram de sair)
+       Perda Qualidade     = E_rodando × P × (1 − Q)          (energia gasta em refugo/retrabalho)
+       Energia útil        = E_rodando × P × Q
+       Eficiência energética = útil / (total − planejadas)  ← comparável ao OEE
+     Aceita tanto o objeto vivo do modal (good, plannedMs…) quanto o OEE salvo
+     (goodQty…). Calculado sempre com a potência ATUAL do setup, então nunca
+     fica um snapshot de energia divergente salvo no estudo. */
+  function clamp01(v){ v = Number(v); return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : NaN; }
+  function oeeEnergy(o, cfg, shiftHours){
+    if(!o || !cfg || !(cfg.powerRunKw > 0)) return null;
+    var runMs = Number(o.runMs);
+    if(!Number.isFinite(runMs) || runMs < 0) return null;
+    var allDt = Math.max(0, Number(o.allDowntimeMs) || 0);
+    var plannedDt = Math.min(allDt, Math.max(0, Number(o.plannedDowntimeMs) || 0));
+    var availDt = Math.max(0, allDt - plannedDt);
+    var P = clamp01(o.performance), Q = clamp01(o.quality);
+    var H = 3600000;
+    var runKwh = cfg.powerRunKw * runMs / H;
+    var availLossKwh = cfg.powerIdleKw * availDt / H;
+    var plannedKwh = cfg.powerIdleKw * plannedDt / H;
+    var perfLossKwh = Number.isFinite(P) ? runKwh * (1 - P) : 0;
+    var qualLossKwh = Number.isFinite(P) && Number.isFinite(Q) ? runKwh * P * (1 - Q) : 0;
+    var usefulKwh = Math.max(0, runKwh - perfLossKwh - qualLossKwh);
+    var totalKwh = runKwh + availLossKwh + plannedKwh;
+    var scopeKwh = totalKwh - plannedKwh;
+    var lossKwh = availLossKwh + perfLossKwh + qualLossKwh;
+    var good = Number(o.goodQty != null ? o.goodQty : o.good);
+    var rate = Number(o.configuredRate), base = o.unitLabel === 'un/min' ? 60 : 3600;
+    var ratePerSec = rate > 0 ? rate / base : 0;
+    var scopeMs = Number(o.plannedMs) > 0 ? Number(o.plannedMs) : runMs + allDt;
+    var sh = Number(shiftHours) > 0 ? Number(shiftHours) : 8;
+    var k = scopeMs > 0 ? sh * H / scopeMs : 0;   // fator de projeção p/ turno
+    var t = cfg.tariff || 0;
+    var losses = [
+      { key: 'availability', name: 'Disponibilidade', kwh: availLossKwh },
+      { key: 'performance',  name: 'Performance',     kwh: perfLossKwh },
+      { key: 'quality',      name: 'Qualidade',       kwh: qualLossKwh }
+    ].map(function(l){ l.pct = totalKwh > 0 ? l.kwh / totalKwh * 100 : 0; l.kwhPerShift = l.kwh * k; l.costPerShift = l.kwh * k * t; return l; });
+    var top = losses.slice().sort(function(a, b){ return b.kwh - a.kwh; })[0];
+    return {
+      totalKwh: totalKwh, runKwh: runKwh, plannedKwh: plannedKwh, usefulKwh: usefulKwh,
+      lossKwh: lossKwh, lossPct: totalKwh > 0 ? lossKwh / totalKwh * 100 : 0,
+      losses: losses, topLoss: top && top.kwh > 0 ? top.name : '',
+      energyEfficiency: scopeKwh > 0 ? usefulKwh / scopeKwh : NaN,
+      whPerGood: good > 0 ? totalKwh * 1000 / good : NaN,
+      whIdealPerPiece: ratePerSec > 0 ? cfg.powerRunKw * 1000 / 3600 / ratePerSec : NaN,
+      shiftHours: sh, lossKwhPerShift: lossKwh * k, totalKwhPerShift: totalKwh * k,
+      tariff: t, lossCostPerShift: lossKwh * k * t, totalCostPerShift: totalKwh * k * t
+    };
+  }
+
   /* ---------- UI: campos no setup ---------- */
   function injectFields(){
     var grid = document.querySelector('#configForm .config-grid');
@@ -179,7 +234,13 @@
     if(typeof original !== 'function' || original.__operixEnergy) return;
     var wrapped = function(){
       var d = original.apply(this, arguments);
-      try{ if(d) d.energy = calculate(d, getConfig()); }catch(e){ console.error('[Energia]', e); }
+      try{
+        if(d){
+          var cfg = getConfig();
+          d.energy = calculate(d, cfg);
+          d.energy.oee = d.oee ? oeeEnergy(d.oee, cfg, d.energy.shiftHours) : null;
+        }
+      }catch(e){ console.error('[Energia]', e); }
       return d;
     };
     wrapped.__operixEnergy = true;
@@ -217,7 +278,11 @@
     document.addEventListener('change', function(e){
       var id = e.target && e.target.id;
       if(id === 'timeDisplayUnit' && OT){ OT.setUnit(e.target.value); }
-      if(id === 'energyPowerRun' || id === 'energyPowerIdle' || id === 'energyPowerUnit' || id === 'energyTariff') persist();
+      if(id === 'energyPowerRun' || id === 'energyPowerIdle' || id === 'energyPowerUnit' || id === 'energyTariff'){
+        persist();
+        // cartão do OEE salvo depende da potência → re-render do app
+        if(typeof window.cronoRender === 'function') setTimeout(window.cronoRender, 0);
+      }
       setTimeout(update, 60);
     });
     document.addEventListener('input', function(e){
@@ -231,7 +296,7 @@
     setInterval(function(){ if(!document.hidden) update(); }, 1000);
   }
 
-  window.OperixEnergy = { calculate: calculate, getConfig: getConfig };
+  window.OperixEnergy = { calculate: calculate, getConfig: getConfig, oeeEnergy: oeeEnergy };
 
   function init(){ injectStyles(); bind(); update(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
